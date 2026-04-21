@@ -282,3 +282,339 @@ export async function fetchInspectionHistory() {
     notes: i.notes || '',
   }));
 }
+
+// -----------------------------------------------------------------------------
+// MENU ITEMS
+// -----------------------------------------------------------------------------
+// UI shape: state.menu = [{ name, price, cost, units }, ...]
+// DB shape: menu_items (id, tenant_id, name, price, food_cost, category, active, sort_order)
+// Units sold come from daily_sales aggregation; for v1 we store units in-memory
+// only (not per-item). When a tenant imports POS data, units can be derived.
+
+export async function fetchMenu() {
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('id, name, price, food_cost, category, active, sort_order')
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((m) => ({
+    id: m.id,
+    name: m.name,
+    price: Number(m.price) || 0,
+    cost: Number(m.food_cost) || 0,
+    category: m.category || '',
+    // Units are a UI-only best-guess until POS imports land:
+    units: 0,
+  }));
+}
+
+export async function updateMenuItem(id, patch) {
+  const dbPatch = {};
+  if (patch.name !== undefined) dbPatch.name = patch.name;
+  if (patch.price !== undefined) dbPatch.price = patch.price;
+  if (patch.cost !== undefined) dbPatch.food_cost = patch.cost;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.active !== undefined) dbPatch.active = patch.active;
+  if (Object.keys(dbPatch).length === 0) return;
+  const { error } = await supabase.from('menu_items').update(dbPatch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function addMenuItem({ name, price = 0, cost = 0, category = null }) {
+  const { tenantId } = ctx();
+  const { data, error } = await supabase
+    .from('menu_items')
+    .insert({ tenant_id: tenantId, name, price, food_cost: cost, category, active: true, sort_order: 999 })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function seedMenuFromSample(sampleMenu) {
+  // Idempotent-ish: only seeds if the tenant has no menu items yet.
+  const existing = await fetchMenu();
+  if (existing.length > 0) return existing;
+  const { tenantId } = ctx();
+  const rows = sampleMenu.map((m, i) => ({
+    tenant_id: tenantId,
+    name: m.name,
+    price: m.price,
+    food_cost: m.cost,
+    category: null,
+    active: true,
+    sort_order: i,
+  }));
+  const { error } = await supabase.from('menu_items').insert(rows);
+  if (error) throw error;
+  return await fetchMenu();
+}
+
+// -----------------------------------------------------------------------------
+// INVENTORY ITEMS
+// -----------------------------------------------------------------------------
+// UI shape: state.inv = [{ item, unit, onHand, par, reorder, cost, vendor }, ...]
+// DB shape: inventory_items (id, tenant_id, name, unit, on_hand, par, unit_cost, supplier)
+// Note: DB doesn't have a `reorder` threshold column — UI derives it as par * 0.6.
+
+export async function fetchInventory() {
+  const { data, error } = await supabase
+    .from('inventory_items')
+    .select('id, name, unit, on_hand, par, unit_cost, supplier')
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((i) => ({
+    id: i.id,
+    item: i.name,
+    unit: i.unit,
+    onHand: Number(i.on_hand) || 0,
+    par: Number(i.par) || 0,
+    reorder: Math.round((Number(i.par) || 0) * 0.6),
+    cost: Number(i.unit_cost) || 0,
+    vendor: i.supplier || '',
+  }));
+}
+
+export async function updateInventoryItem(id, patch) {
+  const dbPatch = {};
+  if (patch.item !== undefined) dbPatch.name = patch.item;
+  if (patch.unit !== undefined) dbPatch.unit = patch.unit;
+  if (patch.onHand !== undefined) dbPatch.on_hand = patch.onHand;
+  if (patch.par !== undefined) dbPatch.par = patch.par;
+  if (patch.cost !== undefined) dbPatch.unit_cost = patch.cost;
+  if (patch.vendor !== undefined) dbPatch.supplier = patch.vendor;
+  if (Object.keys(dbPatch).length === 0) return;
+  const { error } = await supabase.from('inventory_items').update(dbPatch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function seedInventoryFromSample(sampleInv) {
+  const existing = await fetchInventory();
+  if (existing.length > 0) return existing;
+  const { tenantId } = ctx();
+  const rows = sampleInv.map((i) => ({
+    tenant_id: tenantId,
+    name: i.item,
+    unit: i.unit,
+    on_hand: i.onHand,
+    par: i.par,
+    unit_cost: i.cost,
+    supplier: i.vendor || null,
+  }));
+  const { error } = await supabase.from('inventory_items').insert(rows);
+  if (error) throw error;
+  return await fetchInventory();
+}
+
+// -----------------------------------------------------------------------------
+// RECIPES + INGREDIENTS
+// -----------------------------------------------------------------------------
+// UI shape: state.recipes = [{ id, name, yield, menuPrice, ingredients: [{item,qty,unit,cost},...] }]
+// DB shape: recipes (id, tenant_id, name, yield, menu_price, linked_menu_item_id)
+//           recipe_ingredients (id, recipe_id, tenant_id, name, qty, unit, unit_cost, sort_order)
+
+export async function fetchRecipes() {
+  const { data: recipes, error: err1 } = await supabase
+    .from('recipes')
+    .select('id, name, yield, menu_price')
+    .order('name', { ascending: true });
+  if (err1) throw err1;
+  if (!recipes || recipes.length === 0) return [];
+  const ids = recipes.map(r => r.id);
+  const { data: ings, error: err2 } = await supabase
+    .from('recipe_ingredients')
+    .select('id, recipe_id, name, qty, unit, unit_cost, sort_order')
+    .in('recipe_id', ids)
+    .order('sort_order', { ascending: true });
+  if (err2) throw err2;
+  const byRecipe = new Map();
+  for (const ing of (ings || [])) {
+    if (!byRecipe.has(ing.recipe_id)) byRecipe.set(ing.recipe_id, []);
+    byRecipe.get(ing.recipe_id).push({
+      id: ing.id,
+      item: ing.name,
+      qty: Number(ing.qty) || 0,
+      unit: ing.unit || '',
+      cost: Number(ing.unit_cost) || 0,
+    });
+  }
+  return recipes.map((r) => ({
+    id: r.id,
+    name: r.name,
+    yield: r.yield || 1,
+    menuPrice: Number(r.menu_price) || 0,
+    ingredients: byRecipe.get(r.id) || [],
+  }));
+}
+
+export async function updateRecipeMenuPrice(id, menuPrice) {
+  const { error } = await supabase
+    .from('recipes')
+    .update({ menu_price: menuPrice })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateRecipeIngredient(ingId, patch) {
+  const dbPatch = {};
+  if (patch.qty !== undefined) dbPatch.qty = patch.qty;
+  if (patch.cost !== undefined) dbPatch.unit_cost = patch.cost;
+  if (patch.name !== undefined) dbPatch.name = patch.name;
+  if (patch.unit !== undefined) dbPatch.unit = patch.unit;
+  if (Object.keys(dbPatch).length === 0) return;
+  const { error } = await supabase
+    .from('recipe_ingredients')
+    .update(dbPatch)
+    .eq('id', ingId);
+  if (error) throw error;
+}
+
+export async function seedRecipesFromSample(sampleRecipes) {
+  const existing = await fetchRecipes();
+  if (existing.length > 0) return existing;
+  const { tenantId } = ctx();
+  for (const r of sampleRecipes) {
+    const { data: inserted, error: rErr } = await supabase
+      .from('recipes')
+      .insert({
+        tenant_id: tenantId,
+        name: r.name,
+        yield: r.yield || 1,
+        menu_price: r.menuPrice || 0,
+      })
+      .select('id')
+      .single();
+    if (rErr) throw rErr;
+    const ings = (r.ingredients || []).map((ing, i) => ({
+      recipe_id: inserted.id,
+      tenant_id: tenantId,
+      name: ing.item,
+      qty: ing.qty,
+      unit: ing.unit || '',
+      unit_cost: ing.cost,
+      sort_order: i,
+    }));
+    if (ings.length > 0) {
+      const { error: iErr } = await supabase.from('recipe_ingredients').insert(ings);
+      if (iErr) throw iErr;
+    }
+  }
+  return await fetchRecipes();
+}
+
+// -----------------------------------------------------------------------------
+// CUSTOMERS (CRM)
+// -----------------------------------------------------------------------------
+// UI shape: state.customers = [{ name, phone, orders, spent, last, tags }, ...]
+// DB shape: customers (id, tenant_id, name, phone, email, orders, total_spent, last_order_date, tags, notes)
+
+export async function fetchCustomers() {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, name, phone, email, orders, total_spent, last_order_date, tags, notes')
+    .order('total_spent', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone || '',
+    email: c.email || '',
+    orders: c.orders || 0,
+    spent: Number(c.total_spent) || 0,
+    last: c.last_order_date || '2000-01-01',
+    tags: Array.isArray(c.tags) ? c.tags : [],
+    notes: c.notes || '',
+  }));
+}
+
+export async function addCustomer({ name, phone = null, email = null, tags = [] }) {
+  const { tenantId } = ctx();
+  const { data, error } = await supabase
+    .from('customers')
+    .insert({ tenant_id: tenantId, name, phone, email, tags, orders: 0, total_spent: 0 })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCustomer(id, patch) {
+  const dbPatch = {};
+  if (patch.name !== undefined) dbPatch.name = patch.name;
+  if (patch.phone !== undefined) dbPatch.phone = patch.phone;
+  if (patch.email !== undefined) dbPatch.email = patch.email;
+  if (patch.tags !== undefined) dbPatch.tags = patch.tags;
+  if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+  if (Object.keys(dbPatch).length === 0) return;
+  const { error } = await supabase.from('customers').update(dbPatch).eq('id', id);
+  if (error) throw error;
+}
+
+export async function seedCustomersFromSample(sampleCustomers) {
+  const existing = await fetchCustomers();
+  if (existing.length > 0) return existing;
+  const { tenantId } = ctx();
+  const rows = sampleCustomers.map((c) => ({
+    tenant_id: tenantId,
+    name: c.name,
+    phone: c.phone || null,
+    email: c.email || null,
+    orders: c.orders || 0,
+    total_spent: c.spent || 0,
+    last_order_date: c.last || null,
+    tags: c.tags || [],
+  }));
+  const { error } = await supabase.from('customers').insert(rows);
+  if (error) throw error;
+  return await fetchCustomers();
+}
+
+// -----------------------------------------------------------------------------
+// DAILY SALES
+// -----------------------------------------------------------------------------
+// UI shape: state.sales30 = [{ day, dinein, takeout, delivery, catering, total }, ...]
+// DB shape: daily_sales (id, tenant_id, sales_date, gross_revenue, net_revenue, transactions, food_cost, labor_cost, occupancy_cost, other_cost, source, raw)
+// Channel breakdown (dinein/takeout/delivery/catering) lives in `raw` jsonb until POS imports split it out.
+
+export async function fetchDailySales(days = 30) {
+  const { data, error } = await supabase
+    .from('daily_sales')
+    .select('sales_date, gross_revenue, transactions, food_cost, labor_cost, raw')
+    .order('sales_date', { ascending: true })
+    .limit(days);
+  if (error) throw error;
+  return (data || []).map((d) => {
+    const ch = (d.raw && d.raw.channels) || {};
+    const total = Number(d.gross_revenue) || 0;
+    return {
+      day: d.sales_date,
+      dinein:   Number(ch.dinein)   || total * 0.32,
+      takeout:  Number(ch.takeout)  || total * 0.42,
+      delivery: Number(ch.delivery) || total * 0.20,
+      catering: Number(ch.catering) || total * 0.06,
+      total,
+    };
+  });
+}
+
+export async function seedDailySalesFromSample(sampleSales) {
+  const existing = await fetchDailySales(1);
+  if (existing.length > 0) return existing;
+  const { tenantId } = ctx();
+  const rows = sampleSales.map((s) => ({
+    tenant_id: tenantId,
+    sales_date: s.day,
+    gross_revenue: s.total,
+    transactions: Math.round(s.total / 22), // rough $22 ticket
+    food_cost: s.total * 0.30,
+    labor_cost: s.total * 0.24,
+    occupancy_cost: s.total * 0.08,
+    other_cost: s.total * 0.06,
+    source: 'manual',
+    raw: { channels: { dinein: s.dinein, takeout: s.takeout, delivery: s.delivery, catering: s.catering } },
+  }));
+  const { error } = await supabase.from('daily_sales').insert(rows);
+  if (error) throw error;
+  return await fetchDailySales(sampleSales.length);
+}

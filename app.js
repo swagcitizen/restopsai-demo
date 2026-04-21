@@ -1487,12 +1487,31 @@ function bindEvents() {
       renderCharts(); saveState();
     } else if (el.dataset.menu !== undefined) {
       const idx = +el.dataset.menu, field = el.dataset.field;
-      state.menu[idx][field] = +el.value || 0;
-      renderMenu(); renderCharts(); saveState();
+      const value = +el.value || 0;
+      const item = state.menu[idx];
+      if (!item) return;
+      state.menu[idx][field] = value;
+      renderMenu(); renderCharts();
+      // Persist price/cost to menu_items. `units` is UI-only (derived from POS sales later).
+      if ((field === 'price' || field === 'cost') && item.id) {
+        dataRepo.updateMenuItem(item.id, { [field]: value }).catch(err => {
+          console.error('Menu update failed:', err);
+          alert('Could not save menu change: ' + err.message);
+        });
+      }
     } else if (el.dataset.inv !== undefined) {
       const idx = +el.dataset.inv, field = el.dataset.field;
-      state.inv[idx][field] = +el.value || 0;
-      renderInventory(); renderAlerts(); renderCompliance(); renderCharts(); saveState();
+      const value = +el.value || 0;
+      const item = state.inv[idx];
+      if (!item) return;
+      state.inv[idx][field] = value;
+      renderInventory(); renderAlerts(); renderCompliance(); renderCharts();
+      if (item.id) {
+        dataRepo.updateInventoryItem(item.id, { [field]: value }).catch(err => {
+          console.error('Inventory update failed:', err);
+          alert('Could not save inventory change: ' + err.message);
+        });
+      }
     } else if (el.dataset.staff !== undefined) {
       const idx = +el.dataset.staff, field = el.dataset.field;
       const value = +el.value || 0;
@@ -1636,20 +1655,35 @@ function bindEvents() {
     }
   });
 
-  // Recipe input changes (delegated)
+  // Recipe input changes (delegated) — write-through to Supabase.
   document.addEventListener("input", (e) => {
     const el = e.target;
     if (el.dataset.rec) {
       const r = state.recipes.find(x => x.id === el.dataset.rec);
       if (!r) return;
+      const value = +el.value || 0;
       if (el.dataset.recField === "menuPrice") {
-        r.menuPrice = +el.value || 0;
+        r.menuPrice = value;
+        renderRecipes();
+        if (r.id) {
+          dataRepo.updateRecipeMenuPrice(r.id, value).catch(err => {
+            console.error('Recipe menu price update failed:', err);
+            alert('Could not save menu price: ' + err.message);
+          });
+        }
       } else if (el.dataset.recIdx !== undefined) {
         const ing = r.ingredients[+el.dataset.recIdx];
-        if (ing) ing[el.dataset.recField] = +el.value || 0;
+        if (!ing) return;
+        const field = el.dataset.recField; // 'qty' or 'cost'
+        ing[field] = value;
+        renderRecipes();
+        if (ing.id) {
+          dataRepo.updateRecipeIngredient(ing.id, { [field]: value }).catch(err => {
+            console.error('Recipe ingredient update failed:', err);
+            alert('Could not save ingredient change: ' + err.message);
+          });
+        }
       }
-      renderRecipes();
-      saveState();
     }
   });
 
@@ -1906,16 +1940,24 @@ async function bootApp() {
   setToday();
 
   // Hydrate state from Supabase (replaces the mock SAMPLE.* where possible).
-  // Each module has its own repo; modules still reading memStore get kept
-  // for now and migrate in later passes (Menu/Recipes/CRM/Sales).
+  // For modules that have no rows yet, auto-seed from SAMPLE so a brand-new
+  // tenant sees a working dashboard on first load.
   try {
-    const [staff, temps, waste, inspChecks, licenses, inspHistory] = await Promise.all([
+    const [
+      staff, temps, waste, inspChecks, licenses, inspHistory,
+      menu, inv, recipes, customers, sales,
+    ] = await Promise.all([
       dataRepo.fetchStaff(),
       dataRepo.fetchTempLogs(),
       dataRepo.fetchWasteLogs(),
       dataRepo.fetchInspectionChecks(),
       dataRepo.fetchLicenses(),
       dataRepo.fetchInspectionHistory(),
+      dataRepo.fetchMenu(),
+      dataRepo.fetchInventory(),
+      dataRepo.fetchRecipes(),
+      dataRepo.fetchCustomers(),
+      dataRepo.fetchDailySales(30),
     ]);
     state.staff = staff;
     state.temps = temps;
@@ -1928,6 +1970,17 @@ async function bootApp() {
       }));
     }
     // else keep the SAMPLE.inspections so charts/briefing still have data; user hasn't logged any yet.
+
+    // Seed-or-use for menu / inventory / recipes / customers / sales.
+    // Seeding is idempotent (each seedXxxFromSample checks existing first).
+    state.menu      = menu.length      > 0 ? menu      : await dataRepo.seedMenuFromSample(SAMPLE.menu);
+    state.inv       = inv.length       > 0 ? inv       : await dataRepo.seedInventoryFromSample(SAMPLE.inv);
+    state.recipes   = recipes.length   > 0 ? recipes   : await dataRepo.seedRecipesFromSample(SAMPLE_RECIPES);
+    state.customers = customers.length > 0 ? customers : await dataRepo.seedCustomersFromSample(SAMPLE_CUSTOMERS);
+    state.sales30   = sales.length     > 0 ? sales     : await dataRepo.seedDailySalesFromSample(state.sales30);
+    // selectedRecipe was initialised to 'r1' (sample id). Switch to the first real recipe
+    // so recipe detail renders without needing the user to click.
+    if (state.recipes.length > 0) state.selectedRecipe = state.recipes[0].id;
   } catch (err) {
     console.error('Failed to hydrate state from Supabase:', err);
     alert('Could not load your data: ' + err.message);
