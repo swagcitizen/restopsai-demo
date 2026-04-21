@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accept invite · RestOps AI</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth.css">
+  <style>
+    .invite-chip {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .invite-meta {
+      margin: 0 0 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .invite-meta strong { color: var(--text); }
+    .invite-meta .tenant-name { display: block; font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+    .invite-meta .row + .row { margin-top: 2px; }
+    .invite-meta .muted { color: var(--text-muted); }
+    .invite-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .invite-tab {
+      flex: 1;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--text);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.92rem;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .invite-tab:hover { border-color: var(--line-2); }
+    .invite-tab.active {
+      background: var(--accent);
+      color: #1a1405;
+      border-color: var(--accent);
+    }
+    .hide { display: none !important; }
+  </style>
+</head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <header class="auth-head">
+      <a href="/" class="brand">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="RestOps AI">
+          <path d="M6 22 L16 6 L26 22 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="2.5" fill="currentColor"/>
+        </svg>
+        <span>RestOps AI</span>
+      </a>
+    </header>
+
+    <section class="auth-card">
+      <div id="invite-loading" class="auth-sub">Looking up your invite…</div>
+
+      <div id="invite-invalid" class="hide">
+        <h1>Invite not valid</h1>
+        <p id="invite-invalid-msg" class="auth-sub">This invite link is no longer valid.</p>
+        <p class="auth-alt"><a href="/login.html">Sign in</a> or <a href="/signup.html">create a new account</a>.</p>
+      </div>
+
+      <div id="invite-ready" class="hide">
+        <h1>You've been invited</h1>
+        <p class="auth-sub">Join your team on RestOps AI.</p>
+
+        <div class="invite-meta">
+          <span class="tenant-name" id="invite-tenant-name">—</span>
+          <div class="row muted">Role: <span id="invite-role" class="invite-chip">staff</span></div>
+          <div class="row muted">Invite sent to <strong id="invite-email">—</strong></div>
+        </div>
+
+        <div id="auth-section">
+          <div class="invite-tabs">
+            <button type="button" class="invite-tab active" data-mode="signup">Create account</button>
+            <button type="button" class="invite-tab" data-mode="login">I have an account</button>
+          </div>
+
+          <form id="signup-form" class="auth-form" autocomplete="on">
+            <label>
+              <span>Your name</span>
+              <input type="text" name="fullName" required autocomplete="name" placeholder="Jane Smith">
+            </label>
+            <label>
+              <span>Email</span>
+              <input type="email" name="email" required autocomplete="email" readonly>
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" name="password" required autocomplete="new-password" minlength="8" placeholder="at least 8 characters">
+            </label>
+            <div id="signup-error" class="auth-error" hidden></div>
+            <button type="submit" class="btn-primary" id="signup-btn">Create account & join</button>
+          </form>
+
+          <form id="login-form" class="auth-form hide" autocomplete="on">
+            <label>
+              <span>Email</span>
+              <input type="email" name="email" required autocomplete="email" readonly>
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" name="password" required autocomplete="current-password" minlength="8">
+            </label>
+            <div id="login-error" class="auth-error" hidden></div>
+            <button type="submit" class="btn-primary" id="login-btn">Sign in & join</button>
+          </form>
+        </div>
+
+        <div id="accept-section" class="hide">
+          <p class="auth-sub">Signed in as <strong id="current-user-email">—</strong>.</p>
+          <div id="accept-error" class="auth-error" hidden></div>
+          <button type="button" class="btn-primary" id="accept-btn">Join team</button>
+          <p class="auth-alt"><a href="#" id="signout-link">Not you? Sign out</a></p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="auth-foot">
+      <span>© 2026 RestOps AI</span>
+      <span>·</span>
+      <a href="/legal/terms.html">Terms</a>
+      <span>·</span>
+      <a href="/legal/privacy.html">Privacy</a>
+    </footer>
+  </main>
+
+  <script type="module">
+    import { supabase, getSession, signOut } from './supabaseClient.js';
+    import { previewInvite, acceptInvite } from './invitesRepo.js';
+
+    const qs = new URLSearchParams(window.location.search);
+    const token = qs.get('token');
+
+    const $ = (id) => document.getElementById(id);
+    const show = (el) => el.classList.remove('hide');
+    const hide = (el) => el.classList.add('hide');
+
+    if (!token) {
+      hide($('invite-loading'));
+      show($('invite-invalid'));
+      $('invite-invalid-msg').textContent = 'This invite link is missing its token.';
+    } else {
+      await init();
+    }
+
+    async function init() {
+      let preview;
+      try {
+        preview = await previewInvite(token);
+      } catch (err) {
+        return showInvalid(err.message || 'Could not look up invite.');
+      }
+      if (!preview) return showInvalid('We couldn\u2019t find that invite.');
+      if (preview.accepted) return showInvalid('This invite has already been accepted.');
+      if (preview.expired) return showInvalid('This invite has expired. Ask your manager to send a new one.');
+
+      hide($('invite-loading'));
+      show($('invite-ready'));
+      $('invite-tenant-name').textContent = preview.tenant_name;
+      $('invite-role').textContent = preview.role;
+      $('invite-email').textContent = preview.email;
+      document.querySelectorAll('input[name="email"]').forEach(el => { el.value = preview.email; });
+
+      const session = await getSession();
+      if (session) {
+        hide($('auth-section'));
+        show($('accept-section'));
+        $('current-user-email').textContent = session.user.email;
+      } else {
+        wireTabs();
+        wireSignup(preview);
+        wireLogin(preview);
+      }
+
+      $('accept-btn').addEventListener('click', doAccept);
+      $('signout-link').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await supabase.auth.signOut();
+        window.location.reload();
+      });
+    }
+
+    function showInvalid(msg) {
+      hide($('invite-loading'));
+      show($('invite-invalid'));
+      $('invite-invalid-msg').textContent = msg;
+    }
+
+    function wireTabs() {
+      document.querySelectorAll('.invite-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.invite-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const mode = btn.dataset.mode;
+          if (mode === 'signup') {
+            show($('signup-form'));
+            hide($('login-form'));
+          } else {
+            hide($('signup-form'));
+            show($('login-form'));
+          }
+        });
+      });
+    }
+
+    function wireSignup(preview) {
+      const form = $('signup-form');
+      const errBox = $('signup-error');
+      const btn = $('signup-btn');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errBox.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Creating account…';
+        const fd = new FormData(form);
+        const { data, error } = await supabase.auth.signUp({
+          email: preview.email,
+          password: fd.get('password'),
+          options: {
+            data: { full_name: fd.get('fullName') },
+            emailRedirectTo: window.location.href,
+          },
+        });
+        if (error) {
+          errBox.textContent = error.message;
+          errBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Create account & join';
+          return;
+        }
+        if (data.session) {
+          await doAccept();
+        } else {
+          errBox.textContent = 'Check your email to confirm your account, then return to this link.';
+          errBox.classList.add('auth-success');
+          errBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Create account & join';
+        }
+      });
+    }
+
+    function wireLogin(preview) {
+      const form = $('login-form');
+      const errBox = $('login-error');
+      const btn = $('login-btn');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errBox.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Signing in…';
+        const fd = new FormData(form);
+        const { error } = await supabase.auth.signInWithPassword({
+          email: preview.email,
+          password: fd.get('password'),
+        });
+        if (error) {
+          errBox.textContent = error.message;
+          errBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Sign in & join';
+          return;
+        }
+        await doAccept();
+      });
+    }
+
+    async function doAccept() {
+      const accErr = $('accept-error');
+      const accBtn = $('accept-btn');
+      accErr.hidden = true;
+      if (accBtn) {
+        accBtn.disabled = true;
+        accBtn.textContent = 'Joining…';
+      }
+      try {
+        await acceptInvite(token);
+        window.location.href = '/';
+      } catch (err) {
+        const msg = err.message || 'Could not accept invite.';
+        // Show wherever is visible
+        if (!$('accept-section').classList.contains('hide')) {
+          accErr.textContent = msg;
+          accErr.hidden = false;
+          accBtn.disabled = false;
+          accBtn.textContent = 'Join team';
+        } else {
+          const signupErr = $('signup-error');
+          signupErr.textContent = msg;
+          signupErr.hidden = false;
+          $('signup-btn').disabled = false;
+          $('signup-btn').textContent = 'Create account & join';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

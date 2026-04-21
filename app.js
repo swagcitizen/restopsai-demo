@@ -12,6 +12,7 @@ import {
 } from './phase2.js';
 import * as tasksRepo from './tasksRepo.js';
 import * as dataRepo from './dataRepo.js';
+import * as invitesRepo from './invitesRepo.js';
 
 // In-memory state persistence. Data resets when the page reloads.
 const STORAGE_KEY = "anthonys-pizza-dashboard-v1";
@@ -1457,10 +1458,13 @@ function bindEvents() {
         inspection: ["DBPR Inspection Prep", "37-point FL DBPR readiness walkthrough + mock inspection"],
         tasks: ["Task Assignments", "Daily, weekly, and monthly duties — fire, grease trap, hood vents, and more"],
         compliance: ["Licenses", "Licenses, inspections, and training status"],
+        team: ["Team & Invites", "Invite teammates and manage access to this restaurant"],
       };
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
       document.getElementById("view-sub").textContent = s;
+      // Lazy-load team data when the team view opens (avoid extra fetches during boot).
+      if (view === 'team') refreshTeamView().catch(err => console.error('Team view load failed:', err));
       // redraw charts on visibility change
       setTimeout(renderCharts, 50);
     });
@@ -1987,12 +1991,171 @@ async function bootApp() {
   }
 
   bindEvents();
+  bindTeamView();
   renderAll();
   window.__restopsBooted = true;
   // Dev-only debug hook so Playwright QA can inspect state.
   window.__restopsState = state;
-  window.__restopsRepos = { dataRepo, tasksRepo };
+  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo };
 }
+
+// -----------------------------------------------------------------------------
+// TEAM & INVITES VIEW
+// -----------------------------------------------------------------------------
+function bindTeamView() {
+  const role = window.__RESTOPS_CTX__?.role;
+  const canInvite = role === 'owner' || role === 'manager';
+  const gate = document.getElementById('team-invite-gate');
+  const locked = document.getElementById('team-invite-locked');
+  if (!canInvite) {
+    if (gate) gate.hidden = true;
+    if (locked) locked.hidden = false;
+  }
+
+  const form = document.getElementById('invite-form');
+  if (form && canInvite) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('invite-submit');
+      const msg = document.getElementById('invite-form-msg');
+      const email = document.getElementById('invite-email').value.trim();
+      const roleSel = document.getElementById('invite-role').value;
+      msg.hidden = true;
+      msg.classList.remove('ok', 'err');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const inv = await invitesRepo.createInvite({ email, role: roleSel });
+        msg.classList.add('ok');
+        msg.innerHTML = `Invite created. Share this link with <strong>${escapeHtml(email)}</strong>: <code>${escapeHtml(inv.link)}</code>`;
+        msg.hidden = false;
+        document.getElementById('invite-email').value = '';
+        await refreshTeamView();
+      } catch (err) {
+        msg.classList.add('err');
+        msg.textContent = err.message || 'Could not send invite.';
+        msg.hidden = false;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send invite';
+      }
+    });
+  }
+
+  // Delegated click handlers for invite rows (revoke / copy).
+  document.getElementById('team-invites-table')?.addEventListener('click', async (e) => {
+    const t = e.target;
+    if (t.matches('.invite-revoke')) {
+      const id = t.dataset.id;
+      if (!id || !confirm('Revoke this invite?')) return;
+      try {
+        await invitesRepo.revokeInvite(id);
+        await refreshTeamView();
+      } catch (err) {
+        alert('Could not revoke: ' + err.message);
+      }
+    } else if (t.matches('.invite-copy')) {
+      const link = t.dataset.link;
+      try {
+        await navigator.clipboard.writeText(link);
+        const orig = t.textContent;
+        t.textContent = 'Copied';
+        setTimeout(() => { t.textContent = orig; }, 1200);
+      } catch (err) {
+        // Fallback: just select the text so the user can copy manually
+        const row = t.closest('tr');
+        const code = row?.querySelector('code');
+        if (code) {
+          const r = document.createRange();
+          r.selectNodeContents(code);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(r);
+        }
+      }
+    }
+  });
+}
+
+async function refreshTeamView() {
+  const ctx = window.__RESTOPS_CTX__;
+  // Members
+  const { data: members, error: memErr } = await (await import('./supabaseClient.js')).supabase
+    .from('memberships')
+    .select('id, role, created_at, user_id')
+    .eq('tenant_id', ctx.tenantId)
+    .order('created_at', { ascending: true });
+  const tbody = document.querySelector('#team-members-table tbody');
+  tbody.innerHTML = '';
+  if (memErr) {
+    tbody.innerHTML = `<tr><td colspan="3" class="muted">Error loading members: ${escapeHtml(memErr.message)}</td></tr>`;
+  } else {
+    for (const m of (members || [])) {
+      // We can't query auth.users directly from the client, so show a short user id
+      // unless this member is the current user.
+      const isMe = m.user_id === ctx.user.id;
+      const displayEmail = isMe ? ctx.user.email : shortId(m.user_id);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(displayEmail)}${isMe ? ' <span class="invite-chip-inline">you</span>' : ''}</td>
+        <td><span class="invite-chip-inline">${escapeHtml(m.role)}</span></td>
+        <td class="muted">${new Date(m.created_at).toLocaleDateString()}</td>`;
+      tbody.appendChild(tr);
+    }
+    document.getElementById('team-member-count').textContent =
+      `${members?.length || 0} member${members?.length === 1 ? '' : 's'}`;
+  }
+
+  // Pending invites
+  const role = ctx.role;
+  const canSeeInvites = role === 'owner' || role === 'manager';
+  const invTable = document.getElementById('team-invites-table');
+  const invEmpty = document.getElementById('team-invites-empty');
+  if (!canSeeInvites) {
+    invTable.hidden = true;
+    invEmpty.textContent = 'Only managers and owners can see pending invites.';
+    invEmpty.hidden = false;
+    return;
+  }
+  invTable.hidden = false;
+  let invites = [];
+  try {
+    invites = await invitesRepo.listInvites({ includeAccepted: false });
+  } catch (err) {
+    console.error('listInvites failed:', err);
+  }
+  const ib = invTable.querySelector('tbody');
+  ib.innerHTML = '';
+  if (!invites.length) {
+    invEmpty.hidden = false;
+    invEmpty.textContent = 'No pending invites.';
+    document.getElementById('team-invite-count').textContent = '0 pending';
+    return;
+  }
+  invEmpty.hidden = true;
+  document.getElementById('team-invite-count').textContent =
+    `${invites.length} pending`;
+  for (const inv of invites) {
+    const tr = document.createElement('tr');
+    const exp = new Date(inv.expires_at);
+    const expLabel = inv.expired ? 'Expired' : exp.toLocaleDateString();
+    tr.innerHTML = `
+      <td>${escapeHtml(inv.email)}</td>
+      <td><span class="invite-chip-inline">${escapeHtml(inv.role)}</span></td>
+      <td class="${inv.expired ? 'warn' : 'muted'}">${expLabel}</td>
+      <td><code class="invite-link-code">${escapeHtml(inv.link)}</code>
+          <button class="chip invite-copy" data-link="${escapeHtml(inv.link)}">Copy</button></td>
+      <td><button class="chip invite-revoke" data-id="${inv.id}">Revoke</button></td>`;
+    ib.appendChild(tr);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function shortId(id) { return id ? `user ${id.slice(0, 8)}…` : '—'; }
 
 if (window.__RESTOPS_CTX__) {
   // Guard already finished before app.js loaded

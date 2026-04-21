@@ -49,6 +49,9 @@
         <button class="nav-item" data-view="safety"><span class="dot"></span>Food Safety</button>
         <button class="nav-item" data-view="inspection"><span class="dot"></span>DBPR Inspection Prep <span class="nav-badge hot">!</span></button>
         <button class="nav-item" data-view="compliance"><span class="dot"></span>Licenses</button>
+
+        <div class="nav-section">Account</div>
+        <button class="nav-item" data-view="team"><span class="dot"></span>Team &amp; Invites</button>
       </nav>
 
       <div class="side-footer">
@@ -507,6 +510,65 @@
               <p class="muted">A DBPR inspector typically spends 45–90 minutes on a routine inspection. Launch a mock inspection to simulate what they'll check.</p>
               <button class="btn" id="start-mock">Start mock inspection</button>
               <div id="mock-results"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEAM & INVITES -->
+      <section class="view" data-view="team">
+        <div class="team-shell">
+          <div class="card">
+            <div class="card-head">
+              <h3>Invite a teammate</h3>
+              <span class="muted">Owners and managers can invite others</span>
+            </div>
+            <div id="team-invite-gate" class="team-body">
+              <form id="invite-form" class="invite-form">
+                <label class="invite-field">
+                  <span>Email</span>
+                  <input type="email" id="invite-email" required placeholder="teammate@restaurant.com" autocomplete="off">
+                </label>
+                <label class="invite-field invite-field-narrow">
+                  <span>Role</span>
+                  <select id="invite-role">
+                    <option value="staff">Staff</option>
+                    <option value="manager">Manager</option>
+                  </select>
+                </label>
+                <button type="submit" class="btn" id="invite-submit">Send invite</button>
+              </form>
+              <div id="invite-form-msg" class="invite-msg" hidden></div>
+            </div>
+            <div id="team-invite-locked" class="team-body muted" hidden>
+              Only managers and owners can invite teammates. Ask your manager to add you.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Current team</h3>
+              <span class="muted" id="team-member-count">—</span>
+            </div>
+            <div class="team-body">
+              <table class="team-table" id="team-members-table">
+                <thead><tr><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Pending invites</h3>
+              <span class="muted" id="team-invite-count">—</span>
+            </div>
+            <div class="team-body">
+              <table class="team-table" id="team-invites-table">
+                <thead><tr><th>Email</th><th>Role</th><th>Expires</th><th>Link</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div id="team-invites-empty" class="muted" style="padding: 12px 0;">No pending invites.</div>
             </div>
           </div>
         </div>
