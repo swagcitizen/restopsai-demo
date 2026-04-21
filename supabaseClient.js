@@ -29,7 +29,7 @@ export async function getSession() {
 // Helper: sign out
 export async function signOut() {
   await supabase.auth.signOut();
-  window.location.href = '/login.html';
+  window.location.href = './login.html';
 }
 
 // Helper: get user's memberships (which tenants they belong to)

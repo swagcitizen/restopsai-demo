@@ -10,7 +10,7 @@
 <body class="auth-body">
   <main class="auth-shell">
     <header class="auth-head">
-      <a href="/" class="brand">
+      <a href="./" class="brand">
         <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="RestOps AI">
           <path d="M6 22 L16 6 L26 22 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
           <circle cx="16" cy="18" r="2.5" fill="currentColor"/>
@@ -80,7 +80,7 @@
 
     const session = await getSession();
     if (!session) {
-      window.location.href = '/login.html';
+      window.location.href = './login.html';
     }
 
     // If they already have a tenant, skip to app

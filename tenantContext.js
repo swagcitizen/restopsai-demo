@@ -12,13 +12,13 @@ export async function loadTenantContext() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = '/login.html';
+    window.location.href = './login.html';
     throw new Error('No session');
   }
 
   const memberships = await getMemberships();
   if (!memberships.length) {
-    window.location.href = '/onboarding.html';
+    window.location.href = './onboarding.html';
     throw new Error('No tenant');
   }
 
@@ -51,7 +51,7 @@ export function getTenantContext() {
 export async function handleSignOut() {
   _cache = null;
   await supabase.auth.signOut();
-  window.location.href = '/login.html';
+  window.location.href = './login.html';
 }
 
 // Listen for auth state changes (e.g. session expiry, logout in another tab)
@@ -59,7 +59,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || !session) {
     _cache = null;
     if (!window.location.pathname.match(/login|signup/)) {
-      window.location.href = '/login.html';
+      window.location.href = './login.html';
     }
   }
 });

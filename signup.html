@@ -10,7 +10,7 @@
 <body class="auth-body">
   <main class="auth-shell">
     <header class="auth-head">
-      <a href="/" class="brand">
+      <a href="./" class="brand">
         <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="RestOps AI">
           <path d="M6 22 L16 6 L26 22 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
           <circle cx="16" cy="18" r="2.5" fill="currentColor"/>
@@ -41,16 +41,16 @@
       </form>
 
       <p class="auth-alt">
-        Already have an account? <a href="/login.html">Sign in</a>
+        Already have an account? <a href="./login.html">Sign in</a>
       </p>
     </section>
 
     <footer class="auth-foot">
       <span>© 2026 RestOps AI</span>
       <span>·</span>
-      <a href="/legal/terms.html">Terms</a>
+      <a href="./legal/terms.html">Terms</a>
       <span>·</span>
-      <a href="/legal/privacy.html">Privacy</a>
+      <a href="./legal/privacy.html">Privacy</a>
     </footer>
   </main>
 
@@ -76,7 +76,7 @@
         password: fd.get('password'),
         options: {
           data: { full_name: fd.get('fullName') },
-          emailRedirectTo: window.location.origin + '/onboarding.html',
+          emailRedirectTo: new URL('./onboarding.html', window.location.href).toString(),
         },
       });
 
@@ -90,7 +90,7 @@
 
       // If Supabase project has email confirmation off (default in dev), session exists immediately
       if (data.session) {
-        window.location.href = '/onboarding.html';
+        window.location.href = './onboarding.html';
       } else {
         // Email confirmation required — show message
         errBox.classList.add('auth-success');

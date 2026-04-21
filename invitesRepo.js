@@ -78,6 +78,7 @@ export async function acceptInvite(token) {
 }
 
 export function buildInviteLink(token) {
-  const origin = window.location.origin;
-  return `${origin}/invite.html?token=${encodeURIComponent(token)}`;
+  // Resolve relative to the current page so the link works both at dev root
+  // and under a deployment sub-path (e.g. /sites/proxy/.../restopsai-app/).
+  return new URL('./invite.html?token=' + encodeURIComponent(token), window.location.href).toString();
 }
