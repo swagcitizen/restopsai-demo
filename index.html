@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anthony's Pizza — Operations Dashboard</title>
+    <meta name="description" content="Interactive management dashboard for Anthony's Pizza — costs, P&L, inventory, labor, and Florida DBPR food-safety compliance." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23c9302c'/%3E%3Ccircle cx='11' cy='12' r='2' fill='%23f4e2c2'/%3E%3Ccircle cx='20' cy='14' r='2' fill='%23f4e2c2'/%3E%3Ccircle cx='14' cy='20' r='2' fill='%23f4e2c2'/%3E%3C/svg%3E" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 40 40" fill="none" aria-label="Anthony's Pizza logo">
+          <circle cx="20" cy="20" r="18" fill="#C9302C" />
+          <circle cx="20" cy="20" r="14" fill="#E8A33D" />
+          <circle cx="14" cy="15" r="2.2" fill="#8B1A1A" />
+          <circle cx="25" cy="17" r="2.2" fill="#8B1A1A" />
+          <circle cx="17" cy="24" r="2.2" fill="#8B1A1A" />
+          <circle cx="26" cy="25" r="1.6" fill="#3B6E3B" />
+          <circle cx="13" cy="22" r="1.6" fill="#3B6E3B" />
+        </svg>
+        <div>
+          <div class="brand-name">Anthony's Pizza</div>
+          <div class="brand-sub">St Cloud · FL</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-section">Operations</div>
+        <button class="nav-item active" data-view="overview"><span class="dot"></span>Overview</button>
+        <button class="nav-item" data-view="briefing"><span class="dot"></span>Weekly Briefing <span class="nav-badge">AI</span></button>
+        <button class="nav-item" data-view="costs"><span class="dot"></span>Costs &amp; P&amp;L</button>
+        <button class="nav-item" data-view="recipes"><span class="dot"></span>Recipe Costing</button>
+        <button class="nav-item" data-view="sales"><span class="dot"></span>Sales &amp; Menu</button>
+        <button class="nav-item" data-view="inventory"><span class="dot"></span>Inventory</button>
+        <button class="nav-item" data-view="customers"><span class="dot"></span>Customers / CRM</button>
+
+        <div class="nav-section">People</div>
+        <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
+        <button class="nav-item" data-view="scheduler"><span class="dot"></span>Shift Scheduler</button>
+
+        <div class="nav-section">Compliance</div>
+        <button class="nav-item" data-view="tasks"><span class="dot"></span>Task Assignments <span class="nav-badge" id="tasks-badge"></span></button>
+        <button class="nav-item" data-view="safety"><span class="dot"></span>Food Safety</button>
+        <button class="nav-item" data-view="inspection"><span class="dot"></span>DBPR Inspection Prep <span class="nav-badge hot">!</span></button>
+        <button class="nav-item" data-view="compliance"><span class="dot"></span>Licenses</button>
+      </nav>
+
+      <div class="side-footer">
+        <div class="role-switch">
+          <label>View as</label>
+          <select id="role-select">
+            <option value="owner">Owner</option>
+            <option value="manager">Manager</option>
+            <option value="staff">Staff (tablet)</option>
+          </select>
+        </div>
+        <button id="reset-data" class="ghost-btn" title="Reset all data to sample values">Reset sample data</button>
+        <div class="tz">Today · <span id="today-label"></span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="view-title">Overview</h1>
+          <p id="view-sub" class="sub">Real-time snapshot of the pizzeria</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="seg" role="tablist" aria-label="Time range">
+            <button class="seg-btn" data-range="7">7D</button>
+            <button class="seg-btn active" data-range="30">30D</button>
+            <button class="seg-btn" data-range="90">90D</button>
+          </div>
+          <div class="health-pill" id="health-pill" title="Compliance health">
+            <span class="health-dot"></span>
+            <span class="health-text">Healthy</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- OVERVIEW -->
+      <section class="view active" data-view="overview">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-label">Revenue (30D)</div><div class="kpi-value" id="kpi-rev">$0</div><div class="kpi-delta up" id="kpi-rev-d">—</div></div>
+          <div class="kpi"><div class="kpi-label">Prime Cost %</div><div class="kpi-value" id="kpi-prime">0%</div><div class="kpi-foot">Target ≤ 60%</div></div>
+          <div class="kpi"><div class="kpi-label">Food Cost %</div><div class="kpi-value" id="kpi-food">0%</div><div class="kpi-foot">Target 28–32%</div></div>
+          <div class="kpi"><div class="kpi-label">Labor Cost %</div><div class="kpi-value" id="kpi-labor">0%</div><div class="kpi-foot">Target ≤ 28%</div></div>
+          <div class="kpi"><div class="kpi-label">Net Margin</div><div class="kpi-value" id="kpi-margin">0%</div><div class="kpi-foot">Industry avg 7–10%</div></div>
+          <div class="kpi"><div class="kpi-label">Compliance Score</div><div class="kpi-value" id="kpi-comp">0%</div><div class="kpi-foot" id="kpi-comp-foot">—</div></div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head">
+              <h3>Revenue vs. Prime Cost</h3>
+              <span class="muted" id="rev-range-label">Last 30 days</span>
+            </div>
+            <div class="chart-wrap"><canvas id="chart-revenue"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Cost Breakdown</h3><span class="muted">Monthly</span></div>
+            <div class="chart-wrap"><canvas id="chart-breakdown"></canvas></div>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Top Selling Items</h3><span class="muted">By revenue</span></div>
+            <div class="chart-wrap tall"><canvas id="chart-top"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Alerts</h3><span class="muted" id="alert-count">0</span></div>
+            <ul class="alerts" id="alerts-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- COSTS & P&L -->
+      <section class="view" data-view="costs">
+        <div class="card">
+          <div class="card-head">
+            <h3>Monthly P&amp;L</h3>
+            <span class="muted">Edit any value — totals recalculate live</span>
+          </div>
+          <div class="pl-grid">
+            <div class="pl-col">
+              <h4>Revenue</h4>
+              <label>Dine-in <input type="number" data-pl="rev_dinein" /></label>
+              <label>Take-out <input type="number" data-pl="rev_takeout" /></label>
+              <label>Delivery (3rd party) <input type="number" data-pl="rev_delivery" /></label>
+              <label>Catering <input type="number" data-pl="rev_catering" /></label>
+              <div class="pl-total">Total Revenue <span id="pl-revenue">$0</span></div>
+            </div>
+
+            <div class="pl-col">
+              <h4>Cost of Goods (Food)</h4>
+              <label>Flour / dough <input type="number" data-pl="cog_flour" /></label>
+              <label>Cheese (mozzarella) <input type="number" data-pl="cog_cheese" /></label>
+              <label>Sauce / tomatoes <input type="number" data-pl="cog_sauce" /></label>
+              <label>Meats (pepperoni, sausage) <input type="number" data-pl="cog_meats" /></label>
+              <label>Produce / veg <input type="number" data-pl="cog_produce" /></label>
+              <label>Beverages <input type="number" data-pl="cog_bev" /></label>
+              <label>Paper / packaging <input type="number" data-pl="cog_paper" /></label>
+              <div class="pl-total">Total COGS <span id="pl-cogs">$0</span></div>
+            </div>
+
+            <div class="pl-col">
+              <h4>Labor</h4>
+              <label>Kitchen / pizzaiolo <input type="number" data-pl="lab_kitchen" /></label>
+              <label>Front of house <input type="number" data-pl="lab_foh" /></label>
+              <label>Drivers <input type="number" data-pl="lab_drivers" /></label>
+              <label>Manager salary <input type="number" data-pl="lab_mgr" /></label>
+              <label>Payroll taxes &amp; WC <input type="number" data-pl="lab_tax" /></label>
+              <label>Health / benefits <input type="number" data-pl="lab_bene" /></label>
+              <div class="pl-total">Total Labor <span id="pl-labor">$0</span></div>
+            </div>
+
+            <div class="pl-col">
+              <h4>Occupancy &amp; Operating</h4>
+              <label>Rent / CAM <input type="number" data-pl="op_rent" /></label>
+              <label>Utilities (power, gas, water) <input type="number" data-pl="op_util" /></label>
+              <label>Internet / phone <input type="number" data-pl="op_net" /></label>
+              <label>POS / software (SaaS) <input type="number" data-pl="op_pos" /></label>
+              <label>Payment processing fees <input type="number" data-pl="op_proc" /></label>
+              <label>3rd-party delivery fees <input type="number" data-pl="op_3p" /></label>
+              <label>Marketing / ads <input type="number" data-pl="op_mkt" /></label>
+              <label>Insurance (GL + property) <input type="number" data-pl="op_ins" /></label>
+              <label>Repairs / maintenance <input type="number" data-pl="op_rep" /></label>
+              <label>Cleaning / pest / trash <input type="number" data-pl="op_clean" /></label>
+              <label>Licenses &amp; permits <input type="number" data-pl="op_lic" /></label>
+              <label>Accounting / legal <input type="number" data-pl="op_acct" /></label>
+              <label>Uniforms / smallwares <input type="number" data-pl="op_small" /></label>
+              <div class="pl-total">Total Operating <span id="pl-ops">$0</span></div>
+            </div>
+          </div>
+
+          <div class="pl-summary">
+            <div><span>Gross Profit</span><strong id="pl-gp">$0</strong></div>
+            <div><span>Prime Cost</span><strong id="pl-prime">$0</strong></div>
+            <div><span>Operating Income</span><strong id="pl-opinc">$0</strong></div>
+            <div class="accent"><span>Net Margin</span><strong id="pl-net">0%</strong></div>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Break-Even Calculator</h3><span class="muted">Live</span></div>
+            <div class="be-body">
+              <div class="be-stat"><div class="be-label">Fixed costs / mo</div><div class="be-value" id="be-fixed">$0</div></div>
+              <div class="be-stat"><div class="be-label">Variable cost ratio</div><div class="be-value" id="be-var">0%</div></div>
+              <div class="be-stat big"><div class="be-label">Break-even revenue / mo</div><div class="be-value" id="be-rev">$0</div></div>
+              <div class="be-stat"><div class="be-label">Break-even / day</div><div class="be-value" id="be-day">$0</div></div>
+              <div class="be-stat"><div class="be-label">Avg ticket</div><div class="be-value"><input type="number" id="be-ticket" value="22" /></div></div>
+              <div class="be-stat"><div class="be-label">Orders needed / day</div><div class="be-value" id="be-orders">0</div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Prime Cost Trend</h3><span class="muted">Weekly</span></div>
+            <div class="chart-wrap"><canvas id="chart-prime"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SALES & MENU -->
+      <section class="view" data-view="sales">
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Daily Sales (30D)</h3><span class="muted">By channel</span></div>
+            <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Sales Mix</h3><span class="muted">By category</span></div>
+            <div class="chart-wrap"><canvas id="chart-mix"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Menu Engineering</h3>
+            <span class="muted">Stars, Plowhorses, Puzzles &amp; Dogs — edit costs and prices inline</span>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Item</th><th>Price</th><th>Food cost</th><th>Margin</th><th>Margin %</th><th>Units (30D)</th><th>Revenue</th><th>Class</th></tr></thead>
+            <tbody id="menu-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- INVENTORY -->
+      <section class="view" data-view="inventory">
+        <div class="card">
+          <div class="card-head">
+            <h3>Inventory &amp; Par Levels</h3>
+            <span class="muted">Red = below par</span>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Item</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th></tr></thead>
+            <tbody id="inv-body"></tbody>
+          </table>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Waste Log</h3><span class="muted">Click to add</span></div>
+            <button class="btn" id="add-waste">+ Log waste</button>
+            <table class="tbl compact"><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Reason</th><th>$ Loss</th></tr></thead><tbody id="waste-body"></tbody></table>
+            <div class="kpi-foot">Waste (30D): <strong id="waste-total">$0</strong> · Target &lt; 2% of food cost</div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Vendor Spend (30D)</h3></div>
+            <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LABOR -->
+      <section class="view" data-view="labor">
+        <div class="card">
+          <div class="card-head">
+            <h3>Staff Roster &amp; Weekly Cost</h3>
+            <span class="muted">Edit hours and wages</span>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Name</th><th>Role</th><th>Hourly</th><th>Hrs/wk</th><th>Weekly</th><th>Monthly (×4.33)</th><th>Food handler cert</th><th>Expires</th></tr></thead>
+            <tbody id="staff-body"></tbody>
+          </table>
+          <div class="staff-sum">
+            <div><span>Weekly labor</span><strong id="staff-week">$0</strong></div>
+            <div><span>Monthly labor</span><strong id="staff-month">$0</strong></div>
+            <div><span>Labor % of revenue</span><strong id="staff-pct">0%</strong></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Labor vs. Sales (by hour)</h3><span class="muted">Identify over/under-staffed shifts</span></div>
+          <div class="chart-wrap"><canvas id="chart-labor"></canvas></div>
+        </div>
+      </section>
+
+      <!-- FOOD SAFETY -->
+      <section class="view" data-view="safety">
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head">
+              <h3>Temperature Logs (HACCP)</h3>
+              <span class="muted">FDA Food Code: cold ≤ 41°F · hot ≥ 135°F</span>
+            </div>
+            <div class="temp-grid" id="temp-grid"></div>
+            <button class="btn" id="log-temp">Log all readings</button>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Today's Checklist</h3><span class="muted" id="check-done">0/0</span></div>
+            <ul class="checklist" id="checklist"></ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Cleaning &amp; Sanitation Schedule</h3>
+            <span class="muted">Daily · Weekly · Monthly</span>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Task</th><th>Frequency</th><th>Last done</th><th>Next due</th><th>Assigned</th><th>Status</th><th></th></tr></thead>
+            <tbody id="clean-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Recent Temperature Readings</h3><span class="muted">Last 14 days</span></div>
+          <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
+        </div>
+      </section>
+
+      <!-- COMPLIANCE -->
+      <section class="view" data-view="compliance">
+        <div class="card">
+          <div class="card-head">
+            <h3>Licenses, Permits &amp; Certifications</h3>
+            <span class="muted">Florida DBPR · Osceola County</span>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Document</th><th>Issuer</th><th>Number</th><th>Issued</th><th>Expires</th><th>Status</th></tr></thead>
+            <tbody id="lic-body"></tbody>
+          </table>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Inspections</h3><span class="muted">FL DBPR Hotels &amp; Restaurants</span></div>
+            <table class="tbl compact">
+              <thead><tr><th>Date</th><th>Type</th><th>Violations</th><th>High-priority</th><th>Result</th></tr></thead>
+              <tbody id="insp-body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Staff Training Status</h3><span class="muted">Food handler · Allergen · Anti-harassment</span></div>
+            <table class="tbl compact">
+              <thead><tr><th>Staff</th><th>Food Handler</th><th>Allergen</th><th>ServSafe Mgr</th></tr></thead>
+              <tbody id="train-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Compliance Score</h3><span class="muted">Weighted across categories</span></div>
+          <div class="comp-bars" id="comp-bars"></div>
+        </div>
+      </section>
+      <!-- WEEKLY BRIEFING (AI) -->
+      <section class="view" data-view="briefing">
+        <div class="briefing-hero">
+          <div class="briefing-badge">AI Briefing</div>
+          <h2 id="brief-headline">This week at Anthony's</h2>
+          <p class="sub" id="brief-period"></p>
+          <div class="brief-kpis" id="brief-kpis"></div>
+          <button class="btn" id="refresh-brief">Refresh briefing</button>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Key insights</h3><span class="muted">Auto-generated</span></div>
+            <ul class="insights" id="insights-list"></ul>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Anomalies detected</h3><span class="muted" id="anomaly-count">0</span></div>
+            <ul class="insights" id="anomalies-list"></ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Next week's focus</h3><span class="muted">Top 3 actions</span></div>
+          <ol class="focus-list" id="focus-list"></ol>
+        </div>
+      </section>
+
+      <!-- RECIPE COSTING -->
+      <section class="view" data-view="recipes">
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Recipes</h3><span class="muted">Click to edit ingredients</span></div>
+            <ul class="recipe-list" id="recipe-list"></ul>
+          </div>
+          <div class="card recipe-detail" id="recipe-detail">
+            <div class="card-head"><h3 id="recipe-title">Select a recipe</h3><span class="muted" id="recipe-yield"></span></div>
+            <div id="recipe-body"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Theoretical vs. Actual Food Cost</h3>
+            <span class="muted">Shrinkage = waste + theft + over-portioning</span>
+          </div>
+          <div class="variance-grid">
+            <div class="var-stat"><div class="var-label">Theoretical food cost</div><div class="var-value" id="var-theo">$0</div><div class="var-foot" id="var-theo-pct">0%</div></div>
+            <div class="var-stat"><div class="var-label">Actual food cost</div><div class="var-value" id="var-act">$0</div><div class="var-foot" id="var-act-pct">0%</div></div>
+            <div class="var-stat big"><div class="var-label">Shrinkage / variance</div><div class="var-value" id="var-shrink">$0</div><div class="var-foot" id="var-shrink-pct">0%</div></div>
+          </div>
+          <p class="muted" style="margin-top:16px">Theoretical cost is calculated from unit sales × recipe cost. Actual comes from your P&amp;L COGS. A variance above 2–3% usually points to portioning, waste, comps, or inventory issues.</p>
+        </div>
+      </section>
+
+      <!-- CUSTOMERS / CRM -->
+      <section class="view" data-view="customers">
+        <div class="kpi-grid kpi-4">
+          <div class="kpi"><div class="kpi-label">Active customers (90D)</div><div class="kpi-value" id="crm-active">0</div></div>
+          <div class="kpi"><div class="kpi-label">Repeat rate</div><div class="kpi-value" id="crm-repeat">0%</div><div class="kpi-foot">Target &gt; 30%</div></div>
+          <div class="kpi"><div class="kpi-label">Avg spend / customer</div><div class="kpi-value" id="crm-avg">$0</div></div>
+          <div class="kpi"><div class="kpi-label">Win-back candidates</div><div class="kpi-value" id="crm-winback">0</div><div class="kpi-foot">Last order &gt; 60d</div></div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Top customers</h3><span class="muted">By 90-day spend</span></div>
+            <table class="tbl compact">
+              <thead><tr><th>Name</th><th>Phone</th><th>Orders</th><th>Spent</th><th>Last order</th><th>Tags</th></tr></thead>
+              <tbody id="crm-body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Campaigns ready to send</h3><span class="muted">Suggested</span></div>
+            <ul class="campaigns" id="campaigns-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SHIFT SCHEDULER -->
+      <section class="view" data-view="scheduler">
+        <div class="card">
+          <div class="card-head">
+            <h3>Weekly Schedule</h3>
+            <div class="sched-controls">
+              <span class="muted" id="sched-week"></span>
+              <span class="sched-pill" id="sched-cost">$0 / wk</span>
+              <span class="sched-pill" id="sched-pct">0% labor</span>
+            </div>
+          </div>
+          <div class="sched-hint">Click a cell to add/remove a shift. Each shift defaults to 8 hours.</div>
+          <div class="sched-wrap">
+            <table class="sched-grid" id="sched-grid"></table>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Projected labor % vs. forecast sales</h3><span class="muted">Daily</span></div>
+            <div class="chart-wrap"><canvas id="chart-sched"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Coverage warnings</h3></div>
+            <ul class="insights" id="sched-warnings"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- DBPR INSPECTION PREP -->
+      <section class="view" data-view="inspection">
+        <div class="insp-hero">
+          <div>
+            <div class="brief-badge">FL DBPR Readiness</div>
+            <h2>Inspection Readiness Score</h2>
+            <p class="sub">Based on the Florida Division of Hotels &amp; Restaurants Food Code violation categories</p>
+          </div>
+          <div class="insp-score">
+            <div class="insp-score-ring" id="insp-ring">
+              <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#2c2820" stroke-width="10"/><circle id="insp-ring-fg" cx="60" cy="60" r="52" fill="none" stroke="#6fbf73" stroke-width="10" stroke-linecap="round" transform="rotate(-90 60 60)" stroke-dasharray="327" stroke-dashoffset="327"/></svg>
+              <div class="insp-score-value" id="insp-score-value">0%</div>
+            </div>
+            <div class="insp-score-stats">
+              <div><span>High-priority passed</span><strong id="insp-hp">0/0</strong></div>
+              <div><span>Intermediate passed</span><strong id="insp-int">0/0</strong></div>
+              <div><span>Basic passed</span><strong id="insp-bas">0/0</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Walk the inspector's route</h3>
+            <div class="insp-filter">
+              <button class="chip active" data-insp-filter="all">All</button>
+              <button class="chip" data-insp-filter="high">High-priority</button>
+              <button class="chip" data-insp-filter="intermediate">Intermediate</button>
+              <button class="chip" data-insp-filter="basic">Basic</button>
+              <button class="chip" data-insp-filter="fail">Needs attention</button>
+            </div>
+          </div>
+          <p class="muted">Check each item as you verify it. Scoring weights high-priority 3×, intermediate 2×, basic 1× — mirroring DBPR inspection impact.</p>
+          <div id="insp-groups"></div>
+        </div>
+
+        <div class="row-2">
+          <div class="card">
+            <div class="card-head"><h3>Top 10 FL DBPR violations this year</h3><span class="muted">Stay on watch</span></div>
+            <ol class="top-viol" id="top-viol"></ol>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Mock inspection</h3><span class="muted">Run a practice walkthrough</span></div>
+            <div id="mock-body">
+              <p class="muted">A DBPR inspector typically spends 45–90 minutes on a routine inspection. Launch a mock inspection to simulate what they'll check.</p>
+              <button class="btn" id="start-mock">Start mock inspection</button>
+              <div id="mock-results"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TASK ASSIGNMENTS -->
+      <section class="view" data-view="tasks">
+        <div class="task-hero">
+          <div class="task-hero-kpis">
+            <div class="task-kpi"><span class="kpi-label">Today</span><div class="kpi-num" id="tk-today">—</div><span class="kpi-sub" id="tk-today-sub">—</span></div>
+            <div class="task-kpi"><span class="kpi-label">This week</span><div class="kpi-num" id="tk-week">—</div><span class="kpi-sub" id="tk-week-sub">—</span></div>
+            <div class="task-kpi"><span class="kpi-label">This month</span><div class="kpi-num" id="tk-month">—</div><span class="kpi-sub" id="tk-month-sub">—</span></div>
+            <div class="task-kpi"><span class="kpi-label">Overdue</span><div class="kpi-num warn" id="tk-overdue">—</div><span class="kpi-sub">needs attention</span></div>
+          </div>
+        </div>
+
+        <div class="task-filters">
+          <div class="chip-row" id="task-freq-filter">
+            <button class="chip active" data-tf="all">All</button>
+            <button class="chip" data-tf="daily">Daily</button>
+            <button class="chip" data-tf="weekly">Weekly</button>
+            <button class="chip" data-tf="monthly">Monthly</button>
+            <button class="chip" data-tf="quarterly">Quarterly</button>
+            <button class="chip" data-tf="annual">Annual</button>
+          </div>
+          <div class="chip-row" id="task-cat-filter">
+            <button class="chip active" data-tc="all">All categories</button>
+            <button class="chip" data-tc="Fire Safety">Fire safety</button>
+            <button class="chip" data-tc="Food Safety">Food safety</button>
+            <button class="chip" data-tc="Facility">Facility</button>
+            <button class="chip" data-tc="Compliance">Compliance</button>
+            <button class="chip" data-tc="Operations">Operations</button>
+            <button class="chip" data-tc="People">People</button>
+          </div>
+          <div class="chip-row">
+            <select id="task-assignee" class="task-select">
+              <option value="all">All assignees</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="task-groups"></div>
+      </section>
+
+    </main>
+
+    <!-- Modal for adding waste -->
+    <div class="modal" id="waste-modal" hidden>
+      <div class="modal-card">
+        <h3>Log waste</h3>
+        <label>Item <input id="w-item" type="text" placeholder="Mozzarella" /></label>
+        <label>Qty <input id="w-qty" type="number" step="0.1" placeholder="2" /></label>
+        <label>Reason
+          <select id="w-reason"><option>Spoilage</option><option>Burn / overcook</option><option>Dropped</option><option>Customer return</option><option>Prep error</option></select>
+        </label>
+        <label>$ Loss <input id="w-loss" type="number" step="0.01" placeholder="12.50" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="w-cancel">Cancel</button>
+          <button class="btn" id="w-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth guard: redirects to /login.html if not signed in, or /onboarding.html if no tenant.
+         Runs BEFORE app.js so app.js can assume a valid tenant context exists. -->
+    <script type="module">
+      import { loadTenantContext } from './tenantContext.js';
+      try {
+        const ctx = await loadTenantContext();
+        window.__RESTOPS_CTX__ = ctx;
+        // Update brand area with actual tenant name
+        const brandName = document.querySelector('.brand-name');
+        const brandSub = document.querySelector('.brand-sub');
+        if (brandName) brandName.textContent = ctx.tenant.name;
+        if (brandSub && ctx.tenant.restaurant_type) {
+          brandSub.textContent = ctx.tenant.restaurant_type.replace(/-/g, ' ');
+        }
+        // Signal app.js it can start
+        window.dispatchEvent(new CustomEvent('restops:ready'));
+      } catch (err) {
+        // loadTenantContext already redirects — this catch is just to stop execution
+        console.warn('Auth gate blocked:', err.message);
+      }
+    </script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

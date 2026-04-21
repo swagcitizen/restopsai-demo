@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up your restaurant · RestOps AI</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <header class="auth-head">
+      <a href="/" class="brand">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="RestOps AI">
+          <path d="M6 22 L16 6 L26 22 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="2.5" fill="currentColor"/>
+        </svg>
+        <span>RestOps AI</span>
+      </a>
+      <button id="signout" class="btn-ghost">Sign out</button>
+    </header>
+
+    <section class="auth-card auth-card-wide">
+      <h1>Set up your restaurant</h1>
+      <p class="auth-sub">We'll use this to tailor your dashboard. You can change everything later.</p>
+
+      <form id="onboarding-form" class="auth-form">
+        <label>
+          <span>Restaurant name</span>
+          <input type="text" name="name" required placeholder="e.g. Anthony's Pizza">
+        </label>
+
+        <label>
+          <span>Restaurant type</span>
+          <select name="restaurantType" required>
+            <option value="pizzeria">Pizzeria</option>
+            <option value="burger">Burger / fast-casual</option>
+            <option value="taqueria">Taqueria / Mexican</option>
+            <option value="cafe">Cafe / bakery</option>
+            <option value="fine-dining">Fine dining</option>
+            <option value="bar">Bar / gastropub</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+
+        <div class="auth-grid-2">
+          <label>
+            <span>City</span>
+            <input type="text" name="city" placeholder="Orlando">
+          </label>
+          <label>
+            <span>State</span>
+            <select name="state">
+              <option value="FL" selected>Florida</option>
+              <option value="GA">Georgia</option>
+              <option value="TX">Texas</option>
+              <option value="NY">New York</option>
+              <option value="CA">California</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="onboarding-error" class="auth-error" hidden></div>
+        <button type="submit" class="btn-primary" id="onb-btn">Create my dashboard →</button>
+
+        <p class="auth-note">
+          This seeds 37 compliance checklist items, 31 recurring tasks (fire extinguisher, grease trap, hood cleaning, pest, licenses), and 3 license templates based on your state.
+        </p>
+      </form>
+    </section>
+
+    <footer class="auth-foot">
+      <span>© 2026 RestOps AI</span>
+    </footer>
+  </main>
+
+  <script type="module">
+    import { supabase, getSession, getMemberships, signOut, createTenant } from './supabaseClient.js';
+
+    const session = await getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+    }
+
+    // If they already have a tenant, skip to app
+    const memberships = await getMemberships();
+    if (memberships.length > 0) {
+      window.location.href = '/';
+    }
+
+    document.getElementById('signout').addEventListener('click', signOut);
+
+    const form = document.getElementById('onboarding-form');
+    const errBox = document.getElementById('onboarding-error');
+    const btn = document.getElementById('onb-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Setting up your dashboard…';
+
+      const fd = new FormData(form);
+      try {
+        await createTenant({
+          name: fd.get('name').trim(),
+          restaurantType: fd.get('restaurantType'),
+          state: fd.get('state'),
+          city: fd.get('city') || null,
+        });
+        window.location.href = '/';
+      } catch (err) {
+        errBox.textContent = err.message || 'Something went wrong. Try again.';
+        errBox.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Create my dashboard →';
+      }
+    });
+  </script>
+</body>
+</html>

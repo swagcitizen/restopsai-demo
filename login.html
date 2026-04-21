@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · RestOps AI</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <header class="auth-head">
+      <a href="/" class="brand">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="RestOps AI">
+          <path d="M6 22 L16 6 L26 22 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="2.5" fill="currentColor"/>
+        </svg>
+        <span>RestOps AI</span>
+      </a>
+    </header>
+
+    <section class="auth-card">
+      <h1>Sign in</h1>
+      <p class="auth-sub">Welcome back. Every restaurant, one system.</p>
+
+      <form id="login-form" class="auth-form" autocomplete="on">
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" required autocomplete="email" placeholder="you@restaurant.com">
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" name="password" required autocomplete="current-password" minlength="8">
+        </label>
+        <div id="login-error" class="auth-error" hidden></div>
+        <button type="submit" class="btn-primary" id="login-btn">Sign in</button>
+      </form>
+
+      <p class="auth-alt">
+        New here? <a href="/signup.html">Create an account</a>
+      </p>
+    </section>
+
+    <footer class="auth-foot">
+      <span>© 2026 RestOps AI</span>
+      <span>·</span>
+      <a href="/legal/terms.html">Terms</a>
+      <span>·</span>
+      <a href="/legal/privacy.html">Privacy</a>
+    </footer>
+  </main>
+
+  <script type="module">
+    import { supabase, getSession } from './supabaseClient.js';
+
+    // If already signed in, skip to app
+    const existing = await getSession();
+    if (existing) {
+      window.location.href = '/';
+    }
+
+    const form = document.getElementById('login-form');
+    const errBox = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+      const fd = new FormData(form);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: fd.get('email'),
+        password: fd.get('password'),
+      });
+      if (error) {
+        errBox.textContent = error.message;
+        errBox.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+        return;
+      }
+      window.location.href = '/';
+    });
+  </script>
+</body>
+</html>

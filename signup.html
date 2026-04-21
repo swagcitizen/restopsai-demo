@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up · RestOps AI</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <header class="auth-head">
+      <a href="/" class="brand">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="RestOps AI">
+          <path d="M6 22 L16 6 L26 22 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="16" cy="18" r="2.5" fill="currentColor"/>
+        </svg>
+        <span>RestOps AI</span>
+      </a>
+    </header>
+
+    <section class="auth-card">
+      <h1>Start your 14-day trial</h1>
+      <p class="auth-sub">No card required. Cancel anytime.</p>
+
+      <form id="signup-form" class="auth-form" autocomplete="on">
+        <label>
+          <span>Your name</span>
+          <input type="text" name="fullName" required autocomplete="name" placeholder="Anthony Rossi">
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" required autocomplete="email" placeholder="you@restaurant.com">
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" name="password" required autocomplete="new-password" minlength="8" placeholder="at least 8 characters">
+        </label>
+        <div id="signup-error" class="auth-error" hidden></div>
+        <button type="submit" class="btn-primary" id="signup-btn">Create account</button>
+      </form>
+
+      <p class="auth-alt">
+        Already have an account? <a href="/login.html">Sign in</a>
+      </p>
+    </section>
+
+    <footer class="auth-foot">
+      <span>© 2026 RestOps AI</span>
+      <span>·</span>
+      <a href="/legal/terms.html">Terms</a>
+      <span>·</span>
+      <a href="/legal/privacy.html">Privacy</a>
+    </footer>
+  </main>
+
+  <script type="module">
+    import { supabase, getSession } from './supabaseClient.js';
+
+    const existing = await getSession();
+    if (existing) window.location.href = '/';
+
+    const form = document.getElementById('signup-form');
+    const errBox = document.getElementById('signup-error');
+    const btn = document.getElementById('signup-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Creating account…';
+
+      const fd = new FormData(form);
+      const { data, error } = await supabase.auth.signUp({
+        email: fd.get('email'),
+        password: fd.get('password'),
+        options: {
+          data: { full_name: fd.get('fullName') },
+          emailRedirectTo: window.location.origin + '/onboarding.html',
+        },
+      });
+
+      if (error) {
+        errBox.textContent = error.message;
+        errBox.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+        return;
+      }
+
+      // If Supabase project has email confirmation off (default in dev), session exists immediately
+      if (data.session) {
+        window.location.href = '/onboarding.html';
+      } else {
+        // Email confirmation required — show message
+        errBox.classList.add('auth-success');
+        errBox.textContent = 'Check your email to confirm your account, then log in.';
+        errBox.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+      }
+    });
+  </script>
+</body>
+</html>
