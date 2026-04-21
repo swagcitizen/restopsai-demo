@@ -11,6 +11,7 @@ import {
   TASK_LIBRARY,
 } from './phase2.js';
 import * as tasksRepo from './tasksRepo.js';
+import * as dataRepo from './dataRepo.js';
 
 // In-memory state persistence. Data resets when the page reloads.
 const STORAGE_KEY = "anthonys-pizza-dashboard-v1";
@@ -1494,8 +1495,21 @@ function bindEvents() {
       renderInventory(); renderAlerts(); renderCompliance(); renderCharts(); saveState();
     } else if (el.dataset.staff !== undefined) {
       const idx = +el.dataset.staff, field = el.dataset.field;
-      state.staff[idx][field] = +el.value || 0;
-      renderStaff(); renderKPIs(); saveState();
+      const value = +el.value || 0;
+      const member = state.staff[idx];
+      if (!member) return;
+      state.staff[idx][field] = value;
+      // Keep hourly/wage aliases in sync in case other code reads either.
+      if (field === 'hourly') state.staff[idx].wage = value;
+      if (field === 'wage') state.staff[idx].hourly = value;
+      renderStaff(); renderKPIs();
+      // Only hourly wage persists to DB right now (cert/hrs fields are UI-only for now).
+      if ((field === 'hourly' || field === 'wage') && member.id) {
+        dataRepo.updateStaffWage(member.id, value).catch(err => {
+          console.error('Staff wage update failed:', err);
+          alert('Could not save wage: ' + err.message);
+        });
+      }
     } else if (el.dataset.temp !== undefined) {
       const idx = +el.dataset.temp;
       state.temps[idx].last = +el.value || 0;
@@ -1515,29 +1529,60 @@ function bindEvents() {
     }
   });
 
-  document.getElementById("log-temp").addEventListener("click", () => {
-    state.temps.forEach(t => t.history = [...(t.history || []).slice(-13), { day: todayISO(), value: t.last }]);
-    renderTempChart(); saveState();
+  document.getElementById("log-temp").addEventListener("click", async () => {
     const btn = document.getElementById("log-temp");
-    const orig = btn.textContent; btn.textContent = "✓ Logged"; setTimeout(() => btn.textContent = orig, 1500);
+    const orig = btn.textContent;
+    btn.textContent = "Logging…";
+    btn.disabled = true;
+    try {
+      // Persist each equipment reading to Supabase.
+      await Promise.all(
+        state.temps.map(t => dataRepo.logTemperature(t.equipment, t.last))
+      );
+      // Refresh history from DB so charts reflect real log timestamps.
+      state.temps = await dataRepo.fetchTempLogs();
+      renderTempChart();
+      renderTemps();
+      renderHealthPill();
+      btn.textContent = "✓ Logged";
+    } catch (err) {
+      console.error('Temperature log failed:', err);
+      alert('Could not log temperatures: ' + err.message);
+      btn.textContent = orig;
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => { if (btn.textContent === "✓ Logged") btn.textContent = orig; }, 1500);
+    }
   });
 
   // Waste modal
   const modal = document.getElementById("waste-modal");
   document.getElementById("add-waste").addEventListener("click", () => modal.hidden = false);
   document.getElementById("w-cancel").addEventListener("click", () => modal.hidden = true);
-  document.getElementById("w-save").addEventListener("click", () => {
-    const w = {
-      date: todayISO(),
+  document.getElementById("w-save").addEventListener("click", async () => {
+    const saveBtn = document.getElementById("w-save");
+    const payload = {
       item: document.getElementById("w-item").value || "Item",
       qty: +document.getElementById("w-qty").value || 0,
       reason: document.getElementById("w-reason").value,
       loss: +document.getElementById("w-loss").value || 0,
     };
-    state.waste.unshift(w);
-    renderWaste(); saveState();
-    modal.hidden = true;
-    ["w-item","w-qty","w-loss"].forEach(id => document.getElementById(id).value = "");
+    saveBtn.disabled = true;
+    const origText = saveBtn.textContent;
+    saveBtn.textContent = "Saving…";
+    try {
+      await dataRepo.logWaste(payload);
+      state.waste = await dataRepo.fetchWasteLogs();
+      renderWaste();
+      modal.hidden = true;
+      ["w-item","w-qty","w-loss"].forEach(id => document.getElementById(id).value = "");
+    } catch (err) {
+      console.error('Waste save failed:', err);
+      alert('Could not save waste entry: ' + err.message);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = origText;
+    }
   });
 
   document.getElementById("reset-data").addEventListener("click", () => {
@@ -1559,15 +1604,23 @@ function bindEvents() {
     });
   }
 
-  // Inspection item toggle (delegated)
+  // Inspection item toggle (delegated) — write-through to Supabase.
   document.addEventListener("click", (e) => {
     const item = e.target.closest("[data-insp]");
     if (item) {
       const code = item.dataset.insp;
-      state.inspChecks[code] = !state.inspChecks[code];
+      const next = !state.inspChecks[code];
+      state.inspChecks[code] = next;
       renderInspection();
       renderBriefing();
-      saveState();
+      dataRepo.setInspectionCheck(code, next).catch(err => {
+        console.error('Inspection toggle failed:', err);
+        // Roll back UI on failure to keep state consistent with DB.
+        state.inspChecks[code] = !next;
+        renderInspection();
+        renderBriefing();
+        alert('Could not save inspection check: ' + err.message);
+      });
     }
     // Filter chips
     const chip = e.target.closest("[data-insp-filter]");
@@ -1849,12 +1902,43 @@ function setToday() {
 // -----------------------------------------------------------------------------
 // INIT — waits for the auth guard in index.html to fire 'restops:ready'
 // -----------------------------------------------------------------------------
-function bootApp() {
+async function bootApp() {
   setToday();
+
+  // Hydrate state from Supabase (replaces the mock SAMPLE.* where possible).
+  // Each module has its own repo; modules still reading memStore get kept
+  // for now and migrate in later passes (Menu/Recipes/CRM/Sales).
+  try {
+    const [staff, temps, waste, inspChecks, licenses, inspHistory] = await Promise.all([
+      dataRepo.fetchStaff(),
+      dataRepo.fetchTempLogs(),
+      dataRepo.fetchWasteLogs(),
+      dataRepo.fetchInspectionChecks(),
+      dataRepo.fetchLicenses(),
+      dataRepo.fetchInspectionHistory(),
+    ]);
+    state.staff = staff;
+    state.temps = temps;
+    state.waste = waste;
+    state.inspChecks = inspChecks;
+    state.licenses = licenses;
+    if (inspHistory.length > 0) {
+      state.inspections = inspHistory.map(h => ({
+        date: h.date, type: 'Routine', violations: h.violations, high: 0, result: 'Met',
+      }));
+    }
+    // else keep the SAMPLE.inspections so charts/briefing still have data; user hasn't logged any yet.
+  } catch (err) {
+    console.error('Failed to hydrate state from Supabase:', err);
+    alert('Could not load your data: ' + err.message);
+  }
+
   bindEvents();
   renderAll();
-  // Attach sign-out handler (button added by guard will dispatch through window.__RESTOPS_CTX__)
   window.__restopsBooted = true;
+  // Dev-only debug hook so Playwright QA can inspect state.
+  window.__restopsState = state;
+  window.__restopsRepos = { dataRepo, tasksRepo };
 }
 
 if (window.__RESTOPS_CTX__) {
