@@ -24,15 +24,28 @@ export async function ensureDemoSession() {
   const existing = await getSession();
   if (existing) return existing;
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-  });
-  if (error) {
-    console.warn('[demoMode] auto-signin failed:', error.message);
-    return null;
+  // Retry up to 3 times in case of transient network failures (cold esm.sh cache, etc).
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+      });
+      if (error) throw error;
+      // Confirm session is actually established before returning.
+      const confirmed = await getSession();
+      if (confirmed) return confirmed;
+      return data.session;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[demoMode] auto-signin attempt ${attempt} failed:`, err.message || err);
+      // exponential backoff: 300ms, 900ms
+      if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 300));
+    }
   }
-  return data.session;
+  console.error('[demoMode] auto-signin gave up after 3 attempts:', lastError);
+  return null;
 }
 
 // Call this from a "Sign out" button to stay signed out in demo mode.
