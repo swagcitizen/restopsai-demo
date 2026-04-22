@@ -607,3 +607,35 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 .legal-shell .updated { color: var(--text-muted); font-size: 0.88rem; }
 .legal-head { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
 .legal-head .brand { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; font-weight: 600; }
+
+/* Demo mode banner */
+.demo-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  margin: 0;
+  background: linear-gradient(90deg, rgba(232, 163, 61, 0.12), rgba(232, 163, 61, 0.04));
+  border-bottom: 1px solid var(--line);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.demo-banner[hidden] { display: none; }
+.demo-banner-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 163, 61, 0.25);
+  flex: 0 0 auto;
+}
+.demo-banner-text { flex: 1 1 auto; color: var(--text); opacity: 0.92; }
+.demo-banner-text strong { color: var(--text); font-weight: 600; }
+.demo-banner-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border: 1px solid rgba(232, 163, 61, 0.35);
+  border-radius: 6px;
+}
+.demo-banner-link:hover { background: rgba(232, 163, 61, 0.1); }

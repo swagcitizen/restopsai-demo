@@ -4,11 +4,16 @@
 // (role visibility, badge display, tenant name in header, etc).
 
 import { supabase, getSession, getMemberships, getProfile } from './supabaseClient.js';
+import { ensureDemoSession } from './demoMode.js';
 
 let _cache = null;
 
 export async function loadTenantContext() {
   if (_cache) return _cache;
+
+  // Public demo build: auto-sign-in as the demo user if nobody is signed in.
+  // This is a no-op on non-demo URLs or if the visitor explicitly opted out.
+  await ensureDemoSession();
 
   const session = await getSession();
   if (!session) {

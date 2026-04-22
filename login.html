@@ -52,8 +52,12 @@
 
   <script type="module">
     import { supabase, getSession } from './supabaseClient.js';
+    import { ensureDemoSession } from './demoMode.js';
 
-    // If already signed in, skip to app
+    // Demo build: auto-sign-in visitors so the app is accessible without creds.
+    await ensureDemoSession();
+
+    // If signed in (either normally or via demo auto-signin), skip to app.
     const existing = await getSession();
     if (existing) {
       window.location.href = './index.html';

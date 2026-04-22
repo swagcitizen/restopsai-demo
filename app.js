@@ -1943,6 +1943,16 @@ function setToday() {
 async function bootApp() {
   setToday();
 
+  // Show demo banner if the current session was created via the demo auto-signin.
+  try {
+    const tc = await import('./tenantContext.js');
+    const ctx = tc.getTenantContext?.();
+    if (ctx?.user?.email === 'demo@bellavita.app') {
+      const banner = document.getElementById('demo-banner');
+      if (banner) banner.hidden = false;
+    }
+  } catch (_) { /* non-fatal */ }
+
   // Hydrate state from Supabase (replaces the mock SAMPLE.* where possible).
   // For modules that have no rows yet, auto-seed from SAMPLE so a brand-new
   // tenant sees a working dashboard on first load.
