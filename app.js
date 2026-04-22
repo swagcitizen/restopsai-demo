@@ -546,7 +546,7 @@ function renderMenu() {
     const cls = classifyItem(marginPct, m.units);
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${m.name}</td>
+      <td>${escapeHtml(m.name)}</td>
       <td><input type="number" step="0.01" value="${m.price}" data-menu="${idx}" data-field="price"/></td>
       <td><input type="number" step="0.01" value="${m.cost}" data-menu="${idx}" data-field="cost"/></td>
       <td>${fmtUSD2(margin)}</td>
@@ -569,14 +569,14 @@ function renderInventory() {
     const status = critical ? `<span class="pill err">Reorder now</span>` : belowPar ? `<span class="pill warn">Below par</span>` : `<span class="pill ok">OK</span>`;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${i.item}</td>
-      <td>${i.unit}</td>
+      <td>${escapeHtml(i.item)}</td>
+      <td>${escapeHtml(i.unit)}</td>
       <td><input type="number" step="0.1" value="${i.onHand}" data-inv="${idx}" data-field="onHand"/></td>
       <td>${i.par}</td>
       <td>${i.reorder}</td>
       <td>${fmtUSD2(i.cost)}</td>
       <td>${fmtUSD2(value)}</td>
-      <td>${i.vendor}</td>
+      <td>${escapeHtml(i.vendor)}</td>
       <td>${status}</td>
     `;
     tbody.appendChild(tr);
@@ -590,7 +590,7 @@ function renderWaste() {
   state.waste.forEach(w => {
     total += w.loss;
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${w.date}</td><td>${w.item}</td><td>${w.qty}</td><td>${w.reason}</td><td>${fmtUSD2(w.loss)}</td>`;
+    tr.innerHTML = `<td>${escapeHtml(w.date)}</td><td>${escapeHtml(w.item)}</td><td>${w.qty}</td><td>${escapeHtml(w.reason)}</td><td>${fmtUSD2(w.loss)}</td>`;
     tbody.appendChild(tr);
   });
   document.getElementById("waste-total").textContent = fmtUSD2(total);
@@ -608,14 +608,14 @@ function renderStaff() {
     const certStatus = days < 0 ? `<span class="pill err">Expired</span>` : days < 30 ? `<span class="pill warn">${days}d</span>` : `<span class="pill ok">${days}d</span>`;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${s.name}</td>
-      <td>${s.role}</td>
+      <td>${escapeHtml(s.name)}</td>
+      <td>${escapeHtml(s.role)}</td>
       <td><input type="number" step="0.25" value="${s.hourly}" data-staff="${idx}" data-field="hourly"/></td>
       <td><input type="number" step="1" value="${s.hrs}" data-staff="${idx}" data-field="hrs"/></td>
       <td>${fmtUSD2(weekly)}</td>
       <td>${fmtUSD(monthly)}</td>
-      <td>${s.cert}</td>
-      <td>${s.exp} ${certStatus}</td>
+      <td>${escapeHtml(s.cert)}</td>
+      <td>${escapeHtml(s.exp)} ${certStatus}</td>
     `;
     tbody.appendChild(tr);
   });
