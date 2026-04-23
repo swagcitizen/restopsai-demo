@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Anthony's Pizza — Operations Dashboard</title>
-    <meta name="description" content="Interactive management dashboard for Anthony's Pizza — costs, P&L, inventory, labor, and Florida DBPR food-safety compliance." />
+    <title>RestOps AI — Back-office Operations</title>
+    <meta name="description" content="RestOps AI: back-office operations for independent restaurants. Costs, P&L, inventory, labor, recipes, and Florida DBPR food-safety compliance." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
@@ -38,7 +38,6 @@
         <button class="nav-item" data-view="recipes"><span class="dot"></span>Recipe Costing</button>
         <button class="nav-item" data-view="sales"><span class="dot"></span>Sales &amp; Menu</button>
         <button class="nav-item" data-view="inventory"><span class="dot"></span>Inventory</button>
-        <button class="nav-item" data-view="customers"><span class="dot"></span>Customers / CRM</button>
 
         <div class="nav-section">People</div>
         <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
@@ -79,7 +78,7 @@
       <header class="topbar">
         <div>
           <h1 id="view-title">Overview</h1>
-          <p id="view-sub" class="sub">Real-time snapshot of the pizzeria</p>
+          <p id="view-sub" class="sub">Real-time snapshot of the business</p>
         </div>
         <div class="topbar-actions">
           <div class="seg" role="tablist" aria-label="Time range">
@@ -367,7 +366,7 @@
       <section class="view" data-view="briefing">
         <div class="briefing-hero">
           <div class="briefing-badge">AI Briefing</div>
-          <h2 id="brief-headline">This week at Anthony's</h2>
+          <h2 id="brief-headline">This week in the back office</h2>
           <p class="sub" id="brief-period"></p>
           <div class="brief-kpis" id="brief-kpis"></div>
           <button class="btn" id="refresh-brief">Refresh briefing</button>
@@ -414,30 +413,6 @@
             <div class="var-stat big"><div class="var-label">Shrinkage / variance</div><div class="var-value" id="var-shrink">$0</div><div class="var-foot" id="var-shrink-pct">0%</div></div>
           </div>
           <p class="muted" style="margin-top:16px">Theoretical cost is calculated from unit sales × recipe cost. Actual comes from your P&amp;L COGS. A variance above 2–3% usually points to portioning, waste, comps, or inventory issues.</p>
-        </div>
-      </section>
-
-      <!-- CUSTOMERS / CRM -->
-      <section class="view" data-view="customers">
-        <div class="kpi-grid kpi-4">
-          <div class="kpi"><div class="kpi-label">Active customers (90D)</div><div class="kpi-value" id="crm-active">0</div></div>
-          <div class="kpi"><div class="kpi-label">Repeat rate</div><div class="kpi-value" id="crm-repeat">0%</div><div class="kpi-foot">Target &gt; 30%</div></div>
-          <div class="kpi"><div class="kpi-label">Avg spend / customer</div><div class="kpi-value" id="crm-avg">$0</div></div>
-          <div class="kpi"><div class="kpi-label">Win-back candidates</div><div class="kpi-value" id="crm-winback">0</div><div class="kpi-foot">Last order &gt; 60d</div></div>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Top customers</h3><span class="muted">By 90-day spend</span></div>
-            <table class="tbl compact">
-              <thead><tr><th>Name</th><th>Phone</th><th>Orders</th><th>Spent</th><th>Last order</th><th>Tags</th></tr></thead>
-              <tbody id="crm-body"></tbody>
-            </table>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Campaigns ready to send</h3><span class="muted">Suggested</span></div>
-            <ul class="campaigns" id="campaigns-list"></ul>
-          </div>
         </div>
       </section>
 

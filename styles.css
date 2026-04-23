@@ -378,7 +378,7 @@ input[type="number"]:focus, input[type="text"]:focus, select:focus { outline: no
 /* Role-based visibility */
 body.role-manager [data-role="owner-only"] { display: none; }
 body.role-staff [data-role="owner-only"], body.role-staff [data-role="manager-up"] { display: none; }
-body.role-staff .nav-item[data-view="costs"], body.role-staff .nav-item[data-view="briefing"], body.role-staff .nav-item[data-view="recipes"], body.role-staff .nav-item[data-view="sales"], body.role-staff .nav-item[data-view="customers"], body.role-staff .nav-item[data-view="scheduler"], body.role-staff .nav-item[data-view="compliance"] { display: none; }
+body.role-staff .nav-item[data-view="costs"], body.role-staff .nav-item[data-view="briefing"], body.role-staff .nav-item[data-view="recipes"], body.role-staff .nav-item[data-view="sales"], body.role-staff .nav-item[data-view="scheduler"], body.role-staff .nav-item[data-view="compliance"] { display: none; }
 body.role-manager .nav-item[data-view="costs"], body.role-manager .nav-item[data-view="briefing"] { display: none; }
 
 @media (max-width: 1100px) {

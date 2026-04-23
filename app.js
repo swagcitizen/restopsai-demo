@@ -7,7 +7,6 @@ import {
   MOCK_INSPECTION_QUESTIONS,
   MOCK_ANSWERS,
   SAMPLE_RECIPES,
-  SAMPLE_CUSTOMERS,
   TASK_LIBRARY,
 } from './phase2.js';
 import * as tasksRepo from './tasksRepo.js';
@@ -172,7 +171,6 @@ function seed() {
     inspFilter: "all",
     recipes: SAMPLE_RECIPES.map(r => ({ ...r, ingredients: r.ingredients.map(i => ({...i})) })),
     selectedRecipe: "r1",
-    customers: SAMPLE_CUSTOMERS.map(c => ({ ...c, tags: [...c.tags] })),
     schedule: seedSchedule(),
     forecastSales: 21000, // weekly forecast
     mockSession: null,
@@ -468,7 +466,6 @@ function renderAll() {
   applyRole();
   renderBriefing();
   renderRecipes();
-  renderCRM();
   renderScheduler();
   renderInspection();
   renderTasks();
@@ -1049,9 +1046,6 @@ function renderBriefing() {
   // Reorder
   const lowInv = state.inv.filter(i => i.onHand <= i.reorder);
   if (lowInv.length > 0) focus.push(`Place reorder with ${[...new Set(lowInv.map(i => i.vendor))].join(", ")} — ${lowInv.length} items at or below par.`);
-  // Win-back
-  const winback = state.customers.filter(c => daysBetween(c.last, todayISO()) > 60).length;
-  if (winback > 0) focus.push(`Run a win-back text blast to ${winback} lapsed customers — offer 20% off to return.`);
   // Menu engineering
   const dogs = state.menu.filter(m => {
     const margin = ((m.price - m.cost)/m.price) * 100;
@@ -1162,57 +1156,6 @@ function renderVariance() {
   const shrinkEl = document.getElementById("var-shrink-pct");
   shrinkEl.textContent = `${shrinkPct >= 0 ? '+' : ''}${shrinkPct.toFixed(1)}% variance · ${shrinkPct > 4 ? 'investigate' : shrinkPct > 0 ? 'acceptable' : 'favorable'}`;
   shrinkEl.className = `var-foot ${shrinkPct > 4 ? 'bad' : shrinkPct > 0 ? 'mid' : 'good'}`;
-}
-
-// -----------------------------------------------------------------------------
-// PHASE 2 — CRM
-// -----------------------------------------------------------------------------
-function renderCRM() {
-  const cs = state.customers;
-  const active90 = cs.filter(c => daysBetween(c.last, todayISO()) <= 90).length;
-  const repeat = cs.filter(c => c.orders >= 2).length;
-  const repeatRate = cs.length ? (repeat / cs.length) * 100 : 0;
-  const avg = cs.length ? cs.reduce((a,c) => a + c.spent, 0) / cs.length : 0;
-  const winback = cs.filter(c => daysBetween(c.last, todayISO()) > 60).length;
-
-  document.getElementById("crm-active").textContent = active90;
-  document.getElementById("crm-repeat").textContent = pct(repeatRate);
-  document.getElementById("crm-avg").textContent = fmtUSD(avg);
-  document.getElementById("crm-winback").textContent = winback;
-
-  const body = document.getElementById("crm-body");
-  if (body) {
-    body.innerHTML = cs.map(c => {
-      const daysSince = daysBetween(c.last, todayISO());
-      return `<tr>
-        <td><strong>${c.name}</strong><br><span class="muted small">${c.phone}</span></td>
-        <td class="mono">${c.orders}</td>
-        <td class="mono">${fmtUSD(c.spent)}</td>
-        <td>${daysSince}d ago</td>
-        <td>${c.tags.map(t => `<span class="tag tag-${t.toLowerCase().replace(/\s|-/g,'')}">${t}</span>`).join(" ")}</td>
-      </tr>`;
-    }).join("");
-  }
-
-  // Campaigns
-  const campaigns = [];
-  const vips = cs.filter(c => c.tags.includes("VIP"));
-  if (vips.length) campaigns.push({ title: "Reward your VIPs", desc: `${vips.length} customers with 20+ orders — send a free garlic knot coupon for their next visit.`, tag: "Loyalty" });
-  const wb = cs.filter(c => daysBetween(c.last, todayISO()) > 60);
-  if (wb.length) campaigns.push({ title: "Win-back text blast", desc: `${wb.length} customers haven't ordered in 60+ days. Suggested offer: 20% off next order.`, tag: "Win-back" });
-  const atRisk = cs.filter(c => c.tags.includes("at-risk"));
-  if (atRisk.length) campaigns.push({ title: "At-risk nudge", desc: `${atRisk.length} regulars drifting. Personal text from owner — "We miss you!"`, tag: "Retention" });
-  campaigns.push({ title: "Referral program", desc: `Invite top customers to refer a friend for $5 off each. Projected new sign-ups: ~${Math.round(vips.length * 1.5)}.`, tag: "Growth" });
-  campaigns.push({ title: "Birthday club", desc: `Collect birthdays at POS and auto-send a free personal pizza email. Industry avg 12% redemption.`, tag: "Loyalty" });
-
-  const cEl = document.getElementById("campaigns-list");
-  if (cEl) cEl.innerHTML = campaigns.map(c => `<li>
-    <div>
-      <div class="cname">${c.title} <span class="tag tag-${c.tag.toLowerCase().replace(/\s|-/g,'')}">${c.tag}</span></div>
-      <div class="cdesc">${c.desc}</div>
-    </div>
-    <button class="ghost-btn">Launch</button>
-  </li>`).join("");
 }
 
 // -----------------------------------------------------------------------------
@@ -1445,13 +1388,12 @@ function bindEvents() {
       document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
       document.querySelector(`.view[data-view="${view}"]`).classList.add("active");
       const titles = {
-        overview: ["Overview", "Real-time snapshot of the pizzeria"],
+        overview: ["Overview", "Real-time snapshot of the business"],
         briefing: ["Weekly Briefing", "Auto-generated insights, anomalies, and focus areas"],
         costs: ["Costs & P&L", "Edit any line — totals and break-even recalculate live"],
         recipes: ["Recipe Costing", "Plate costs, food cost %, and theoretical-vs-actual variance"],
         sales: ["Sales & Menu", "Daily revenue, product mix, and menu engineering"],
         inventory: ["Inventory", "Par levels, vendor spend, and waste tracking"],
-        customers: ["Customers / CRM", "Repeat rate, VIPs, win-back, and campaign ideas"],
         labor: ["Labor", "Staff roster, wages, and shift-level efficiency"],
         scheduler: ["Shift Scheduler", "Weekly coverage with live labor-% projection"],
         safety: ["Food Safety", "HACCP temperature logs, checklists, and cleaning"],
@@ -1959,7 +1901,7 @@ async function bootApp() {
   try {
     const [
       staff, temps, waste, inspChecks, licenses, inspHistory,
-      menu, inv, recipes, customers, sales,
+      menu, inv, recipes, sales,
     ] = await Promise.all([
       dataRepo.fetchStaff(),
       dataRepo.fetchTempLogs(),
@@ -1970,7 +1912,6 @@ async function bootApp() {
       dataRepo.fetchMenu(),
       dataRepo.fetchInventory(),
       dataRepo.fetchRecipes(),
-      dataRepo.fetchCustomers(),
       dataRepo.fetchDailySales(30),
     ]);
     state.staff = staff;
@@ -1985,12 +1926,11 @@ async function bootApp() {
     }
     // else keep the SAMPLE.inspections so charts/briefing still have data; user hasn't logged any yet.
 
-    // Seed-or-use for menu / inventory / recipes / customers / sales.
+    // Seed-or-use for menu / inventory / recipes / sales.
     // Seeding is idempotent (each seedXxxFromSample checks existing first).
     state.menu      = menu.length      > 0 ? menu      : await dataRepo.seedMenuFromSample(SAMPLE.menu);
     state.inv       = inv.length       > 0 ? inv       : await dataRepo.seedInventoryFromSample(SAMPLE.inv);
     state.recipes   = recipes.length   > 0 ? recipes   : await dataRepo.seedRecipesFromSample(SAMPLE_RECIPES);
-    state.customers = customers.length > 0 ? customers : await dataRepo.seedCustomersFromSample(SAMPLE_CUSTOMERS);
     state.sales30   = sales.length     > 0 ? sales     : await dataRepo.seedDailySalesFromSample(state.sales30);
     // selectedRecipe was initialised to 'r1' (sample id). Switch to the first real recipe
     // so recipe detail renders without needing the user to click.
