@@ -12,6 +12,7 @@ import {
 import * as tasksRepo from './tasksRepo.js';
 import * as dataRepo from './dataRepo.js';
 import * as invitesRepo from './invitesRepo.js';
+import * as clockRepo from './clockRepo.js';
 
 // In-memory state persistence. Data resets when the page reloads.
 const STORAGE_KEY = "anthonys-pizza-dashboard-v1";
@@ -1649,6 +1650,7 @@ function bindEvents() {
         invoices: ["Invoices & AP", "Upload invoices, OCR line items, and catch vendor price hikes"],
         labor: ["Labor", "Staff roster, wages, and shift-level efficiency"],
         scheduler: ["Shift Scheduler", "Weekly coverage with live labor-% projection"],
+        clock: ["Time Clock", "Employees punch in and out with their 4-digit PIN"],
         safety: ["Food Safety", "Prep labels, temperature logs, checklists, and cleaning"],
         inspection: ["DBPR Inspection Prep", "37-point FL DBPR readiness walkthrough + mock inspection"],
         tasks: ["Task Assignments", "Daily, weekly, and monthly duties — fire, grease trap, hood vents, and more"],
@@ -1660,6 +1662,7 @@ function bindEvents() {
       document.getElementById("view-sub").textContent = s;
       // Lazy-load team data when the team view opens (avoid extra fetches during boot).
       if (view === 'team') refreshTeamView().catch(err => console.error('Team view load failed:', err));
+      if (view === 'clock') resetClockToPinPad();
       // redraw charts on visibility change
       setTimeout(renderCharts, 50);
     });
@@ -2748,6 +2751,8 @@ async function bootApp() {
   bindEvents();
   bindInvoiceEvents();
   bindTeamView();
+  bindClockEvents();
+  bindPublishEvents();
   renderAll();
   window.__restopsBooted = true;
   // Dev-only debug hook so Playwright QA can inspect state.
@@ -2912,6 +2917,356 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function shortId(id) { return id ? `user ${id.slice(0, 8)}…` : '—'; }
+
+// -----------------------------------------------------------------------------
+// TIME CLOCK (tablet mode) — PIN pad + clock in/out
+// -----------------------------------------------------------------------------
+const clockState = {
+  entry: '',
+  employee: null,
+  activeShift: null,
+  timerId: null,
+  wallClockId: null,
+  autoResetId: null,
+};
+
+function resetClockToPinPad() {
+  clockState.entry = '';
+  clockState.employee = null;
+  clockState.activeShift = null;
+  if (clockState.timerId) { clearInterval(clockState.timerId); clockState.timerId = null; }
+  if (clockState.autoResetId) { clearTimeout(clockState.autoResetId); clockState.autoResetId = null; }
+  const pinWrap = document.getElementById('clock-pin-wrap');
+  const cardWrap = document.getElementById('clock-card-wrap');
+  if (pinWrap) pinWrap.hidden = false;
+  if (cardWrap) cardWrap.hidden = true;
+  updatePinDots();
+  const label = document.getElementById('pin-label');
+  if (label) { label.textContent = 'Enter your 4-digit PIN'; label.classList.remove('pin-err'); }
+  // Brand name
+  const brandName = window.__RESTOPS_CTX__?.tenant?.name;
+  const bn = document.getElementById('clock-brand-name');
+  if (bn && brandName) bn.textContent = brandName;
+  startWallClock();
+}
+
+function startWallClock() {
+  if (clockState.wallClockId) return;
+  const tick = () => {
+    const el = document.getElementById('clock-clock');
+    if (!el) return;
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
+  tick();
+  clockState.wallClockId = setInterval(tick, 30000);
+}
+
+function updatePinDots() {
+  const dots = document.querySelectorAll('#pin-dots .pin-dot');
+  dots.forEach((d, i) => d.classList.toggle('filled', i < clockState.entry.length));
+}
+
+async function handlePinDigit(digit) {
+  if (clockState.entry.length >= 4) return;
+  clockState.entry += digit;
+  updatePinDots();
+  if (clockState.entry.length === 4) {
+    const pin = clockState.entry;
+    const label = document.getElementById('pin-label');
+    if (label) label.textContent = 'Checking…';
+    try {
+      const emp = await clockRepo.verifyPin(pin);
+      if (!emp) {
+        if (label) { label.textContent = 'Incorrect PIN'; label.classList.add('pin-err'); }
+        clockState.entry = '';
+        setTimeout(() => {
+          updatePinDots();
+          if (label) { label.textContent = 'Enter your 4-digit PIN'; label.classList.remove('pin-err'); }
+        }, 1200);
+        return;
+      }
+      await showEmployeeCard(emp);
+    } catch (err) {
+      console.error('PIN verify failed:', err);
+      if (label) { label.textContent = 'Could not verify — try again'; label.classList.add('pin-err'); }
+      clockState.entry = '';
+      setTimeout(() => {
+        updatePinDots();
+        if (label) { label.textContent = 'Enter your 4-digit PIN'; label.classList.remove('pin-err'); }
+      }, 1800);
+    }
+  }
+}
+
+async function showEmployeeCard(emp) {
+  clockState.employee = emp;
+  const pinWrap = document.getElementById('clock-pin-wrap');
+  const cardWrap = document.getElementById('clock-card-wrap');
+  if (pinWrap) pinWrap.hidden = true;
+  if (cardWrap) cardWrap.hidden = false;
+  document.getElementById('emp-avatar').textContent = (emp.name || '?').charAt(0).toUpperCase();
+  document.getElementById('emp-name').textContent = emp.name || 'Employee';
+  document.getElementById('emp-role').textContent = (emp.role || '').replace(/_/g, ' ');
+
+  // Check active shift
+  try {
+    const active = await clockRepo.getActiveShift(emp.id);
+    clockState.activeShift = active;
+    renderClockCardState();
+  } catch (err) {
+    console.error('getActiveShift failed:', err);
+    document.getElementById('emp-status').textContent = 'Ready to clock in';
+    renderClockCardState();
+  }
+}
+
+function renderClockCardState() {
+  const status = document.getElementById('emp-status');
+  const timerEl = document.getElementById('emp-timer');
+  const btn = document.getElementById('clock-action-btn');
+  if (!btn || !status || !timerEl) return;
+  if (clockState.activeShift) {
+    status.textContent = `On the clock since ${new Date(clockState.activeShift.clock_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    timerEl.hidden = false;
+    btn.textContent = 'Clock Out';
+    btn.classList.remove('clock-in');
+    btn.classList.add('clock-out');
+    startShiftTimer();
+  } else {
+    status.textContent = 'Ready to clock in';
+    timerEl.hidden = true;
+    btn.textContent = 'Clock In';
+    btn.classList.remove('clock-out');
+    btn.classList.add('clock-in');
+    if (clockState.timerId) { clearInterval(clockState.timerId); clockState.timerId = null; }
+  }
+}
+
+function startShiftTimer() {
+  if (clockState.timerId) clearInterval(clockState.timerId);
+  const tick = () => {
+    const el = document.getElementById('emp-timer');
+    if (!el || !clockState.activeShift) return;
+    const ms = Date.now() - new Date(clockState.activeShift.clock_in_at).getTime();
+    const secs = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  };
+  tick();
+  clockState.timerId = setInterval(tick, 1000);
+}
+
+async function handleClockAction() {
+  const btn = document.getElementById('clock-action-btn');
+  if (!btn || !clockState.employee) return;
+  btn.disabled = true;
+  const status = document.getElementById('emp-status');
+  try {
+    if (clockState.activeShift) {
+      // Clock out
+      await clockRepo.clockOut(clockState.activeShift.id, 0);
+      const startAt = new Date(clockState.activeShift.clock_in_at);
+      const hrs = ((Date.now() - startAt.getTime()) / 3600000).toFixed(2);
+      if (status) status.textContent = `Clocked out — ${hrs} hours. Good work!`;
+      clockState.activeShift = null;
+    } else {
+      // Clock in
+      const entry = await clockRepo.clockIn(clockState.employee.id, clockState.employee.hourly_rate || 0);
+      clockState.activeShift = entry;
+      if (status) status.textContent = `Clocked in at ${new Date(entry.clock_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Have a great shift!`;
+    }
+    renderClockCardState();
+    // Auto return to PIN pad after 5s
+    if (clockState.autoResetId) clearTimeout(clockState.autoResetId);
+    clockState.autoResetId = setTimeout(resetClockToPinPad, 5000);
+  } catch (err) {
+    console.error('Clock action failed:', err);
+    if (status) status.textContent = `Error: ${err.message || 'try again'}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function bindClockEvents() {
+  const pad = document.getElementById('pin-pad');
+  if (pad) {
+    pad.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pin-key');
+      if (!btn) return;
+      const digit = btn.dataset.digit;
+      const action = btn.dataset.action;
+      if (digit !== undefined) handlePinDigit(digit);
+      else if (action === 'back') { clockState.entry = clockState.entry.slice(0, -1); updatePinDots(); }
+      else if (action === 'clear') { clockState.entry = ''; updatePinDots(); }
+    });
+  }
+  const actionBtn = document.getElementById('clock-action-btn');
+  if (actionBtn) actionBtn.addEventListener('click', handleClockAction);
+  const backBtn = document.getElementById('clock-back-btn');
+  if (backBtn) backBtn.addEventListener('click', resetClockToPinPad);
+  // Keyboard PIN entry when on the clock view
+  document.addEventListener('keydown', (e) => {
+    const clockViewActive = document.querySelector('.view[data-view="clock"].active');
+    if (!clockViewActive) return;
+    const pinWrap = document.getElementById('clock-pin-wrap');
+    if (!pinWrap || pinWrap.hidden) return;
+    if (/^\d$/.test(e.key)) { handlePinDigit(e.key); }
+    else if (e.key === 'Backspace') { clockState.entry = clockState.entry.slice(0, -1); updatePinDots(); }
+  });
+}
+
+// -----------------------------------------------------------------------------
+// PUBLISH SCHEDULE (SMS) — build preview messages, invoke send-schedule-sms
+// -----------------------------------------------------------------------------
+function formatShiftDay(weekStartISO, dayIdx) {
+  const d = new Date(weekStartISO);
+  d.setDate(d.getDate() + dayIdx);
+  const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayIdx];
+  const md = `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${dayName} ${md}`;
+}
+
+function buildScheduleMessages() {
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+  const weekStartISO = weekStart.toISOString().slice(0, 10);
+  const tenantName = window.__RESTOPS_CTX__?.tenant?.name || 'Your team';
+
+  const messages = [];
+  const allShifts = [];
+  state.staff.forEach((s, sIdx) => {
+    const lines = [];
+    for (let d = 0; d < 7; d++) {
+      const sh = state.schedule[`${sIdx}_${d}`];
+      const dayLabel = formatShiftDay(weekStartISO, d);
+      if (sh) {
+        lines.push(`${dayLabel}: ${sh.start}–${sh.end} (${sh.hours}h)`);
+        allShifts.push({ staff_id: s.id, staff_name: s.name, day: d, start: sh.start, end: sh.end, hours: sh.hours });
+      } else {
+        lines.push(`${dayLabel}: off`);
+      }
+    }
+    const hasAny = lines.some((l) => !l.endsWith(': off'));
+    const body = `Hey ${s.name.split(' ')[0]} — your shifts for the week of ${formatShiftDay(weekStartISO, 0)}:\n` +
+      lines.join('\n') +
+      `\n\nQuestions? Just reply.\n— ${tenantName}`;
+    messages.push({
+      staff_id: s.id,
+      name: s.name,
+      phone: s.phone || '',
+      body,
+      hasShifts: hasAny,
+    });
+  });
+  return { weekStartISO, messages, allShifts };
+}
+
+function openPublishModal() {
+  const modal = document.getElementById('publish-modal');
+  const list = document.getElementById('publish-preview-list');
+  const label = document.getElementById('publish-week-label');
+  if (!modal || !list) return;
+  const { weekStartISO, messages } = buildScheduleMessages();
+  if (label) {
+    const ws = new Date(weekStartISO);
+    const we = new Date(weekStartISO); we.setDate(we.getDate() + 6);
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    label.textContent = `Week of ${fmt(ws)} — ${fmt(we)}`;
+  }
+  list.innerHTML = messages.map((m) => {
+    const hasPhone = !!m.phone;
+    const chip = hasPhone
+      ? `<span class="pill ok">${escapeHtml(m.phone)}</span>`
+      : `<span class="pill warn">No phone on file</span>`;
+    const dim = !hasPhone || !m.hasShifts;
+    return `
+      <div class="publish-row ${dim ? 'dim' : ''}">
+        <div class="publish-row-head">
+          <div><strong>${escapeHtml(m.name)}</strong></div>
+          ${chip}
+        </div>
+        <pre class="publish-body">${escapeHtml(m.body)}</pre>
+      </div>`;
+  }).join('');
+  const sendable = messages.filter((m) => m.phone && m.hasShifts).length;
+  const skipped = messages.length - sendable;
+  const statusEl = document.getElementById('publish-status');
+  if (statusEl) statusEl.textContent = `${sendable} to send · ${skipped} skipped`;
+  modal.hidden = false;
+  // Stash on modal for the send handler
+  modal.dataset.weekStart = weekStartISO;
+  modal._payload = { weekStartISO, messages };
+}
+
+function closePublishModal() {
+  const modal = document.getElementById('publish-modal');
+  if (modal) modal.hidden = true;
+}
+
+async function sendScheduleNow() {
+  const modal = document.getElementById('publish-modal');
+  const sendBtn = document.getElementById('publish-send');
+  const statusEl = document.getElementById('publish-status');
+  if (!modal || !sendBtn) return;
+  const payload = modal._payload;
+  if (!payload) return;
+  const toSend = payload.messages.filter((m) => m.phone && m.hasShifts);
+  if (toSend.length === 0) {
+    statusEl.textContent = 'Nothing to send — no staff have phone numbers and shifts.';
+    return;
+  }
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending…';
+  statusEl.textContent = '';
+  try {
+    const { weekStartISO, messages } = payload;
+    const { allShifts } = buildScheduleMessages();
+    const result = await clockRepo.publishSchedule({
+      weekStart: weekStartISO,
+      shifts: allShifts,
+      messages: toSend,
+    });
+    const sent = (result.deliveryResults || []).filter((r) => r.status === 'sent' || r.status === 'preview').length;
+    const failed = (result.deliveryResults || []).filter((r) => r.status === 'failed').length;
+    if (result.deliveryStatus === 'preview') {
+      statusEl.innerHTML = `<span class="pill warn">Preview only</span> Twilio not configured yet — ${sent} messages generated.`;
+      sendBtn.textContent = 'Close';
+      sendBtn.disabled = false;
+      sendBtn.onclick = () => { closePublishModal(); sendBtn.onclick = null; sendBtn.textContent = 'Send texts'; };
+    } else if (failed > 0) {
+      statusEl.textContent = `⚠️ Sent ${sent}, ${failed} failed. Check Edge Function logs.`;
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send texts';
+    } else {
+      statusEl.textContent = `✓ Sent ${sent} text${sent === 1 ? '' : 's'}.`;
+      setTimeout(closePublishModal, 1500);
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send texts';
+    }
+  } catch (err) {
+    console.error('Publish schedule failed:', err);
+    statusEl.textContent = `Error: ${err.message || 'could not publish'}`;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send texts';
+  }
+}
+
+function bindPublishEvents() {
+  const btn = document.getElementById('publish-schedule-btn');
+  if (btn) btn.addEventListener('click', openPublishModal);
+  const closeBtn = document.getElementById('publish-close');
+  const cancelBtn = document.getElementById('publish-cancel');
+  const sendBtn = document.getElementById('publish-send');
+  if (closeBtn) closeBtn.addEventListener('click', closePublishModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closePublishModal);
+  if (sendBtn) sendBtn.addEventListener('click', sendScheduleNow);
+  // Click outside modal body closes
+  const backdrop = document.getElementById('publish-modal');
+  if (backdrop) backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closePublishModal(); });
+}
 
 if (window.__RESTOPS_CTX__) {
   // Guard already finished before app.js loaded

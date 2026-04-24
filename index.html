@@ -43,6 +43,7 @@
         <div class="nav-section">People</div>
         <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
         <button class="nav-item" data-view="scheduler"><span class="dot"></span>Shift Scheduler</button>
+        <button class="nav-item" data-view="clock"><span class="dot"></span>Time Clock <span class="nav-badge">Tablet</span></button>
 
         <div class="nav-section">Compliance</div>
         <button class="nav-item" data-view="tasks"><span class="dot"></span>Task Assignments <span class="nav-badge" id="tasks-badge"></span></button>
@@ -568,6 +569,7 @@
               <span class="muted" id="sched-week"></span>
               <span class="sched-pill" id="sched-cost">$0 / wk</span>
               <span class="sched-pill" id="sched-pct">0% labor</span>
+              <button class="btn btn-primary" id="publish-schedule-btn">Publish &amp; text staff</button>
             </div>
           </div>
           <div class="sched-hint">Click a cell to add/remove a shift. Each shift defaults to 8 hours.</div>
@@ -587,6 +589,78 @@
           </div>
         </div>
       </section>
+
+      <!-- TIME CLOCK (tablet mode) -->
+      <section class="view" data-view="clock">
+        <div class="clock-stage" id="clock-stage">
+          <!-- STATE 1: PIN pad -->
+          <div class="clock-pin-wrap" id="clock-pin-wrap">
+            <div class="clock-brand">
+              <div class="clock-brand-name" id="clock-brand-name">Bella Vita Bistro</div>
+              <div class="clock-brand-sub">Employee Time Clock</div>
+            </div>
+            <div class="clock-clock" id="clock-clock">--:--</div>
+            <div class="pin-label" id="pin-label">Enter your 4-digit PIN</div>
+            <div class="pin-dots" id="pin-dots">
+              <span class="pin-dot"></span>
+              <span class="pin-dot"></span>
+              <span class="pin-dot"></span>
+              <span class="pin-dot"></span>
+            </div>
+            <div class="pin-pad" id="pin-pad">
+              <button class="pin-key" data-digit="1">1</button>
+              <button class="pin-key" data-digit="2">2</button>
+              <button class="pin-key" data-digit="3">3</button>
+              <button class="pin-key" data-digit="4">4</button>
+              <button class="pin-key" data-digit="5">5</button>
+              <button class="pin-key" data-digit="6">6</button>
+              <button class="pin-key" data-digit="7">7</button>
+              <button class="pin-key" data-digit="8">8</button>
+              <button class="pin-key" data-digit="9">9</button>
+              <button class="pin-key pin-ghost" data-action="clear">Clear</button>
+              <button class="pin-key" data-digit="0">0</button>
+              <button class="pin-key pin-ghost" data-action="back">⌫</button>
+            </div>
+            <div class="pin-hint muted small">Tip for demo: Maria 1234 · Antonio 2345 · Paolo 3456</div>
+          </div>
+
+          <!-- STATE 2: employee card (hidden until PIN verified) -->
+          <div class="clock-card-wrap" id="clock-card-wrap" hidden>
+            <div class="clock-employee-card">
+              <div class="emp-avatar" id="emp-avatar">M</div>
+              <div class="emp-name" id="emp-name">Employee name</div>
+              <div class="emp-role" id="emp-role">Role</div>
+              <div class="emp-status" id="emp-status">Ready to clock in</div>
+              <div class="emp-timer" id="emp-timer" hidden>00:00:00</div>
+              <div class="emp-hours-today" id="emp-hours-today"></div>
+              <button class="clock-action-btn clock-in" id="clock-action-btn">Clock In</button>
+              <button class="btn-link" id="clock-back-btn">Not you? Go back</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PUBLISH SCHEDULE MODAL -->
+      <div class="modal-backdrop" id="publish-modal" hidden>
+        <div class="modal publish-modal">
+          <div class="modal-head">
+            <div>
+              <h3>Text the week's schedule</h3>
+              <p class="muted small" id="publish-week-label"></p>
+            </div>
+            <button class="icon-btn" id="publish-close" aria-label="Close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="publish-hint muted small">Review each message before we send. Staff without a phone number on file are skipped.</div>
+            <div id="publish-preview-list"></div>
+          </div>
+          <div class="modal-foot">
+            <span class="muted small" id="publish-status"></span>
+            <button class="btn" id="publish-cancel">Cancel</button>
+            <button class="btn btn-primary" id="publish-send">Send texts</button>
+          </div>
+        </div>
+      </div>
 
       <!-- DBPR INSPECTION PREP -->
       <section class="view" data-view="inspection">
