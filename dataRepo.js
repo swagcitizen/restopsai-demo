@@ -691,3 +691,265 @@ async function getTenantContext() {
   return mod.getTenantContext();
 }
 
+// ---------------------------------------------------------------------------
+// INVOICES & AP
+// ---------------------------------------------------------------------------
+// Tables: invoices, invoice_lines, vendor_price_history (all tenant-scoped, RLS on).
+// Shape delivered to the UI: { id, vendor, number, date, subtotal, tax, total,
+//   status, uploadedAt, notes, lines: [{ id, desc, qty, unit, unitPrice, extPrice,
+//   matchedId, matchedName, confidence, createdNewSku }], variance: [...] }
+
+function mapInvoiceRow(row, lines = [], priceMap = {}) {
+  const mappedLines = lines.map((l) => {
+    const prev = l.matched_inventory_id ? priceMap[l.matched_inventory_id] : null;
+    let variance = null;
+    if (prev && Number(l.unit_price) > 0) {
+      const delta = (Number(l.unit_price) - Number(prev.price)) / Number(prev.price);
+      variance = { prevPrice: Number(prev.price), prevAt: prev.at, delta };
+    }
+    return {
+      id: l.id,
+      lineIndex: l.line_index,
+      desc: l.raw_description,
+      qty: Number(l.qty) || 0,
+      unit: l.unit || '',
+      unitPrice: Number(l.unit_price) || 0,
+      extPrice: Number(l.extended_price) || 0,
+      matchedId: l.matched_inventory_id,
+      matchedName: l.inventory_items?.name || null,
+      confidence: Number(l.match_confidence) || 0,
+      createdNewSku: !!l.created_new_sku,
+      variance,
+    };
+  });
+  return {
+    id: row.id,
+    vendor: row.vendor,
+    number: row.invoice_number || '',
+    date: row.invoice_date || null,
+    subtotal: Number(row.subtotal) || 0,
+    tax: Number(row.tax) || 0,
+    total: Number(row.total) || 0,
+    status: row.status || 'draft',
+    uploadedAt: row.uploaded_at,
+    notes: row.notes || '',
+    lines: mappedLines,
+  };
+}
+
+export async function fetchInvoices({ limit = 100 } = {}) {
+  const { data: invs, error } = await supabase
+    .from('invoices')
+    .select('id, vendor, invoice_number, invoice_date, subtotal, tax, total, status, uploaded_at, notes')
+    .order('invoice_date', { ascending: false, nullsFirst: false })
+    .order('uploaded_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  if (!invs || invs.length === 0) return [];
+
+  const ids = invs.map((i) => i.id);
+  const { data: lines, error: lErr } = await supabase
+    .from('invoice_lines')
+    .select('id, invoice_id, line_index, raw_description, qty, unit, unit_price, extended_price, matched_inventory_id, match_confidence, created_new_sku, inventory_items(name)')
+    .in('invoice_id', ids)
+    .order('line_index', { ascending: true });
+  if (lErr) throw lErr;
+
+  // For variance: get the second-most-recent price per (item, vendor) — skip lines belonging to this invoice.
+  const itemIds = [...new Set((lines || []).map((l) => l.matched_inventory_id).filter(Boolean))];
+  const priceMap = {};
+  if (itemIds.length > 0) {
+    const { data: hist, error: hErr } = await supabase
+      .from('vendor_price_history')
+      .select('inventory_item_id, vendor, unit_price, recorded_at, invoice_id')
+      .in('inventory_item_id', itemIds)
+      .order('recorded_at', { ascending: false });
+    if (hErr) throw hErr;
+    // Group by (invoice_id, item_id) to know which prior-price applies.
+    // For now we key priceMap by inventory_item_id to the single most-recent record
+    // NOT attached to the current invoice being mapped. We'll resolve per-invoice below.
+    // Simpler: build a by-item array, then resolve inside mapping.
+    const byItem = new Map();
+    for (const h of hist || []) {
+      if (!byItem.has(h.inventory_item_id)) byItem.set(h.inventory_item_id, []);
+      byItem.get(h.inventory_item_id).push(h);
+    }
+    priceMap.__byItem = byItem;
+  }
+
+  const byInvoice = new Map();
+  for (const l of lines || []) {
+    if (!byInvoice.has(l.invoice_id)) byInvoice.set(l.invoice_id, []);
+    byInvoice.get(l.invoice_id).push(l);
+  }
+
+  return invs.map((inv) => {
+    const invLines = byInvoice.get(inv.id) || [];
+    // Resolve prior-price per line: most recent history row that is NOT from this invoice.
+    const localPrice = {};
+    const byItem = priceMap.__byItem || new Map();
+    for (const l of invLines) {
+      if (!l.matched_inventory_id) continue;
+      const hist = byItem.get(l.matched_inventory_id) || [];
+      const prior = hist.find((h) => h.invoice_id !== inv.id);
+      if (prior) localPrice[l.matched_inventory_id] = { price: Number(prior.unit_price), at: prior.recorded_at };
+    }
+    return mapInvoiceRow(inv, invLines, localPrice);
+  });
+}
+
+export async function saveInvoice(invoice) {
+  // Upsert header + replace-all lines + rewrite price history rows for this invoice.
+  const { tenantId, user } = ctx();
+  const headerPatch = {
+    tenant_id: tenantId,
+    vendor: invoice.vendor,
+    invoice_number: invoice.number || null,
+    invoice_date: invoice.date || null,
+    subtotal: invoice.subtotal || 0,
+    tax: invoice.tax || 0,
+    total: invoice.total || 0,
+    status: invoice.status || 'draft',
+    notes: invoice.notes || null,
+    ocr_raw: invoice.ocrRaw || null,
+  };
+  let invoiceId = invoice.id;
+  if (invoiceId) {
+    const { error } = await supabase
+      .from('invoices')
+      .update({
+        vendor: headerPatch.vendor,
+        invoice_number: headerPatch.invoice_number,
+        invoice_date: headerPatch.invoice_date,
+        subtotal: headerPatch.subtotal,
+        tax: headerPatch.tax,
+        total: headerPatch.total,
+        status: headerPatch.status,
+        notes: headerPatch.notes,
+      })
+      .eq('id', invoiceId);
+    if (error) throw error;
+    // Replace lines and price history.
+    await supabase.from('vendor_price_history').delete().eq('invoice_id', invoiceId);
+    await supabase.from('invoice_lines').delete().eq('invoice_id', invoiceId);
+  } else {
+    headerPatch.uploaded_by = user?.id || null;
+    const { data: inserted, error } = await supabase.from('invoices').insert(headerPatch).select('id').single();
+    if (error) throw error;
+    invoiceId = inserted.id;
+  }
+
+  const lineRows = (invoice.lines || []).map((l, i) => ({
+    invoice_id: invoiceId,
+    tenant_id: tenantId,
+    line_index: i,
+    raw_description: l.desc || l.raw_description || '',
+    qty: l.qty || 0,
+    unit: l.unit || null,
+    unit_price: l.unitPrice || 0,
+    extended_price: l.extPrice || (Number(l.qty) || 0) * (Number(l.unitPrice) || 0),
+    matched_inventory_id: l.matchedId || null,
+    match_confidence: l.confidence || 0,
+    created_new_sku: !!l.createdNewSku,
+  }));
+  if (lineRows.length > 0) {
+    const { error: lErr } = await supabase.from('invoice_lines').insert(lineRows);
+    if (lErr) throw lErr;
+  }
+
+  // Write one price-history row per matched line. Use invoice_date or today.
+  const recAt = invoice.date ? new Date(invoice.date).toISOString() : new Date().toISOString();
+  const histRows = lineRows
+    .filter((l) => l.matched_inventory_id && Number(l.unit_price) > 0)
+    .map((l) => ({
+      tenant_id: tenantId,
+      inventory_item_id: l.matched_inventory_id,
+      vendor: invoice.vendor,
+      invoice_id: invoiceId,
+      unit_price: l.unit_price,
+      recorded_at: recAt,
+    }));
+  if (histRows.length > 0) {
+    const { error: hErr } = await supabase.from('vendor_price_history').insert(histRows);
+    if (hErr) throw hErr;
+  }
+
+  return invoiceId;
+}
+
+export async function deleteInvoice(invoiceId) {
+  const { error } = await supabase.from('invoices').delete().eq('id', invoiceId);
+  if (error) throw error;
+}
+
+export async function getPriceHistory(inventoryItemId, { limit = 12 } = {}) {
+  const { data, error } = await supabase
+    .from('vendor_price_history')
+    .select('id, vendor, unit_price, recorded_at, invoice_id')
+    .eq('inventory_item_id', inventoryItemId)
+    .order('recorded_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []).map((h) => ({
+    id: h.id,
+    vendor: h.vendor,
+    price: Number(h.unit_price),
+    at: h.recorded_at,
+    invoiceId: h.invoice_id,
+  }));
+}
+
+// Fuzzy-match an invoice line description to inventory.
+// Returns [{ id, name, unit, cost, supplier, score }] sorted best-first.
+function normalize(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function scoreMatch(desc, item) {
+  const d = normalize(desc);
+  const n = normalize(item.item || item.name);
+  if (!d || !n) return 0;
+  const dTokens = new Set(d.split(' ').filter((t) => t.length > 2));
+  const nTokens = new Set(n.split(' ').filter((t) => t.length > 2));
+  if (dTokens.size === 0 || nTokens.size === 0) return 0;
+  let overlap = 0;
+  for (const t of nTokens) if (dTokens.has(t)) overlap += 1;
+  const denom = Math.max(nTokens.size, dTokens.size);
+  const jaccard = overlap / denom;
+  // Substring bonus
+  const sub = n && d.includes(n) ? 0.2 : (d.split(' ').some((t) => n.includes(t) && t.length > 3) ? 0.08 : 0);
+  return Math.min(1, jaccard + sub);
+}
+export function matchLine(description, inventory) {
+  const scored = (inventory || [])
+    .map((it) => ({
+      id: it.id,
+      name: it.item || it.name,
+      unit: it.unit,
+      cost: it.cost,
+      supplier: it.vendor || it.supplier,
+      score: scoreMatch(description, it),
+    }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, 5);
+}
+
+export async function uploadInvoiceImage(_fileBlob, _mimeType) {
+  // Placeholder for storage upload (Supabase Storage bucket `invoices`).
+  // v1: we only persist OCR + structured data; the original image is not kept.
+  return null;
+}
+
+export async function ocrInvoice(imageBase64, mediaType) {
+  const { data, error } = await supabase.functions.invoke('ocr-invoice', {
+    body: { image_base64: imageBase64, media_type: mediaType || 'image/jpeg' },
+  });
+  if (error) {
+    // functions.invoke wraps non-2xx as `error`; the body is still in `data` sometimes.
+    const detail = data?.error || error.message || 'OCR failed';
+    throw new Error(detail);
+  }
+  if (!data?.ok) throw new Error(data?.error || 'OCR returned no invoice');
+  return data.invoice; // { vendor, invoice_number, invoice_date, subtotal, tax, total, lines: [...] }
+}
+

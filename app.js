@@ -179,6 +179,8 @@ function seed() {
     taskCat: "all",
     taskAssignee: "all",
     prepLabels: [],
+    invoices: [],
+    reviewInvoice: null,
   };
 }
 
@@ -448,6 +450,23 @@ function buildAlerts() {
     if (overdue > 0) alerts.push({ level: overdue > 3 ? "err" : "warn", title: `Cleaning overdue: ${c.task}`, sub: `${overdue} days past ${c.freq.toLowerCase()} schedule · ${c.assigned}` });
   });
 
+  // Invoice price variance (reviewed but not posted): alert on >5% drift
+  for (const inv of state.invoices || []) {
+    if (inv.status === 'posted') continue;
+    for (const l of inv.lines || []) {
+      if (!l.variance) continue;
+      const abs = Math.abs(l.variance.delta);
+      if (abs <= 0.05) continue;
+      const level = abs > 0.15 ? 'err' : 'warn';
+      const sign = l.variance.delta >= 0 ? '+' : '';
+      alerts.push({
+        level,
+        title: `Vendor price ${l.variance.delta > 0 ? 'hike' : 'drop'}: ${l.matchedName || l.desc}`,
+        sub: `${inv.vendor} · ${sign}${(l.variance.delta * 100).toFixed(1)}% vs prior (${fmtUSD2 ? fmtUSD2(l.variance.prevPrice) : '$' + l.variance.prevPrice.toFixed(2)} → ${fmtUSD2 ? fmtUSD2(l.unitPrice) : '$' + l.unitPrice.toFixed(2)})`,
+      });
+    }
+  }
+
   if (alerts.length === 0) alerts.push({ level: "ok", title: "All systems nominal", sub: "No active alerts right now" });
   return alerts;
 }
@@ -482,6 +501,7 @@ function renderAll() {
   renderChecklist();
   renderCleaning();
   renderPrepLabels();
+  renderInvoices();
   renderLicenses();
   renderInspections();
   renderTraining();
@@ -1269,6 +1289,21 @@ function renderBriefing() {
     return margin < 65 && m.units < 150;
   });
   if (dogs.length > 0) focus.push(`Review ${dogs.length} slow-moving low-margin items: ${dogs.map(d => d.name || d.item).join(", ")}.`);
+  // Invoice price hikes that still need review / posting
+  const bigHikes = [];
+  for (const inv of state.invoices || []) {
+    if (inv.status === 'posted') continue;
+    for (const l of inv.lines || []) {
+      if (!l.variance) continue;
+      if (l.variance.delta > 0.15) bigHikes.push({ item: l.matchedName || l.desc, vendor: inv.vendor, delta: l.variance.delta });
+    }
+  }
+  if (bigHikes.length > 0) {
+    const first = bigHikes[0];
+    focus.push(`Push back on ${first.vendor} — ${first.item} up ${(first.delta * 100).toFixed(0)}% on the latest invoice${bigHikes.length > 1 ? ` (+${bigHikes.length - 1} more price jump${bigHikes.length - 1 === 1 ? '' : 's'})` : ''}.`);
+  }
+  const unreviewedInv = (state.invoices || []).filter((i) => i.status === 'draft').length;
+  if (unreviewedInv > 0) focus.push(`Review ${unreviewedInv} draft invoice${unreviewedInv === 1 ? '' : 's'} in Invoices & AP — match line items to inventory before posting.`);
   focus.push(`Cross-train 1–2 staff on dough prep to reduce single-point-of-failure risk on Fridays.`);
 
   const focusEl = document.getElementById("focus-list");
@@ -1611,6 +1646,7 @@ function bindEvents() {
         recipes: ["Recipe Costing", "Plate costs, food cost %, and theoretical-vs-actual variance"],
         sales: ["Sales & Menu", "Daily revenue, product mix, and menu engineering"],
         inventory: ["Inventory", "Par levels, vendor spend, and waste tracking"],
+        invoices: ["Invoices & AP", "Upload invoices, OCR line items, and catch vendor price hikes"],
         labor: ["Labor", "Staff roster, wages, and shift-level efficiency"],
         scheduler: ["Shift Scheduler", "Weekly coverage with live labor-% projection"],
         safety: ["Food Safety", "Prep labels, temperature logs, checklists, and cleaning"],
@@ -2042,6 +2078,455 @@ function bindEvents() {
 }
 
 // -----------------------------------------------------------------------------
+// INVOICES & AP — render, upload, review, line matching, variance
+// -----------------------------------------------------------------------------
+function fmtInvDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtRelAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
+  const days = Math.floor(ms / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1d ago';
+  if (days < 30) return `${days}d ago`;
+  const mo = Math.round(days / 30);
+  return `${mo}mo ago`;
+}
+
+function varianceLevel(delta) {
+  const abs = Math.abs(delta);
+  if (abs > 0.15) return 'err';
+  if (abs > 0.05) return 'warn';
+  return 'ok';
+}
+
+function variancePill(v) {
+  if (!v) return '<span class="muted tiny">first</span>';
+  const pctStr = (v.delta * 100).toFixed(1);
+  const level = varianceLevel(v.delta);
+  const sign = v.delta >= 0 ? '+' : '';
+  const label = level === 'ok' ? 'stable' : (v.delta > 0 ? 'up' : 'down');
+  return `<span class="variance-pill ${level}" title="Prior ${fmtUSD2(v.prevPrice)} · ${fmtInvDate(v.prevAt)}">${sign}${pctStr}% ${label}</span>`;
+}
+
+function confidenceClass(c) {
+  if (c >= 0.65) return 'match-confidence-high';
+  if (c >= 0.35) return 'match-confidence-med';
+  return 'match-confidence-low';
+}
+
+function statusPill(status) {
+  const map = { draft: ['warn', 'Needs review'], reviewed: ['ok', 'Reviewed'], posted: ['neutral', 'Posted'] };
+  const [cls, label] = map[status] || ['neutral', status || '—'];
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
+function invoiceVarianceSummary(inv) {
+  // count warn+err variance lines
+  let warn = 0, err = 0;
+  for (const l of inv.lines || []) {
+    if (!l.variance) continue;
+    const lv = varianceLevel(l.variance.delta);
+    if (lv === 'warn') warn++;
+    if (lv === 'err') err++;
+  }
+  return { warn, err };
+}
+
+function renderInvoices() {
+  const invoices = state.invoices || [];
+
+  // ---------- KPIs ----------
+  const kpiEl = document.getElementById('invoices-kpis');
+  if (kpiEl) {
+    const unreviewed = invoices.filter((i) => i.status === 'draft').length;
+    const now = Date.now();
+    const thirtyAgo = now - 30 * 86400000;
+    const spend30 = invoices
+      .filter((i) => i.date && new Date(i.date).getTime() >= thirtyAgo)
+      .reduce((a, i) => a + (Number(i.total) || 0), 0);
+    let priceAlerts = 0;
+    for (const i of invoices) {
+      if (i.status === 'posted') continue;
+      const s = invoiceVarianceSummary(i);
+      priceAlerts += s.warn + s.err;
+    }
+    const lastUpload = invoices
+      .map((i) => i.uploadedAt)
+      .filter(Boolean)
+      .sort()
+      .pop();
+    kpiEl.innerHTML = `
+      <div class="kpi"><div class="kpi-label">Needs review</div><div class="kpi-value">${unreviewed}</div><div class="kpi-sub">${unreviewed === 0 ? 'All caught up' : 'draft invoices'}</div></div>
+      <div class="kpi"><div class="kpi-label">Spend · last 30d</div><div class="kpi-value">${fmtUSD(spend30)}</div><div class="kpi-sub">${invoices.filter((i) => i.date && new Date(i.date).getTime() >= thirtyAgo).length} invoices</div></div>
+      <div class="kpi"><div class="kpi-label">Price alerts</div><div class="kpi-value">${priceAlerts}</div><div class="kpi-sub">lines drifting &gt;5%</div></div>
+      <div class="kpi"><div class="kpi-label">Last upload</div><div class="kpi-value">${lastUpload ? fmtRelAgo(lastUpload) : '—'}</div><div class="kpi-sub">${lastUpload ? fmtInvDate(lastUpload) : 'No uploads yet'}</div></div>
+    `;
+  }
+
+  // ---------- nav badge ----------
+  const badge = document.getElementById('invoices-badge');
+  if (badge) {
+    const needs = invoices.filter((i) => i.status === 'draft').length;
+    if (needs > 0) { badge.textContent = needs; badge.classList.add('hot'); }
+    else { badge.textContent = ''; badge.classList.remove('hot'); }
+  }
+
+  // ---------- count + list ----------
+  const countEl = document.getElementById('invoices-count');
+  if (countEl) countEl.textContent = `${invoices.length} on file`;
+
+  const listEl = document.getElementById('invoice-list');
+  if (listEl) {
+    if (invoices.length === 0) {
+      listEl.innerHTML = `<div class="empty-state muted">No invoices yet. Drop a photo or scan of a vendor invoice above — Claude will extract the line items.</div>`;
+    } else {
+      listEl.innerHTML = invoices.map((inv) => {
+        const v = invoiceVarianceSummary(inv);
+        const alertChip = v.err > 0
+          ? `<span class="variance-pill err">${v.err} price jump${v.err === 1 ? '' : 's'}</span>`
+          : v.warn > 0
+            ? `<span class="variance-pill warn">${v.warn} drift</span>`
+            : '';
+        return `
+          <div class="invoice-card" data-invoice-id="${inv.id}">
+            <div class="invoice-card-head">
+              <div>
+                <div class="invoice-vendor">${escapeHtml(inv.vendor || 'Unknown vendor')}</div>
+                <div class="invoice-meta muted">${escapeHtml(inv.number || 'no #')} · ${fmtInvDate(inv.date)}</div>
+              </div>
+              <div class="invoice-right">
+                <div class="invoice-total">${fmtUSD2(inv.total)}</div>
+                <div class="invoice-status-row">${statusPill(inv.status)}${alertChip ? ' ' + alertChip : ''}</div>
+              </div>
+            </div>
+            <div class="invoice-card-foot">
+              <span class="muted tiny">${(inv.lines || []).length} line${(inv.lines || []).length === 1 ? '' : 's'} · uploaded ${fmtRelAgo(inv.uploadedAt)}</span>
+              <button class="btn-link" data-review-invoice="${inv.id}">Review →</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // ---------- review panel ----------
+  renderInvoiceReview();
+}
+
+function renderInvoiceReview() {
+  const wrap = document.getElementById('invoice-review-wrap');
+  const body = document.getElementById('invoice-review-body');
+  const title = document.getElementById('invoice-review-title');
+  const saveBtn = document.getElementById('invoice-save');
+  if (!wrap || !body) return;
+
+  const inv = state.reviewInvoice;
+  if (!inv) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+
+  if (title) title.textContent = `Review · ${inv.vendor || 'invoice'}${inv.number ? ' · ' + inv.number : ''}`;
+  if (saveBtn) saveBtn.textContent = inv.id ? 'Save as reviewed' : 'Save invoice';
+
+  const inventory = state.inv || [];
+  const invOpts = inventory.map((it) => {
+    const unit = it.unit ? ` / ${it.unit}` : '';
+    return `<option value="${it.id}">${escapeHtml(it.item)}${unit}</option>`;
+  }).join('');
+
+  const headerGrid = `
+    <div class="form-grid review-header">
+      <label><span class="lbl">Vendor</span><input type="text" data-review-field="vendor" value="${escapeHtml(inv.vendor || '')}" /></label>
+      <label><span class="lbl">Invoice #</span><input type="text" data-review-field="number" value="${escapeHtml(inv.number || '')}" /></label>
+      <label><span class="lbl">Date</span><input type="date" data-review-field="date" value="${inv.date || ''}" /></label>
+      <label><span class="lbl">Subtotal</span><input type="number" step="0.01" data-review-field="subtotal" value="${inv.subtotal || 0}" /></label>
+      <label><span class="lbl">Tax</span><input type="number" step="0.01" data-review-field="tax" value="${inv.tax || 0}" /></label>
+      <label><span class="lbl">Total</span><input type="number" step="0.01" data-review-field="total" value="${inv.total || 0}" /></label>
+    </div>
+  `;
+
+  const rows = (inv.lines || []).map((l, idx) => {
+    const matched = l.matchedId
+      ? `<option value="${l.matchedId}" selected>${escapeHtml(l.matchedName || 'matched')}</option>`
+      : '';
+    const confClass = confidenceClass(l.confidence);
+    const confLabel = l.matchedId
+      ? `<span class="${confClass}" title="Match confidence">${Math.round(l.confidence * 100)}%</span>`
+      : `<span class="match-confidence-low">no match</span>`;
+    const priceCell = variancePill(l.variance);
+    return `
+      <tr data-line-idx="${idx}">
+        <td class="tight">${idx + 1}</td>
+        <td>
+          <div class="desc">${escapeHtml(l.desc || '')}</div>
+          <div class="muted tiny">${l.qty} ${escapeHtml(l.unit || '')}</div>
+        </td>
+        <td class="num">${fmtUSD2(l.unitPrice)}</td>
+        <td class="num">${fmtUSD2(l.extPrice)}</td>
+        <td>${priceCell}</td>
+        <td class="match-cell">
+          <select data-match-line="${idx}" class="match-select">
+            <option value="">— no match —</option>
+            ${matched}
+            ${invOpts}
+            <option value="__new__">+ Create new SKU</option>
+          </select>
+          <div class="muted tiny">${confLabel}</div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    ${headerGrid}
+    <div class="invoice-review-table-wrap">
+      <table class="tbl compact invoice-review-table">
+        <thead><tr><th>#</th><th>Line</th><th class="num">Unit</th><th class="num">Ext.</th><th>Variance</th><th>Match to inventory</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" class="muted">No line items.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+
+  // Pre-select currently matched item in each dropdown without duplicate options.
+  body.querySelectorAll('select[data-match-line]').forEach((sel) => {
+    // Remove duplicate matched option that precedes invOpts if present
+    const idx = +sel.dataset.matchLine;
+    const line = (inv.lines || [])[idx];
+    if (line && line.matchedId) {
+      // Remove preceding duplicate by keeping only last occurrence
+      const seen = new Set();
+      [...sel.options].reverse().forEach((opt) => {
+        if (seen.has(opt.value)) opt.remove();
+        else seen.add(opt.value);
+      });
+      sel.value = line.matchedId;
+    }
+  });
+}
+
+// ---------- upload flow ----------
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result || '';
+      const idx = String(result).indexOf('base64,');
+      resolve(idx >= 0 ? String(result).slice(idx + 7) : String(result));
+    };
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function setInvoiceStatus(msg, level) {
+  const el = document.getElementById('invoice-status');
+  if (!el) return;
+  if (!msg) { el.hidden = true; el.textContent = ''; el.className = 'dropzone-status'; return; }
+  el.hidden = false;
+  el.textContent = msg;
+  el.className = 'dropzone-status' + (level ? ' ' + level : '');
+}
+
+async function handleInvoiceUpload(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type)) {
+    setInvoiceStatus('Only image files (JPG, PNG, WEBP) are supported right now.', 'err');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    setInvoiceStatus('File too large — keep under 10 MB.', 'err');
+    return;
+  }
+  setInvoiceStatus('Reading image…');
+  try {
+    const b64 = await fileToBase64(file);
+    setInvoiceStatus('Running Claude vision OCR…');
+    const res = await dataRepo.ocrInvoice(b64, file.type);
+    if (!res || !res.ok || !res.invoice) {
+      const detail = res && (res.detail || res.hint || res.error) || 'OCR failed';
+      throw new Error(detail);
+    }
+    const extracted = res.invoice;
+    setInvoiceStatus('Matching line items to inventory…');
+    const inventory = state.inv || [];
+    const lines = (extracted.lines || []).map((l, i) => {
+      const desc = l.description || l.desc || '';
+      const matches = dataRepo.matchLine(desc, inventory);
+      const top = Array.isArray(matches) ? matches[0] : matches;
+      const accept = top && top.score >= 0.35; // below 0.35 feels like a guess
+      return {
+        lineIndex: i,
+        desc,
+        qty: Number(l.qty) || 0,
+        unit: l.unit || '',
+        unitPrice: Number(l.unit_price ?? l.unitPrice) || 0,
+        extPrice: Number(l.extended_price ?? l.extPrice) || ((Number(l.qty) || 0) * (Number(l.unit_price) || 0)),
+        matchedId: accept ? top.id : null,
+        matchedName: accept ? top.name : null,
+        confidence: accept ? top.score : 0,
+        createdNewSku: false,
+        variance: null,
+      };
+    });
+    state.reviewInvoice = {
+      id: null,
+      vendor: extracted.vendor || '',
+      number: extracted.invoice_number || '',
+      date: extracted.invoice_date || new Date().toISOString().slice(0, 10),
+      subtotal: Number(extracted.subtotal) || 0,
+      tax: Number(extracted.tax) || 0,
+      total: Number(extracted.total) || lines.reduce((a, l) => a + l.extPrice, 0),
+      status: 'draft',
+      uploadedAt: new Date().toISOString(),
+      lines,
+      ocrRaw: extracted,
+      notes: '',
+    };
+    setInvoiceStatus('Done — review the extracted lines below.', 'ok');
+    renderInvoiceReview();
+    // Scroll review into view
+    const wrap = document.getElementById('invoice-review-wrap');
+    wrap?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    console.error('[invoice upload]', err);
+    setInvoiceStatus('OCR failed: ' + (err?.message || err), 'err');
+  }
+}
+
+async function openInvoiceForReview(invoiceId) {
+  const inv = (state.invoices || []).find((i) => i.id === invoiceId);
+  if (!inv) return;
+  // Clone so edits don't mutate state until saved
+  state.reviewInvoice = JSON.parse(JSON.stringify(inv));
+  renderInvoiceReview();
+  document.getElementById('invoice-review-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function saveReviewInvoice() {
+  const inv = state.reviewInvoice;
+  if (!inv) return;
+  const saveBtn = document.getElementById('invoice-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  try {
+    const payload = { ...inv, status: 'reviewed' };
+    const saved = await dataRepo.saveInvoice(payload);
+    // Refresh full list to pull in variance + history rows
+    state.invoices = await dataRepo.fetchInvoices({ limit: 100 });
+    state.reviewInvoice = null;
+    setInvoiceStatus('Saved.', 'ok');
+    renderAll();
+  } catch (err) {
+    console.error('[save invoice]', err);
+    alert('Save failed: ' + (err?.message || err));
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save as reviewed'; }
+  }
+}
+
+function cancelReviewInvoice() {
+  state.reviewInvoice = null;
+  setInvoiceStatus('');
+  renderInvoiceReview();
+}
+
+function bindInvoiceEvents() {
+  const dz = document.getElementById('invoice-dropzone');
+  const file = document.getElementById('invoice-file');
+  const browse = document.getElementById('invoice-browse');
+
+  if (dz && file) {
+    dz.addEventListener('click', (e) => {
+      if (e.target.id === 'invoice-browse') return; // handled below
+      file.click();
+    });
+    dz.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); }
+    });
+    ['dragenter', 'dragover'].forEach((ev) => dz.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation(); dz.classList.add('drag');
+    }));
+    ['dragleave', 'drop'].forEach((ev) => dz.addEventListener(ev, (e) => {
+      e.preventDefault(); e.stopPropagation(); dz.classList.remove('drag');
+    }));
+    dz.addEventListener('drop', (e) => {
+      const f = e.dataTransfer?.files?.[0];
+      if (f) handleInvoiceUpload(f);
+    });
+  }
+  if (file) {
+    file.addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (f) handleInvoiceUpload(f);
+      e.target.value = '';
+    });
+  }
+  if (browse) {
+    browse.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); file?.click(); });
+  }
+
+  // Review list delegation (invoice list "Review →" buttons)
+  document.addEventListener('click', (e) => {
+    const rv = e.target.closest('[data-review-invoice]');
+    if (rv) {
+      e.preventDefault();
+      openInvoiceForReview(rv.dataset.reviewInvoice);
+    }
+  });
+
+  // Cancel / save
+  document.getElementById('invoice-cancel')?.addEventListener('click', cancelReviewInvoice);
+  document.getElementById('invoice-save')?.addEventListener('click', saveReviewInvoice);
+
+  // Review panel inputs (delegated)
+  document.addEventListener('input', (e) => {
+    if (!state.reviewInvoice) return;
+    const f = e.target.closest('[data-review-field]');
+    if (f) {
+      const key = f.dataset.reviewField;
+      const val = f.type === 'number' ? Number(f.value) : f.value;
+      state.reviewInvoice[key] = val;
+    }
+  });
+  document.addEventListener('change', (e) => {
+    if (!state.reviewInvoice) return;
+    const sel = e.target.closest('select[data-match-line]');
+    if (!sel) return;
+    const idx = +sel.dataset.matchLine;
+    const line = state.reviewInvoice.lines[idx];
+    if (!line) return;
+    if (sel.value === '__new__') {
+      const name = prompt('Create new inventory SKU from:', line.desc);
+      if (!name) { sel.value = line.matchedId || ''; return; }
+      line.matchedName = name;
+      line.matchedId = null; // saved as null + createdNewSku true; dataRepo can create on save
+      line.createdNewSku = true;
+      line.confidence = 1;
+    } else if (sel.value === '') {
+      line.matchedId = null;
+      line.matchedName = null;
+      line.confidence = 0;
+      line.createdNewSku = false;
+    } else {
+      const it = (state.inv || []).find((i) => i.id === sel.value);
+      line.matchedId = sel.value;
+      line.matchedName = it ? it.item : null;
+      line.confidence = 1; // manual confirm
+      line.createdNewSku = false;
+    }
+    renderInvoiceReview();
+  });
+}
+
+// -----------------------------------------------------------------------------
 // TASK ASSIGNMENTS
 // -----------------------------------------------------------------------------
 // Tasks module is fully Supabase-backed. Data is fetched once on first render
@@ -2217,7 +2702,7 @@ async function bootApp() {
   try {
     const [
       staff, temps, waste, inspChecks, licenses, inspHistory,
-      menu, inv, recipes, sales, prepLabels,
+      menu, inv, recipes, sales, prepLabels, invoices,
     ] = await Promise.all([
       dataRepo.fetchStaff(),
       dataRepo.fetchTempLogs(),
@@ -2230,6 +2715,7 @@ async function bootApp() {
       dataRepo.fetchRecipes(),
       dataRepo.fetchDailySales(30),
       dataRepo.fetchPrepLabels({ includeVoided: true }),
+      dataRepo.fetchInvoices({ limit: 100 }),
     ]);
     state.staff = staff;
     state.temps = temps;
@@ -2237,6 +2723,7 @@ async function bootApp() {
     state.inspChecks = inspChecks;
     state.licenses = licenses;
     state.prepLabels = prepLabels;
+    state.invoices = invoices || [];
     if (inspHistory.length > 0) {
       state.inspections = inspHistory.map(h => ({
         date: h.date, type: 'Routine', violations: h.violations, high: 0, result: 'Met',
@@ -2259,6 +2746,7 @@ async function bootApp() {
   }
 
   bindEvents();
+  bindInvoiceEvents();
   bindTeamView();
   renderAll();
   window.__restopsBooted = true;

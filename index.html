@@ -38,6 +38,7 @@
         <button class="nav-item" data-view="recipes"><span class="dot"></span>Recipe Costing</button>
         <button class="nav-item" data-view="sales"><span class="dot"></span>Sales &amp; Menu</button>
         <button class="nav-item" data-view="inventory"><span class="dot"></span>Inventory</button>
+        <button class="nav-item" data-view="invoices"><span class="dot"></span>Invoices &amp; AP <span class="nav-badge" id="invoices-badge"></span></button>
 
         <div class="nav-section">People</div>
         <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
@@ -266,6 +267,46 @@
             <div class="card-head"><h3>Vendor Spend (30D)</h3></div>
             <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
           </div>
+        </div>
+      </section>
+
+      <!-- INVOICES & AP -->
+      <section class="view" data-view="invoices">
+        <div class="inv-kpi-row" id="invoices-kpis"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Upload an invoice</h3>
+            <span class="muted">Drop an image or PDF scan — Claude vision OCR extracts line items</span>
+          </div>
+          <div id="invoice-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload invoice image">
+            <input type="file" id="invoice-file" accept="image/*" hidden />
+            <div class="dropzone-inner">
+              <div class="dropzone-icon">📄</div>
+              <div class="dropzone-title">Drop invoice image here</div>
+              <div class="dropzone-sub">or <button type="button" class="btn-link" id="invoice-browse">browse a file</button> · JPG, PNG, WEBP up to 10MB</div>
+              <div class="dropzone-status" id="invoice-status" hidden></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Recent invoices</h3>
+            <span class="muted" id="invoices-count">0 on file</span>
+          </div>
+          <div id="invoice-list" class="invoice-list"></div>
+        </div>
+
+        <div class="card" id="invoice-review-wrap" hidden>
+          <div class="card-head">
+            <h3 id="invoice-review-title">Review invoice</h3>
+            <div class="review-actions">
+              <button class="btn btn-ghost" id="invoice-cancel">Cancel</button>
+              <button class="btn" id="invoice-save">Save as reviewed</button>
+            </div>
+          </div>
+          <div id="invoice-review-body"></div>
         </div>
       </section>
 
