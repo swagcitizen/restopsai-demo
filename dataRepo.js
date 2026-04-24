@@ -945,11 +945,15 @@ export async function ocrInvoice(imageBase64, mediaType) {
     body: { image_base64: imageBase64, media_type: mediaType || 'image/jpeg' },
   });
   if (error) {
-    // functions.invoke wraps non-2xx as `error`; the body is still in `data` sometimes.
-    const detail = data?.error || error.message || 'OCR failed';
+    // functions.invoke wraps non-2xx as `error`; response body may also be in `data`.
+    const detail = data?.error || data?.detail || data?.hint || error.message || 'OCR failed';
+    console.error('[ocrInvoice] error:', error, 'data:', data);
     throw new Error(detail);
   }
-  if (!data?.ok) throw new Error(data?.error || 'OCR returned no invoice');
-  return data.invoice; // { vendor, invoice_number, invoice_date, subtotal, tax, total, lines: [...] }
+  if (!data) throw new Error('OCR returned no data');
+  if (data.error) throw new Error(data.detail || data.hint || data.error);
+  if (!data.invoice) throw new Error('OCR response missing invoice field');
+  // Return full envelope so caller can read { ok, invoice, model }.
+  return { ok: true, invoice: data.invoice, model: data.model };
 }
 
