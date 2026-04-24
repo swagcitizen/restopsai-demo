@@ -1298,7 +1298,7 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 /* -------------------------------------------------------------------------- */
 /* PUBLISH SCHEDULE MODAL                                                     */
 /* -------------------------------------------------------------------------- */
-.modal-backdrop {
+.publish-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.72);
@@ -1308,19 +1308,18 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
   z-index: 100;
   padding: 24px;
 }
-.modal-backdrop[hidden] { display: none; }
-.modal {
+.publish-backdrop[hidden] { display: none !important; }
+.publish-dialog {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
   width: 100%;
-  max-width: 640px;
+  max-width: 680px;
   max-height: 88vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }
-.publish-modal { max-width: 680px; }
 .modal-head {
   display: flex;
   align-items: flex-start;
