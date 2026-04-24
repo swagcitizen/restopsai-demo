@@ -178,6 +178,7 @@ function seed() {
     taskFreq: "all",
     taskCat: "all",
     taskAssignee: "all",
+    prepLabels: [],
   };
 }
 
@@ -397,10 +398,35 @@ function buildAlerts() {
   });
   // Temps out of range
   state.temps.forEach(t => {
+    const label = t.label || t.equipment;
     if (t.last < t.min || t.last > t.max) {
-      alerts.push({ level: "err", title: `Temperature out of range: ${t.label}`, sub: `Last ${t.last}${t.unit} · safe ${t.min}–${t.max}${t.unit}` });
+      alerts.push({ level: "err", title: `Temperature out of range: ${label}`, sub: `Last ${t.last}${t.unit} · safe ${t.min}–${t.max}${t.unit}` });
     }
   });
+  // Hot-hold stations not logged in the last 2 hours during service
+  const now = Date.now();
+  const HOT_OVERDUE_MS = 2 * 60 * 60 * 1000;
+  state.temps.forEach(t => {
+    if ((t.kind || (t.min >= 100 ? 'hot' : 'cold')) !== 'hot') return;
+    if (!t.lastLoggedAt) return;
+    const age = now - new Date(t.lastLoggedAt).getTime();
+    if (age > HOT_OVERDUE_MS) {
+      const hrs = Math.round(age / 3600000);
+      alerts.push({ level: hrs >= 4 ? 'err' : 'warn', title: `Hot-hold log overdue: ${t.label || t.equipment}`, sub: `Last logged ${hrs}h ago · FDA requires every 2h during service` });
+    }
+  });
+  // Prep labels past use-by
+  if (Array.isArray(state.prepLabels)) {
+    const expired = state.prepLabels.filter(l => !l.voided_at && new Date(l.use_by).getTime() < now);
+    if (expired.length > 0) {
+      const first = expired[0];
+      alerts.push({
+        level: 'err',
+        title: `${expired.length} prep label${expired.length > 1 ? 's' : ''} past use-by`,
+        sub: `${first.item}${expired.length > 1 ? ' and ' + (expired.length - 1) + ' more' : ''} · discard`,
+      });
+    }
+  }
   // Certs expiring
   state.staff.forEach(s => {
     const d = daysBetween(todayISO(), s.exp);
@@ -455,6 +481,7 @@ function renderAll() {
   renderTemps();
   renderChecklist();
   renderCleaning();
+  renderPrepLabels();
   renderLicenses();
   renderInspections();
   renderTraining();
@@ -624,23 +651,55 @@ function renderStaff() {
 }
 
 function renderTemps() {
-  const grid = document.getElementById("temp-grid");
-  grid.innerHTML = "";
+  const coldGrid = document.getElementById("temp-grid-cold");
+  const hotGrid  = document.getElementById("temp-grid-hot");
+  // Legacy single-grid fallback (shouldn't trigger after the tabs rebuild)
+  const legacy   = document.getElementById("temp-grid");
+  if (coldGrid) coldGrid.innerHTML = "";
+  if (hotGrid)  hotGrid.innerHTML  = "";
+  if (legacy)   legacy.innerHTML   = "";
+
+  const now = Date.now();
+  const HOT_OVERDUE_MS = 2 * 60 * 60 * 1000; // 2h in service
+
   state.temps.forEach((t, idx) => {
+    const kind = t.kind || (t.min >= 100 ? 'hot' : 'cold');
     const ok = t.last >= t.min && t.last <= t.max;
+    const lastAt = t.lastLoggedAt ? new Date(t.lastLoggedAt).getTime() : null;
+    const overdue = kind === 'hot' && lastAt && (now - lastAt) > HOT_OVERDUE_MS;
+    const ageLabel = lastAt ? (() => {
+      const mins = Math.floor((now - lastAt) / 60000);
+      if (mins < 60) return `Logged ${mins}m ago`;
+      const h = Math.floor(mins / 60); const m = mins % 60;
+      return `Logged ${h}h${m ? ' ' + m + 'm' : ''} ago`;
+    })() : 'No log yet';
+
+    let statusPill;
+    if (!ok) statusPill = `<span class="pill err">Alert</span>`;
+    else if (overdue) statusPill = `<span class="pill warn">Overdue</span>`;
+    else statusPill = `<span class="pill ok">In range</span>`;
+
     const div = document.createElement("div");
-    div.className = `temp-cell ${ok ? "ok" : "err"}`;
+    div.className = `temp-cell ${ok ? (overdue ? 'warn' : 'ok') : 'err'}`;
     div.innerHTML = `
-      <div class="temp-label">${t.label}</div>
-      <div class="temp-range">Safe: ${t.min}–${t.max} ${t.unit}</div>
+      <div class="temp-label">${escapeHtml(t.label || t.equipment)}</div>
+      <div class="temp-range">${kind === 'hot' ? `Hot-hold: ≥ ${t.min} ${t.unit}` : `Safe: ${t.min}–${t.max} ${t.unit}`} · <span class="muted">${ageLabel}</span></div>
       <div class="temp-input">
         <input type="number" step="0.5" value="${t.last}" data-temp="${idx}"/>
         <span class="unit">${t.unit}</span>
-        <span class="pill ${ok ? "ok" : "err"}" style="margin-left:auto">${ok ? "In range" : "Alert"}</span>
+        ${statusPill}
       </div>
     `;
-    grid.appendChild(div);
+    const target = (kind === 'hot' ? hotGrid : coldGrid) || legacy;
+    if (target) target.appendChild(div);
   });
+
+  // Last-logged summary under the button
+  const lastEl = document.getElementById('temp-last-logged');
+  if (lastEl) {
+    const anyAt = state.temps.map(t => t.lastLoggedAt).filter(Boolean).sort().pop();
+    lastEl.textContent = anyAt ? `Most recent log: ${new Date(anyAt).toLocaleString()}` : '';
+  }
 }
 
 function renderChecklist() {
@@ -678,6 +737,153 @@ function renderCleaning() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Prep labels (day-dot / use-by labels)
+// ---------------------------------------------------------------------------
+
+function hoursDiff(laterISO, earlierMs = Date.now()) {
+  return (new Date(laterISO).getTime() - earlierMs) / 3600000;
+}
+function fmtWhen(iso) {
+  try { return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+  catch { return iso; }
+}
+function relTime(iso) {
+  const hrs = hoursDiff(iso);
+  if (hrs < 0) {
+    const h = Math.abs(Math.round(hrs));
+    return h >= 24 ? `${Math.round(h/24)}d overdue` : `${h}h overdue`;
+  }
+  if (hrs < 1) return `in ${Math.round(hrs * 60)}m`;
+  if (hrs < 24) return `in ${Math.round(hrs)}h`;
+  return `in ${Math.round(hrs / 24)}d`;
+}
+
+function renderPrepLabels() {
+  if (!Array.isArray(state.prepLabels)) return;
+  const now = Date.now();
+  const active  = state.prepLabels.filter(l => !l.voided_at);
+  const voided  = state.prepLabels.filter(l => l.voided_at);
+  const expired = active.filter(l => new Date(l.use_by).getTime() < now);
+  const soon    = active.filter(l => {
+    const t = new Date(l.use_by).getTime();
+    return t >= now && t - now <= 12 * 3600 * 1000;
+  });
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const today = state.prepLabels.filter(l => new Date(l.prepped_at) >= todayStart).length;
+
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('pl-active', active.length);
+  setText('pl-soon', soon.length);
+  setText('pl-expired', expired.length);
+  setText('pl-today', today);
+  setText('pl-count', `${active.length} active`);
+
+  // Active labels list
+  const list = document.getElementById('label-list');
+  if (list) {
+    if (active.length === 0) {
+      list.innerHTML = `<div class="empty-state">No active labels. Create one to get started.</div>`;
+    } else {
+      // Sort by use-by ascending (most urgent first)
+      const sorted = [...active].sort((a, b) => new Date(a.use_by) - new Date(b.use_by));
+      list.innerHTML = sorted.map(l => {
+        const useByMs = new Date(l.use_by).getTime();
+        const state_ = useByMs < now ? 'expired'
+          : useByMs - now <= 12 * 3600 * 1000 ? 'soon'
+          : 'fresh';
+        const statePill = state_ === 'expired' ? `<span class="pill err">Past use-by</span>`
+          : state_ === 'soon' ? `<span class="pill warn">Use first</span>`
+          : `<span class="pill ok">Fresh</span>`;
+        const allergens = (l.allergens || []).map(a => `<span class="tag tag-allergen">${escapeHtml(a)}</span>`).join(' ');
+        const typeLabel = l.prep_type === 'thaw' ? 'Thawing' : l.prep_type === 'open' ? 'Opened' : 'Prepped';
+        return `<div class="label-row label-${state_}" data-label-id="${l.id}">
+          <div class="label-row-main">
+            <div class="label-row-head">
+              <strong>${escapeHtml(l.item)}</strong>
+              ${statePill}
+              <span class="muted small">${typeLabel}${l.station ? ' · ' + escapeHtml(l.station) : ''}</span>
+            </div>
+            <div class="label-row-meta small muted">
+              Prep: ${fmtWhen(l.prepped_at)}${l.prepped_by ? ' · ' + escapeHtml(l.prepped_by) : ''}
+              &nbsp;·&nbsp; Use by: ${fmtWhen(l.use_by)} (${relTime(l.use_by)})
+            </div>
+            ${allergens ? `<div class="label-row-allergens">${allergens}</div>` : ''}
+          </div>
+          <div class="label-row-actions">
+            <button class="ghost-btn small" data-label-print="${l.id}">Print</button>
+            <button class="ghost-btn small" data-label-use="${l.id}">Mark used</button>
+            <button class="ghost-btn small danger" data-label-discard="${l.id}">Discard</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // History (last 7 days of voided labels)
+  const histBody = document.getElementById('label-history-body');
+  if (histBody) {
+    const sevenDays = now - 7 * 24 * 3600 * 1000;
+    const recent = voided.filter(l => new Date(l.voided_at).getTime() >= sevenDays)
+      .sort((a, b) => new Date(b.voided_at) - new Date(a.voided_at));
+    if (recent.length === 0) {
+      histBody.innerHTML = `<tr><td colspan="6" class="muted center">No history yet.</td></tr>`;
+    } else {
+      histBody.innerHTML = recent.map(l => {
+        const outcomeClass = /discard/i.test(l.voided_reason || '') ? 'err' : 'ok';
+        return `<tr>
+          <td>${escapeHtml(l.item)}</td>
+          <td class="muted small">${l.prep_type}</td>
+          <td class="muted small">${fmtWhen(l.prepped_at)}</td>
+          <td class="muted small">${fmtWhen(l.use_by)}</td>
+          <td class="muted small">${escapeHtml(l.prepped_by || '—')}</td>
+          <td><span class="pill ${outcomeClass}">${escapeHtml(l.voided_reason || 'Voided')}</span></td>
+        </tr>`;
+      }).join('');
+    }
+  }
+}
+
+function buildLabelPrintHTML(label, tenantName) {
+  const allergens = (label.allergens || []).join(' · ').toUpperCase() || 'NONE';
+  const typeUpper = label.prep_type === 'thaw' ? 'THAWING' : label.prep_type === 'open' ? 'OPENED' : 'PREPPED';
+  const preppedAt = new Date(label.prepped_at);
+  const useBy = new Date(label.use_by);
+  const fmt = (d) => d.toLocaleString([], { month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit' });
+  return `<div class="plabel">
+    <div class="plabel-head">
+      <span class="plabel-type">${typeUpper}</span>
+      <span class="plabel-tenant">${escapeHtml(tenantName || 'RestOps AI')}</span>
+    </div>
+    <div class="plabel-item">${escapeHtml(label.item)}</div>
+    <div class="plabel-grid">
+      <div><span class="plabel-k">Prep</span><span class="plabel-v">${fmt(preppedAt)}</span></div>
+      <div class="plabel-useby"><span class="plabel-k">USE BY</span><span class="plabel-v">${fmt(useBy)}</span></div>
+    </div>
+    <div class="plabel-foot">
+      <div><span class="plabel-k">By</span> ${escapeHtml(label.prepped_by || '—')}${label.station ? ' · ' + escapeHtml(label.station) : ''}</div>
+      <div class="plabel-alg"><span class="plabel-k">Allergens</span> ${escapeHtml(allergens)}</div>
+      ${label.notes ? `<div class="plabel-notes">${escapeHtml(label.notes)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function printPrepLabel(label) {
+  const tenantName = (window.__RESTOPS_CTX__ && window.__RESTOPS_CTX__.tenant && window.__RESTOPS_CTX__.tenant.name) || 'RestOps AI';
+  const root = document.getElementById('label-print-root');
+  if (!root) { window.print(); return; }
+  root.innerHTML = buildLabelPrintHTML(label, tenantName);
+  document.body.classList.add('printing-label');
+  // Let the browser paint before opening the dialog
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-label');
+      root.innerHTML = '';
+    }, 300);
+  }, 80);
 }
 
 function renderLicenses() {
@@ -1046,6 +1252,17 @@ function renderBriefing() {
   // Reorder
   const lowInv = state.inv.filter(i => i.onHand <= i.reorder);
   if (lowInv.length > 0) focus.push(`Place reorder with ${[...new Set(lowInv.map(i => i.vendor))].join(", ")} — ${lowInv.length} items at or below par.`);
+  // Food safety — expired prep labels
+  const expiredLabels = (state.prepLabels || []).filter(l => !l.voided_at && l.use_by && new Date(l.use_by) < new Date());
+  if (expiredLabels.length > 0) {
+    const preview = expiredLabels.slice(0, 3).map(l => l.item).join(", ");
+    focus.push(`Discard ${expiredLabels.length} prep-label item${expiredLabels.length === 1 ? "" : "s"} past use-by: ${preview}${expiredLabels.length > 3 ? ", …" : ""}.`);
+  }
+  // Food safety — hot-hold overdue checks (>2h since last log)
+  const now = Date.now();
+  const hotStations = (state.temps || []).filter(t => t.kind === "hot");
+  const overdueHot = hotStations.filter(t => !t.lastLoggedAt || (now - new Date(t.lastLoggedAt).getTime()) > 2 * 60 * 60 * 1000);
+  if (overdueHot.length > 0) focus.push(`Log hot-hold temps on ${overdueHot.length} station${overdueHot.length === 1 ? "" : "s"} overdue past 2 hours: ${overdueHot.map(s => s.label || s.equipment).join(", ")}.`);
   // Menu engineering
   const dogs = state.menu.filter(m => {
     const margin = ((m.price - m.cost)/m.price) * 100;
@@ -1396,7 +1613,7 @@ function bindEvents() {
         inventory: ["Inventory", "Par levels, vendor spend, and waste tracking"],
         labor: ["Labor", "Staff roster, wages, and shift-level efficiency"],
         scheduler: ["Shift Scheduler", "Weekly coverage with live labor-% projection"],
-        safety: ["Food Safety", "HACCP temperature logs, checklists, and cleaning"],
+        safety: ["Food Safety", "Prep labels, temperature logs, checklists, and cleaning"],
         inspection: ["DBPR Inspection Prep", "37-point FL DBPR readiness walkthrough + mock inspection"],
         tasks: ["Task Assignments", "Daily, weekly, and monthly duties — fire, grease trap, hood vents, and more"],
         compliance: ["Licenses", "Licenses, inspections, and training status"],
@@ -1723,6 +1940,105 @@ function bindEvents() {
       saveState();
     }
   });
+
+  // --- Food Safety tabs ---
+  document.querySelectorAll('#safety-tabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('#safety-tabs .tab-btn').forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      document.querySelectorAll('.view[data-view="safety"] .tab-panel').forEach(p => {
+        p.classList.toggle('active', p.dataset.tab === tab);
+      });
+      if (tab === 'temps') { renderTempChart(); renderTemps(); }
+      if (tab === 'labels') renderPrepLabels();
+    });
+  });
+
+  // --- Prep label form submit ---
+  const labelForm = document.getElementById('label-form');
+  if (labelForm) {
+    labelForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('lf-submit');
+      const origText = submitBtn.textContent;
+      const item = document.getElementById('lf-item').value.trim();
+      if (!item) return;
+      const prepType = document.getElementById('lf-type').value;
+      const hoursRaw = document.getElementById('lf-hours').value.trim();
+      const shelfHours = hoursRaw === '' ? null : Number(hoursRaw);
+      const preppedBy = document.getElementById('lf-by').value.trim() || null;
+      const station = document.getElementById('lf-station').value.trim() || null;
+      const notes = document.getElementById('lf-notes').value.trim() || null;
+      const allergens = Array.from(document.querySelectorAll('#lf-allergens input:checked')).map(i => i.value);
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving…';
+      try {
+        const newLabel = await dataRepo.createPrepLabel({ item, prepType, preppedBy, shelfHours, allergens, station, notes });
+        state.prepLabels = [newLabel, ...state.prepLabels];
+        renderPrepLabels();
+        // Reset form but preserve "Prepped by" + "Station" (same person often labels many items in a row)
+        document.getElementById('lf-item').value = '';
+        document.getElementById('lf-hours').value = '';
+        document.getElementById('lf-notes').value = '';
+        document.querySelectorAll('#lf-allergens input').forEach(i => { i.checked = false; });
+        submitBtn.textContent = '✓ Created';
+        // Open print dialog
+        printPrepLabel(newLabel);
+        setTimeout(() => { submitBtn.textContent = origText; submitBtn.disabled = false; document.getElementById('lf-item').focus(); }, 800);
+      } catch (err) {
+        console.error('Create label failed:', err);
+        alert('Could not create label: ' + err.message);
+        submitBtn.textContent = origText;
+        submitBtn.disabled = false;
+      }
+    });
+  }
+  const resetBtn = document.getElementById('lf-reset');
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    ['lf-item','lf-hours','lf-by','lf-station','lf-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.querySelectorAll('#lf-allergens input').forEach(i => { i.checked = false; });
+    document.getElementById('lf-type').value = 'prep';
+  });
+
+  // --- Label row actions (print / used / discard) ---
+  document.addEventListener('click', async (e) => {
+    const printBtn = e.target.closest('[data-label-print]');
+    if (printBtn) {
+      const id = printBtn.dataset.labelPrint;
+      const label = state.prepLabels.find(l => l.id === id);
+      if (label) printPrepLabel(label);
+      return;
+    }
+    const useBtn = e.target.closest('[data-label-use]');
+    const discardBtn = e.target.closest('[data-label-discard]');
+    const target = useBtn || discardBtn;
+    if (!target) return;
+    const id = target.dataset.labelUse || target.dataset.labelDiscard;
+    const reason = useBtn ? 'Used' : 'Discarded';
+    if (!confirm(`${reason === 'Used' ? 'Mark this label as used' : 'Discard this label'}?`)) return;
+    try {
+      const updated = await dataRepo.voidPrepLabel(id, reason);
+      const idx = state.prepLabels.findIndex(l => l.id === id);
+      if (idx >= 0) state.prepLabels[idx] = { ...state.prepLabels[idx], ...updated };
+      renderPrepLabels();
+    } catch (err) {
+      console.error('Void label failed:', err);
+      alert('Could not update label: ' + err.message);
+    }
+  });
+
+  // --- Auto-populate shelf-life when label type changes ---
+  const typeSel = document.getElementById('lf-type');
+  if (typeSel) typeSel.addEventListener('change', () => {
+    const hours = { prep: '', open: '', thaw: '' }[typeSel.value] ?? '';
+    const hoursInput = document.getElementById('lf-hours');
+    if (hoursInput) hoursInput.placeholder = typeSel.value === 'thaw' ? 'Auto (24h)' : 'Auto (72h)';
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -1901,7 +2217,7 @@ async function bootApp() {
   try {
     const [
       staff, temps, waste, inspChecks, licenses, inspHistory,
-      menu, inv, recipes, sales,
+      menu, inv, recipes, sales, prepLabels,
     ] = await Promise.all([
       dataRepo.fetchStaff(),
       dataRepo.fetchTempLogs(),
@@ -1913,12 +2229,14 @@ async function bootApp() {
       dataRepo.fetchInventory(),
       dataRepo.fetchRecipes(),
       dataRepo.fetchDailySales(30),
+      dataRepo.fetchPrepLabels({ includeVoided: true }),
     ]);
     state.staff = staff;
     state.temps = temps;
     state.waste = waste;
     state.inspChecks = inspChecks;
     state.licenses = licenses;
+    state.prepLabels = prepLabels;
     if (inspHistory.length > 0) {
       state.inspections = inspHistory.map(h => ({
         date: h.date, type: 'Routine', violations: h.violations, high: 0, result: 'Met',

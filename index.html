@@ -295,37 +295,139 @@
 
       <!-- FOOD SAFETY -->
       <section class="view" data-view="safety">
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head">
-              <h3>Temperature Logs (HACCP)</h3>
-              <span class="muted">FDA Food Code: cold ≤ 41°F · hot ≥ 135°F</span>
+        <div class="tabs" id="safety-tabs" role="tablist" aria-label="Food Safety sections">
+          <button class="tab-btn active" data-tab="temps" role="tab" aria-selected="true">Temperature Logs</button>
+          <button class="tab-btn" data-tab="labels" role="tab" aria-selected="false">Prep Labels</button>
+          <button class="tab-btn" data-tab="checks" role="tab" aria-selected="false">Checklists &amp; Cleaning</button>
+        </div>
+
+        <!-- TAB: Temperature Logs -->
+        <div class="tab-panel active" data-tab="temps">
+          <div class="row-2">
+            <div class="card">
+              <div class="card-head">
+                <h3>Cold-hold equipment</h3>
+                <span class="muted">FDA Food Code · keep ≤ 41°F</span>
+              </div>
+              <div class="temp-grid" id="temp-grid-cold"></div>
             </div>
-            <div class="temp-grid" id="temp-grid"></div>
-            <button class="btn" id="log-temp">Log all readings</button>
+            <div class="card">
+              <div class="card-head">
+                <h3>Hot-hold stations</h3>
+                <span class="muted">FDA Food Code · keep ≥ 135°F · log every 2h in service</span>
+              </div>
+              <div class="temp-grid" id="temp-grid-hot"></div>
+            </div>
           </div>
+          <div style="margin: 12px 0 18px 0;">
+            <button class="btn" id="log-temp">Log all readings</button>
+            <span class="muted small" style="margin-left:10px" id="temp-last-logged"></span>
+          </div>
+
           <div class="card">
-            <div class="card-head"><h3>Today's Checklist</h3><span class="muted" id="check-done">0/0</span></div>
+            <div class="card-head"><h3>Recent temperature readings</h3><span class="muted">Last 14 days</span></div>
+            <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
+          </div>
+        </div>
+
+        <!-- TAB: Prep Labels -->
+        <div class="tab-panel" data-tab="labels">
+          <div class="kpi-grid kpi-4">
+            <div class="kpi"><div class="kpi-label">Active labels</div><div class="kpi-value" id="pl-active">0</div></div>
+            <div class="kpi"><div class="kpi-label">Expiring in 12h</div><div class="kpi-value" id="pl-soon">0</div><div class="kpi-foot">Use first</div></div>
+            <div class="kpi"><div class="kpi-label">Past use-by</div><div class="kpi-value" id="pl-expired">0</div><div class="kpi-foot">Discard</div></div>
+            <div class="kpi"><div class="kpi-label">Printed today</div><div class="kpi-value" id="pl-today">0</div></div>
+          </div>
+
+          <div class="row-2">
+            <div class="card">
+              <div class="card-head"><h3>Create a prep label</h3><span class="muted">Auto-calculates use-by from FDA shelf-life</span></div>
+              <form class="form-grid" id="label-form" autocomplete="off">
+                <label class="field">
+                  <span>Item</span>
+                  <input type="text" id="lf-item" placeholder="e.g. Marinara sauce" required />
+                </label>
+                <label class="field">
+                  <span>Label type</span>
+                  <select id="lf-type">
+                    <option value="prep">Prepped (72h)</option>
+                    <option value="open">Opened container (72h)</option>
+                    <option value="thaw">Thawing (24h)</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Shelf life (hours)</span>
+                  <input type="number" id="lf-hours" min="1" max="168" step="1" placeholder="Auto" />
+                </label>
+                <label class="field">
+                  <span>Prepped by</span>
+                  <input type="text" id="lf-by" placeholder="Staff name or initials" />
+                </label>
+                <label class="field">
+                  <span>Station</span>
+                  <input type="text" id="lf-station" placeholder="Sauce station" />
+                </label>
+                <label class="field field-full">
+                  <span>Allergens</span>
+                  <div class="allergen-pick" id="lf-allergens">
+                    <label><input type="checkbox" value="wheat" /> Wheat</label>
+                    <label><input type="checkbox" value="dairy" /> Dairy</label>
+                    <label><input type="checkbox" value="egg" /> Egg</label>
+                    <label><input type="checkbox" value="soy" /> Soy</label>
+                    <label><input type="checkbox" value="tree nuts" /> Tree nuts</label>
+                    <label><input type="checkbox" value="peanut" /> Peanut</label>
+                    <label><input type="checkbox" value="fish" /> Fish</label>
+                    <label><input type="checkbox" value="shellfish" /> Shellfish</label>
+                    <label><input type="checkbox" value="sesame" /> Sesame</label>
+                  </div>
+                </label>
+                <label class="field field-full">
+                  <span>Notes</span>
+                  <input type="text" id="lf-notes" placeholder="Batch #, recipe, etc." />
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="btn" id="lf-submit">Create &amp; print</button>
+                  <button type="button" class="ghost-btn" id="lf-reset">Reset</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Active labels</h3><span class="muted" id="pl-count">0 active</span></div>
+              <div class="label-list" id="label-list"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Recent history</h3><span class="muted">Used or discarded (last 7 days)</span></div>
+            <table class="tbl compact">
+              <thead><tr><th>Item</th><th>Type</th><th>Prepped</th><th>Use-by</th><th>Prepped by</th><th>Outcome</th></tr></thead>
+              <tbody id="label-history-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB: Checklists &amp; Cleaning -->
+        <div class="tab-panel" data-tab="checks">
+          <div class="card">
+            <div class="card-head"><h3>Today's checklist</h3><span class="muted" id="check-done">0/0</span></div>
             <ul class="checklist" id="checklist"></ul>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Cleaning &amp; Sanitation Schedule</h3>
-            <span class="muted">Daily · Weekly · Monthly</span>
+          <div class="card">
+            <div class="card-head">
+              <h3>Cleaning &amp; sanitation schedule</h3>
+              <span class="muted">Daily · Weekly · Monthly</span>
+            </div>
+            <table class="tbl">
+              <thead><tr><th>Task</th><th>Frequency</th><th>Last done</th><th>Next due</th><th>Assigned</th><th>Status</th><th></th></tr></thead>
+              <tbody id="clean-body"></tbody>
+            </table>
           </div>
-          <table class="tbl">
-            <thead><tr><th>Task</th><th>Frequency</th><th>Last done</th><th>Next due</th><th>Assigned</th><th>Status</th><th></th></tr></thead>
-            <tbody id="clean-body"></tbody>
-          </table>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h3>Recent Temperature Readings</h3><span class="muted">Last 14 days</span></div>
-          <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
         </div>
       </section>
+
+      <!-- PRINTABLE LABEL (hidden until print) -->
+      <div id="label-print-root" class="label-print-root" aria-hidden="true"></div>
 
       <!-- COMPLIANCE -->
       <section class="view" data-view="compliance">

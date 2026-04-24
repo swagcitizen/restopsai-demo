@@ -87,11 +87,14 @@ export async function deactivateStaff(staffId) {
 // for a fresh tenant, we seed a reasonable starter list client-side.
 
 const DEFAULT_EQUIPMENT = [
-  { equipment: 'Walk-in Cooler',   min: 35, max: 41, last: 38 },
-  { equipment: 'Reach-in Cooler',  min: 35, max: 41, last: 39 },
-  { equipment: 'Freezer',          min: -5, max: 10, last: 2 },
-  { equipment: 'Pizza Prep Table', min: 35, max: 41, last: 40 },
-  { equipment: 'Hot Holding',      min: 135, max: 165, last: 150 },
+  { equipment: 'Walk-in Cooler',         min: 35,  max: 41,  last: 38,  kind: 'cold' },
+  { equipment: 'Reach-in Cooler',        min: 35,  max: 41,  last: 39,  kind: 'cold' },
+  { equipment: 'Freezer',                min: -5,  max: 10,  last: 2,   kind: 'cold' },
+  { equipment: 'Pizza Prep Table',       min: 35,  max: 41,  last: 40,  kind: 'cold' },
+  { equipment: 'Hot line - Steam table', min: 135, max: 175, last: 142, kind: 'hot' },
+  { equipment: 'Hot line - Sauté pickup',min: 135, max: 175, last: 145, kind: 'hot' },
+  { equipment: 'Pizza oven hold',        min: 135, max: 180, last: 150, kind: 'hot' },
+  { equipment: 'Soup well',              min: 135, max: 180, last: 158, kind: 'hot' },
 ];
 
 export async function fetchTempLogs() {
@@ -116,7 +119,10 @@ export async function fetchTempLogs() {
     return {
       unit: '°F',
       equipment: d.equipment,
+      label: d.equipment,
+      kind: d.kind,
       last: latest ? Number(latest.temp_f) : d.last,
+      lastLoggedAt: latest ? latest.logged_at : null,
       min: d.min,
       max: d.max,
       history: (historyByEquip.get(d.equipment) || []).slice(0, 14).reverse(),
@@ -125,12 +131,16 @@ export async function fetchTempLogs() {
   // Also include any equipment the user logged that isn't in defaults
   for (const [name, row] of latestByEquip) {
     if (!DEFAULT_EQUIPMENT.find((d) => d.equipment === name)) {
+      const kind = Number(row.temp_f) >= 100 ? 'hot' : 'cold';
       result.push({
         unit: '°F',
         equipment: name,
+        label: name,
+        kind,
         last: Number(row.temp_f),
-        min: 35,
-        max: 41,
+        lastLoggedAt: row.logged_at,
+        min: kind === 'hot' ? 135 : 35,
+        max: kind === 'hot' ? 175 : 41,
         history: (historyByEquip.get(name) || []).slice(0, 14).reverse(),
       });
     }
@@ -618,3 +628,66 @@ export async function seedDailySalesFromSample(sampleSales) {
   if (error) throw error;
   return await fetchDailySales(sampleSales.length);
 }
+
+// ---------------------------------------------------------------------------
+// Prep labels (day-dot / use-by)
+// ---------------------------------------------------------------------------
+
+// Default shelf-life hours by prep_type; override per-item at create time.
+const DEFAULT_SHELF_HOURS = { prep: 72, open: 72, thaw: 24 };
+
+export async function fetchPrepLabels({ includeVoided = false, limit = 200 } = {}) {
+  let q = supabase
+    .from('prep_labels')
+    .select('id, item, prep_type, prepped_by, prepped_at, use_by, allergens, station, notes, voided_at, voided_reason')
+    .order('use_by', { ascending: true })
+    .limit(limit);
+  if (!includeVoided) q = q.is('voided_at', null);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createPrepLabel({ item, prepType = 'prep', preppedBy = null, shelfHours = null, allergens = [], station = null, notes = null }) {
+  const ctx = await getTenantContext();
+  if (!ctx) throw new Error('No tenant context');
+  const hours = Number.isFinite(shelfHours) ? shelfHours : (DEFAULT_SHELF_HOURS[prepType] || 72);
+  const now = new Date();
+  const useBy = new Date(now.getTime() + hours * 3600 * 1000);
+  const { data, error } = await supabase
+    .from('prep_labels')
+    .insert({
+      tenant_id: ctx.tenant.id,
+      item,
+      prep_type: prepType,
+      prepped_by: preppedBy,
+      prepped_by_user: ctx.user?.id || null,
+      prepped_at: now.toISOString(),
+      use_by: useBy.toISOString(),
+      allergens: Array.isArray(allergens) ? allergens : [],
+      station,
+      notes,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function voidPrepLabel(id, reason = 'Used') {
+  const { data, error } = await supabase
+    .from('prep_labels')
+    .update({ voided_at: new Date().toISOString(), voided_reason: reason })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// Lazy-import to avoid circular ref with tenantContext
+async function getTenantContext() {
+  const mod = await import('./tenantContext.js');
+  return mod.getTenantContext();
+}
+

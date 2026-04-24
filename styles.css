@@ -639,3 +639,307 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
   border-radius: 6px;
 }
 .demo-banner-link:hover { background: rgba(232, 163, 61, 0.1); }
+
+/* ========================================
+   Food Safety — Tabs
+   ======================================== */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: 18px;
+}
+.tab-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font: 500 12px var(--font-body);
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  background: var(--accent);
+  color: #1a120a;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: tabFade 200ms ease; }
+@keyframes tabFade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================
+   Food Safety — Temperature cells
+   ======================================== */
+.temp-cell.warn {
+  border-color: rgba(240, 180, 41, 0.45);
+  background: rgba(240, 180, 41, 0.05);
+}
+
+/* ========================================
+   Food Safety — Prep Labels form
+   ======================================== */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+  margin-top: 6px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-full { grid-column: 1 / -1; }
+.field label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.field input[type="text"],
+.field input[type="number"],
+.field select,
+.field textarea {
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+  font: 400 13px var(--font-body);
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 163, 61, 0.15);
+}
+.field textarea { resize: vertical; min-height: 60px; }
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.allergen-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  padding: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+}
+.allergen-pick label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+}
+.allergen-pick label:hover { color: var(--text); border-color: var(--accent); }
+.allergen-pick input[type="checkbox"] { accent-color: var(--accent); margin: 0; }
+
+/* ========================================
+   Food Safety — Prep Labels list
+   ======================================== */
+.label-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.label-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  transition: border-color 150ms;
+}
+.label-row:hover { border-color: var(--line); }
+.label-row.label-fresh { border-left-color: var(--success); }
+.label-row.label-soon { border-left-color: var(--warn); }
+.label-row.label-expired {
+  border-left-color: var(--error);
+  background: rgba(232, 90, 79, 0.04);
+}
+.label-row-main { flex: 1; min-width: 0; }
+.label-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.label-row-head strong {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 600;
+}
+.label-row-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.label-row-meta .sep { color: var(--text-faint); margin: 0 6px; }
+.label-row-allergens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.label-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.label-row-actions .ghost-btn { padding: 5px 9px; font-size: 11px; }
+
+.tag-allergen {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(232, 90, 79, 0.1);
+  border: 1px solid rgba(232, 90, 79, 0.3);
+  color: #e89a93;
+  font-weight: 600;
+}
+
+/* ========================================
+   Prep Label — 4x2" thermal print
+   ======================================== */
+.label-print-root { display: none; }
+
+@media print {
+  @page { size: 4in 2in; margin: 0; }
+  body.printing-label > *:not(#label-print-root) { display: none !important; }
+  body.printing-label .main,
+  body.printing-label .sidebar,
+  body.printing-label .topbar,
+  body.printing-label .demo-banner { display: none !important; }
+  body.printing-label #label-print-root {
+    display: block !important;
+    position: static;
+    width: 4in;
+    height: 2in;
+    background: #fff;
+    color: #000;
+  }
+}
+
+.plabel {
+  width: 4in;
+  height: 2in;
+  padding: 0.12in 0.14in;
+  box-sizing: border-box;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: #000;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.04in;
+  line-height: 1.15;
+}
+.plabel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #000;
+  padding-bottom: 0.03in;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.plabel-type {
+  background: #000;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.plabel-tenant {
+  color: #000;
+  font-size: 8pt;
+  font-weight: 600;
+}
+.plabel-item {
+  font-size: 15pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0.02in 0;
+}
+.plabel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.06in;
+  font-size: 8.5pt;
+}
+.plabel-grid > div { display: flex; flex-direction: column; }
+.plabel-useby {
+  border-left: 2px solid #000;
+  padding-left: 0.06in;
+}
+.plabel-useby .plabel-v {
+  font-size: 11pt;
+  font-weight: 800;
+}
+.plabel-foot {
+  margin-top: auto;
+  font-size: 7.5pt;
+  color: #000;
+  border-top: 1px dashed #666;
+  padding-top: 0.03in;
+  display: flex;
+  flex-direction: column;
+  gap: 0.02in;
+}
+.plabel-alg { font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.plabel-notes { font-style: italic; color: #333; }
+.plabel-k {
+  font-size: 7pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+}
+.plabel-v {
+  font-size: 9pt;
+  font-weight: 600;
+  color: #000;
+}
+
+/* Responsive: single column form on narrow screens */
+@media (max-width: 720px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .label-row { flex-direction: column; }
+  .label-row-actions { flex-direction: row; width: 100%; }
+}
