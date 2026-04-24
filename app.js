@@ -2697,6 +2697,10 @@ async function bootApp() {
       const banner = document.getElementById('demo-banner');
       if (banner) banner.hidden = false;
     }
+    if (ctx?.profile?.is_platform_owner) {
+      const plink = document.getElementById('platform-link');
+      if (plink) plink.hidden = false;
+    }
   } catch (_) { /* non-fatal */ }
 
   // Hydrate state from Supabase (replaces the mock SAMPLE.* where possible).

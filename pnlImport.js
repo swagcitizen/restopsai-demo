@@ -109,7 +109,7 @@ function openModal(tenantId, onConfirmed) {
       <div class="pnl-head">
         <div>
           <h2 id="pnl-title">Import P&amp;L</h2>
-          <div class="sub">Upload a P&amp;L from QuickBooks, Xero, or your accountant. We'll map it to your categories.</div>
+          <div class="sub">Upload a P&amp;L from QuickBooks, Xero, or your accountant — or drop in a bank statement and we'll categorize the transactions.</div>
         </div>
         <button class="pnl-x" aria-label="Close">×</button>
       </div>
@@ -136,8 +136,8 @@ function renderUpload(tenantId, onConfirmed) {
   body().innerHTML = `
     <label class="drop" id="pnl-drop">
       <input type="file" id="pnl-file" accept="${ACCEPT}" />
-      <h3>Drop your P&amp;L here, or click to pick a file</h3>
-      <p>We'll extract line items and suggest a category for each.</p>
+      <h3>Drop your P&amp;L or bank statement here</h3>
+      <p>We'll extract line items, classify the document, and suggest a category for each row.</p>
       <div class="types">Supported: PDF · CSV · Excel (.xlsx) · up to 10 MB</div>
     </label>
     <div id="pnl-status" class="status" hidden></div>
@@ -223,8 +223,23 @@ async function handleFile(file, tenantId, onConfirmed) {
 function renderReview(importId, parsed, lines, tenantId, onConfirmed) {
   const start = parsed.period_start || '';
   const end = parsed.period_end || '';
+  const isBankStatement = parsed.document_type === 'bank_statement';
+  const summary = parsed.document_summary || '';
+
+  const banner = isBankStatement ? `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:#fdf3dc;border:1px solid #e8a33d;border-radius:10px;margin-bottom:14px">
+      <div style="flex-shrink:0;width:28px;height:28px;border-radius:8px;background:#e8a33d;color:#1c1a15;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">🏦</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:#1c1a15;font-size:13px;margin-bottom:2px">Bank statement detected</div>
+        <div style="font-size:12px;color:#6b6459;line-height:1.5">${escapeHtml(summary)} We've grouped your transactions into categorized buckets below — review and adjust before confirming.</div>
+      </div>
+    </div>
+  ` : (summary ? `
+    <div style="padding:10px 14px;background:#f6efdf;border-radius:10px;margin-bottom:14px;font-size:12px;color:#6b6459">${escapeHtml(summary)}</div>
+  ` : '');
 
   body().innerHTML = `
+    ${banner}
     <div class="period-row">
       <label>Period start<input type="date" id="pnl-start" value="${start}"></label>
       <label>Period end<input type="date" id="pnl-end" value="${end}"></label>
