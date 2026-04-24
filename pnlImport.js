@@ -209,15 +209,9 @@ async function handleFile(file, tenantId, onConfirmed) {
     if (!parseResp.ok) throw new Error(`parse: ${await parseResp.text()}`);
     const parsed = await parseResp.json();
 
-    // 4. Load line items for review
-    const { data: lines, error: lErr } = await supabase
-      .from('pnl_line_items')
-      .select('id, raw_label, raw_amount, mapped_category, confidence, ai_reasoning, display_order')
-      .eq('import_id', import_id)
-      .order('display_order');
-    if (lErr) throw lErr;
-
-    renderReview(import_id, parsed, lines || [], tenantId, onConfirmed);
+    // Parse function returns line_items directly (service role writes + returns)
+    const lines = (parsed.line_items || []).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    renderReview(import_id, parsed, lines, tenantId, onConfirmed);
   } catch (e) {
     statusEl.hidden = true;
     document.getElementById('pnl-drop').style.display = '';
