@@ -836,6 +836,7 @@
          Runs BEFORE app.js so app.js can assume a valid tenant context exists. -->
     <script type="module">
       import { loadTenantContext } from './tenantContext.js';
+      import { mountPnlImport } from './pnlImport.js';
       try {
         const ctx = await loadTenantContext();
         window.__RESTOPS_CTX__ = ctx;
@@ -848,6 +849,41 @@
         }
         // Signal app.js it can start
         window.dispatchEvent(new CustomEvent('restops:ready'));
+
+        // Mount the Import P&L button on the Costs view.
+        // After import, map totals into the existing P&L inputs and recompute.
+        mountPnlImport(ctx.tenantId, (totals, period) => {
+          const mapping = {
+            rev_dinein: totals.revenue,
+            rev_takeout: 0, rev_delivery: 0, rev_catering: 0,
+            cog_cheese: totals.food_cost,
+            cog_bev: totals.beverage_cost,
+            cog_flour: 0, cog_sauce: 0, cog_meats: 0, cog_produce: 0, cog_paper: 0,
+            lab_kitchen: totals.labor * 0.55,
+            lab_foh: totals.labor * 0.35,
+            lab_tax: totals.labor * 0.10,
+            lab_drivers: 0, lab_mgr: 0, lab_bene: 0,
+            op_rent: totals.rent,
+            op_util: totals.utilities,
+            op_mkt: totals.marketing,
+            op_lic: totals.other_opex,
+            op_net: 0, op_pos: 0, op_proc: 0, op_3p: 0,
+            op_ins: 0, op_rep: 0, op_clean: 0, op_acct: 0, op_small: 0,
+          };
+          Object.entries(mapping).forEach(([key, val]) => {
+            const input = document.querySelector(`[data-pl="${key}"]`);
+            if (input) {
+              input.value = Math.round(val);
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          });
+          // Toast
+          const t = document.createElement('div');
+          t.textContent = `Imported P&L for ${period.start} → ${period.end}. Adjust any field below.`;
+          t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1c1a15;color:#faf5ea;padding:14px 18px;border-radius:10px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:10000;max-width:340px';
+          document.body.appendChild(t);
+          setTimeout(() => t.remove(), 6000);
+        });
       } catch (err) {
         // loadTenantContext already redirects — this catch is just to stop execution
         console.warn('Auth gate blocked:', err.message);
