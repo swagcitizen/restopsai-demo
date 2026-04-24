@@ -218,7 +218,9 @@ async function submitNewTenant() {
 
   // The RPC auto-adds the platform owner as an owner-member, so we can land directly in app.
   // Set default_tenant_id so next session opens here too.
-  await supabase.rpc('platform_impersonate_tenant', { _tenant_id: data }).catch(() => {});
+  // Set default_tenant_id via impersonate RPC (membership already added by create RPC)
+  const { error: _impErr } = await supabase.rpc('platform_impersonate_tenant', { _tenant_id: data });
+  if (_impErr) console.warn('impersonate-after-create failed (non-fatal):', _impErr);
   window.location.href = './app.html';
 }
 
