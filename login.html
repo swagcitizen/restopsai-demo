@@ -11,7 +11,7 @@
 <body class="auth-body">
   <main class="auth-shell">
     <header class="auth-head">
-      <a href="./index.html" class="brand">
+      <a href="./app.html" class="brand">
         <svg width="32" height="32" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
           <rect width="64" height="64" rx="14" fill="#e8a33d"/>
           <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
@@ -61,7 +61,7 @@
     // If signed in (either normally or via demo auto-signin), skip to app.
     const existing = await getSession();
     if (existing) {
-      window.location.href = './index.html';
+      window.location.href = './app.html';
     }
 
     const form = document.getElementById('login-form');
@@ -85,7 +85,7 @@
         btn.textContent = 'Sign in';
         return;
       }
-      window.location.href = './index.html';
+      window.location.href = './app.html';
     });
   </script>
 </body>

@@ -3,856 +3,823 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Stationly — Back-office Operations</title>
-    <meta name="description" content="Stationly: back-office operations for independent restaurants. Costs, P&L, inventory, labor, recipes, and Florida DBPR food-safety compliance." />
+    <title>Stationly — Back-office operations for independent restaurants</title>
+    <meta name="description" content="Clock-ins, schedules, inventory, costs, compliance. Run your whole back-of-house from one place." />
+    <meta property="og:title" content="Stationly — Back-office operations for independent restaurants" />
+    <meta property="og:description" content="Clock-ins, schedules, inventory, costs, compliance. Run your whole back-of-house from one place." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stationly.ai" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #faf5ea;
+        --bg-warm: #f6efdf;
+        --surface: #ffffff;
+        --ink: #1c1a15;
+        --ink-soft: #3d3830;
+        --muted: #7a715f;
+        --line: #eae0c8;
+        --line-strong: #d7c99f;
+        --amber: #e8a33d;
+        --amber-dark: #c9831b;
+        --tomato: #c9302c;
+        --basil: #3b6e3b;
+        --radius: 14px;
+        --radius-lg: 24px;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--ink); text-decoration: none; }
+      a:hover { color: var(--amber-dark); }
+
+      /* Layout primitives */
+      .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+      .container-narrow { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+      /* Typography */
+      h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.02em; margin: 0; }
+      h1 { font-size: clamp(42px, 6vw, 72px); line-height: 1.02; }
+      h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.1; }
+      h3 { font-size: 22px; line-height: 1.25; }
+      p { margin: 0; }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: var(--amber-dark);
+      }
+      .eyebrow-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--amber);
+      }
+      .lede { font-size: 19px; color: var(--ink-soft); line-height: 1.55; }
+
+      /* Nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(250, 245, 234, 0.88);
+        backdrop-filter: saturate(180%) blur(16px);
+        border-bottom: 1px solid rgba(234, 224, 200, 0.6);
+      }
+      .nav-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 68px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+      }
+      .nav-links a {
+        font-size: 14px;
+        color: var(--ink-soft);
+        font-weight: 500;
+      }
+      .nav-links a:hover { color: var(--ink); }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 20px;
+        border-radius: 10px;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid var(--ink);
+        background: var(--ink);
+        color: var(--bg);
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      .btn:hover { background: #000; color: var(--bg); transform: translateY(-1px); }
+      .btn.amber { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+      .btn.amber:hover { background: var(--amber-dark); border-color: var(--amber-dark); color: var(--ink); }
+      .btn.ghost { background: transparent; color: var(--ink); }
+      .btn.ghost:hover { background: rgba(28, 26, 21, 0.05); color: var(--ink); }
+      .btn-lg { padding: 15px 26px; font-size: 15px; }
+
+      /* Hero */
+      .hero {
+        padding: 72px 0 96px;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 56px;
+        align-items: center;
+      }
+      .hero h1 { margin-top: 20px; }
+      .hero h1 em {
+        font-style: italic;
+        color: var(--amber-dark);
+      }
+      .hero .lede { margin-top: 22px; max-width: 520px; }
+      .hero-ctas {
+        display: flex;
+        gap: 12px;
+        margin-top: 32px;
+        flex-wrap: wrap;
+      }
+      .hero-note {
+        margin-top: 20px;
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .hero-note::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--basil);
+      }
+
+      /* Hero visual — mock dashboard card */
+      .hero-visual {
+        position: relative;
+        min-height: 520px;
+      }
+      .mock-card {
+        position: absolute;
+        background: var(--ink);
+        color: var(--bg);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        box-shadow: 0 30px 60px -20px rgba(28, 26, 21, 0.28), 0 10px 30px -10px rgba(28, 26, 21, 0.18);
+      }
+      .mock-main {
+        top: 0;
+        left: 0;
+        right: 60px;
+        padding: 28px;
+      }
+      .mock-main .mc-title {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 18px;
+        color: var(--bg);
+        margin-bottom: 18px;
+      }
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .kpi {
+        background: rgba(250, 245, 234, 0.06);
+        border: 1px solid rgba(250, 245, 234, 0.1);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .kpi-label { font-size: 11px; color: rgba(250, 245, 234, 0.6); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+      .kpi-value { font-family: 'Fraunces', Georgia, serif; font-size: 26px; margin-top: 6px; color: var(--amber); }
+      .kpi.good .kpi-value { color: var(--basil-light, #7bb878); }
+      .kpi-sub { font-size: 11px; color: rgba(250, 245, 234, 0.5); margin-top: 4px; }
+      .mock-spark {
+        margin-top: 18px;
+        height: 56px;
+        background: rgba(250, 245, 234, 0.04);
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+      .mock-spark svg { width: 100%; height: 100%; display: block; }
+
+      .mock-side {
+        bottom: 0;
+        right: 0;
+        width: 260px;
+        background: var(--amber);
+        color: var(--ink);
+      }
+      .mock-side .mc-title {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 16px;
+        margin-bottom: 14px;
+      }
+      .shift {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-top: 1px solid rgba(28, 26, 21, 0.15);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .shift:first-of-type { border-top: 0; }
+      .shift-avatar {
+        width: 28px; height: 28px; border-radius: 50%;
+        background: var(--ink); color: var(--amber);
+        font-weight: 600; font-size: 12px;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .shift-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+      .shift-time { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; opacity: 0.8; }
+      .shift-live {
+        font-size: 10px;
+        background: var(--tomato);
+        color: var(--bg);
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      /* Sections */
+      section { padding: 88px 0; }
+      .section-head {
+        text-align: center;
+        max-width: 640px;
+        margin: 0 auto 56px;
+      }
+      .section-head h2 { margin-top: 14px; }
+      .section-head .lede { margin-top: 18px; }
+
+      /* Feature grid */
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+      .feature {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        padding: 32px 28px;
+        transition: border-color 0.2s ease, transform 0.2s ease;
+      }
+      .feature:hover {
+        border-color: var(--line-strong);
+        transform: translateY(-2px);
+      }
+      .feature-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: var(--bg-warm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+      }
+      .feature h3 { margin-bottom: 8px; }
+      .feature p { color: var(--ink-soft); font-size: 15px; }
+
+      /* How it works */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        counter-reset: step;
+      }
+      .step {
+        position: relative;
+        padding: 28px;
+        background: var(--bg-warm);
+        border-radius: var(--radius-lg);
+        counter-increment: step;
+      }
+      .step::before {
+        content: counter(step, decimal-leading-zero);
+        display: block;
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 44px;
+        font-weight: 500;
+        color: var(--amber);
+        margin-bottom: 8px;
+      }
+      .step h3 { font-size: 20px; margin-bottom: 8px; }
+      .step p { color: var(--ink-soft); font-size: 15px; }
+
+      /* Why section (dark) */
+      .why {
+        background: var(--ink);
+        color: var(--bg);
+        padding: 96px 0;
+      }
+      .why h2 { color: var(--bg); }
+      .why .lede { color: rgba(250, 245, 234, 0.75); }
+      .why .section-head .eyebrow { color: var(--amber); }
+      .why-quote {
+        max-width: 700px;
+        margin: 48px auto 0;
+        padding: 32px;
+        background: rgba(250, 245, 234, 0.04);
+        border-left: 3px solid var(--amber);
+        border-radius: 8px;
+      }
+      .why-quote p {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 22px;
+        line-height: 1.45;
+        font-style: italic;
+        color: var(--bg);
+      }
+      .why-quote cite {
+        display: block;
+        margin-top: 16px;
+        font-style: normal;
+        font-size: 14px;
+        color: rgba(250, 245, 234, 0.6);
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* CTA */
+      .cta {
+        background: var(--amber);
+        color: var(--ink);
+        padding: 96px 0;
+        text-align: center;
+      }
+      .cta h2 { color: var(--ink); }
+      .cta .lede { color: var(--ink-soft); margin-top: 16px; max-width: 560px; margin-left: auto; margin-right: auto; }
+      .cta-form {
+        display: flex;
+        gap: 10px;
+        max-width: 460px;
+        margin: 32px auto 0;
+        flex-wrap: wrap;
+      }
+      .cta-input {
+        flex: 1;
+        min-width: 220px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        border: 1px solid var(--ink);
+        background: var(--bg);
+        font-family: 'Inter', sans-serif;
+        font-size: 15px;
+        color: var(--ink);
+      }
+      .cta-input::placeholder { color: var(--muted); }
+      .cta-success {
+        margin-top: 20px;
+        color: var(--ink);
+        font-weight: 600;
+        display: none;
+      }
+      .cta-success.show { display: block; }
+      .cta-error {
+        margin-top: 14px;
+        color: var(--tomato);
+        font-size: 13px;
+        display: none;
+      }
+      .cta-error.show { display: block; }
+      .cta-secondary {
+        margin-top: 28px;
+        font-size: 14px;
+        color: var(--ink-soft);
+      }
+      .cta-secondary a {
+        color: var(--ink);
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+
+      /* Footer */
+      footer {
+        background: var(--ink);
+        color: rgba(250, 245, 234, 0.7);
+        padding: 56px 0 40px;
+      }
+      footer a { color: rgba(250, 245, 234, 0.7); }
+      footer a:hover { color: var(--amber); }
+      .foot-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 40px;
+        margin-bottom: 40px;
+      }
+      .foot-about p {
+        font-size: 14px;
+        line-height: 1.6;
+        margin-top: 12px;
+        max-width: 320px;
+      }
+      .foot-col h4 {
+        font-family: 'Inter', sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(250, 245, 234, 0.5);
+        margin: 0 0 16px;
+      }
+      .foot-col ul { list-style: none; padding: 0; margin: 0; }
+      .foot-col li { margin-bottom: 10px; font-size: 14px; }
+      .foot-bottom {
+        border-top: 1px solid rgba(250, 245, 234, 0.1);
+        padding-top: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: rgba(250, 245, 234, 0.5);
+      }
+      .foot-bottom .brand { color: rgba(250, 245, 234, 0.9); font-size: 18px; }
+
+      /* Responsive */
+      @media (max-width: 900px) {
+        .hero { padding: 48px 0 64px; }
+        .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+        .hero-visual { min-height: 440px; }
+        .mock-main { right: 40px; }
+        .mock-side { width: 240px; }
+        .feature-grid, .steps { grid-template-columns: 1fr; }
+        .foot-grid { grid-template-columns: 1fr; gap: 32px; }
+        /* Hide text links on mobile, keep the CTAs */
+        .nav-links > a:not(.btn) { display: none; }
+        section { padding: 64px 0; }
+      }
+    </style>
   </head>
   <body>
-    <aside class="sidebar" aria-label="Primary navigation">
-      <div class="brand">
-        <svg class="logo" viewBox="0 0 40 40" fill="none" aria-label="Anthony's Pizza logo">
-          <circle cx="20" cy="20" r="18" fill="#C9302C" />
-          <circle cx="20" cy="20" r="14" fill="#E8A33D" />
-          <circle cx="14" cy="15" r="2.2" fill="#8B1A1A" />
-          <circle cx="25" cy="17" r="2.2" fill="#8B1A1A" />
-          <circle cx="17" cy="24" r="2.2" fill="#8B1A1A" />
-          <circle cx="26" cy="25" r="1.6" fill="#3B6E3B" />
-          <circle cx="13" cy="22" r="1.6" fill="#3B6E3B" />
-        </svg>
+    <!-- NAV -->
+    <header class="nav">
+      <div class="container nav-inner">
+        <a href="/" class="brand">
+          <svg width="34" height="34" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
+            <rect width="64" height="64" rx="14" fill="#e8a33d"/>
+            <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
+          </svg>
+          <span>Stationly</span>
+        </a>
+        <nav class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#why">Why Stationly</a>
+          <a href="./login.html" class="btn ghost">Sign in</a>
+          <a href="./app.html" class="btn amber">Try the demo</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container hero-grid">
         <div>
-          <div class="brand-name">Anthony's Pizza</div>
-          <div class="brand-sub">St Cloud · FL</div>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <div class="nav-section">Operations</div>
-        <button class="nav-item active" data-view="overview"><span class="dot"></span>Overview</button>
-        <button class="nav-item" data-view="briefing"><span class="dot"></span>Weekly Briefing <span class="nav-badge">AI</span></button>
-        <button class="nav-item" data-view="costs"><span class="dot"></span>Costs &amp; P&amp;L</button>
-        <button class="nav-item" data-view="recipes"><span class="dot"></span>Recipe Costing</button>
-        <button class="nav-item" data-view="sales"><span class="dot"></span>Sales &amp; Menu</button>
-        <button class="nav-item" data-view="inventory"><span class="dot"></span>Inventory</button>
-        <button class="nav-item" data-view="invoices"><span class="dot"></span>Invoices &amp; AP <span class="nav-badge" id="invoices-badge"></span></button>
-
-        <div class="nav-section">People</div>
-        <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
-        <button class="nav-item" data-view="scheduler"><span class="dot"></span>Shift Scheduler</button>
-        <button class="nav-item" data-view="clock"><span class="dot"></span>Time Clock <span class="nav-badge">Tablet</span></button>
-
-        <div class="nav-section">Compliance</div>
-        <button class="nav-item" data-view="tasks"><span class="dot"></span>Task Assignments <span class="nav-badge" id="tasks-badge"></span></button>
-        <button class="nav-item" data-view="safety"><span class="dot"></span>Food Safety</button>
-        <button class="nav-item" data-view="inspection"><span class="dot"></span>DBPR Inspection Prep <span class="nav-badge hot">!</span></button>
-        <button class="nav-item" data-view="compliance"><span class="dot"></span>Licenses</button>
-
-        <div class="nav-section">Account</div>
-        <button class="nav-item" data-view="team"><span class="dot"></span>Team &amp; Invites</button>
-      </nav>
-
-      <div class="side-footer">
-        <div class="role-switch">
-          <label>View as</label>
-          <select id="role-select">
-            <option value="owner">Owner</option>
-            <option value="manager">Manager</option>
-            <option value="staff">Staff (tablet)</option>
-          </select>
-        </div>
-        <button id="reset-data" class="ghost-btn" title="Reset all data to sample values">Reset sample data</button>
-        <div class="tz">Today · <span id="today-label"></span></div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div id="demo-banner" class="demo-banner" hidden>
-        <span class="demo-banner-dot"></span>
-        <span class="demo-banner-text">
-          You're exploring <strong>Stationly</strong> in demo mode as <strong>Bella Vita Bistro</strong>. Data is shared with other demo visitors.
-        </span>
-        <a href="./signup.html?nodemo=1" class="demo-banner-link">Create your own tenant</a>
-      </div>
-      <header class="topbar">
-        <div>
-          <h1 id="view-title">Overview</h1>
-          <p id="view-sub" class="sub">Real-time snapshot of the business</p>
-        </div>
-        <div class="topbar-actions">
-          <div class="seg" role="tablist" aria-label="Time range">
-            <button class="seg-btn" data-range="7">7D</button>
-            <button class="seg-btn active" data-range="30">30D</button>
-            <button class="seg-btn" data-range="90">90D</button>
+          <span class="eyebrow"><span class="eyebrow-dot"></span>For independent restaurants</span>
+          <h1>Run your back‑of‑house like <em>the best operators do</em>.</h1>
+          <p class="lede">Stationly brings clock‑ins, schedules, inventory, costs, and compliance into one place. Built for owner‑operators who still work the line.</p>
+          <div class="hero-ctas">
+            <a href="./app.html" class="btn amber btn-lg">See the live demo →</a>
+            <a href="#email" class="btn ghost btn-lg">Get early access</a>
           </div>
-          <div class="health-pill" id="health-pill" title="Compliance health">
-            <span class="health-dot"></span>
-            <span class="health-text">Healthy</span>
-          </div>
-        </div>
-      </header>
-
-      <!-- OVERVIEW -->
-      <section class="view active" data-view="overview">
-        <div class="kpi-grid">
-          <div class="kpi"><div class="kpi-label">Revenue (30D)</div><div class="kpi-value" id="kpi-rev">$0</div><div class="kpi-delta up" id="kpi-rev-d">—</div></div>
-          <div class="kpi"><div class="kpi-label">Prime Cost %</div><div class="kpi-value" id="kpi-prime">0%</div><div class="kpi-foot">Target ≤ 60%</div></div>
-          <div class="kpi"><div class="kpi-label">Food Cost %</div><div class="kpi-value" id="kpi-food">0%</div><div class="kpi-foot">Target 28–32%</div></div>
-          <div class="kpi"><div class="kpi-label">Labor Cost %</div><div class="kpi-value" id="kpi-labor">0%</div><div class="kpi-foot">Target ≤ 28%</div></div>
-          <div class="kpi"><div class="kpi-label">Net Margin</div><div class="kpi-value" id="kpi-margin">0%</div><div class="kpi-foot">Industry avg 7–10%</div></div>
-          <div class="kpi"><div class="kpi-label">Compliance Score</div><div class="kpi-value" id="kpi-comp">0%</div><div class="kpi-foot" id="kpi-comp-foot">—</div></div>
+          <p class="hero-note">No card required · Demo uses Bella Vita Bistro sample data</p>
         </div>
 
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head">
-              <h3>Revenue vs. Prime Cost</h3>
-              <span class="muted" id="rev-range-label">Last 30 days</span>
-            </div>
-            <div class="chart-wrap"><canvas id="chart-revenue"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Cost Breakdown</h3><span class="muted">Monthly</span></div>
-            <div class="chart-wrap"><canvas id="chart-breakdown"></canvas></div>
-          </div>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Top Selling Items</h3><span class="muted">By revenue</span></div>
-            <div class="chart-wrap tall"><canvas id="chart-top"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Alerts</h3><span class="muted" id="alert-count">0</span></div>
-            <ul class="alerts" id="alerts-list"></ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- COSTS & P&L -->
-      <section class="view" data-view="costs">
-        <div class="card">
-          <div class="card-head">
-            <h3>Monthly P&amp;L</h3>
-            <span class="muted">Edit any value — totals recalculate live</span>
-          </div>
-          <div class="pl-grid">
-            <div class="pl-col">
-              <h4>Revenue</h4>
-              <label>Dine-in <input type="number" data-pl="rev_dinein" /></label>
-              <label>Take-out <input type="number" data-pl="rev_takeout" /></label>
-              <label>Delivery (3rd party) <input type="number" data-pl="rev_delivery" /></label>
-              <label>Catering <input type="number" data-pl="rev_catering" /></label>
-              <div class="pl-total">Total Revenue <span id="pl-revenue">$0</span></div>
-            </div>
-
-            <div class="pl-col">
-              <h4>Cost of Goods (Food)</h4>
-              <label>Flour / dough <input type="number" data-pl="cog_flour" /></label>
-              <label>Cheese (mozzarella) <input type="number" data-pl="cog_cheese" /></label>
-              <label>Sauce / tomatoes <input type="number" data-pl="cog_sauce" /></label>
-              <label>Meats (pepperoni, sausage) <input type="number" data-pl="cog_meats" /></label>
-              <label>Produce / veg <input type="number" data-pl="cog_produce" /></label>
-              <label>Beverages <input type="number" data-pl="cog_bev" /></label>
-              <label>Paper / packaging <input type="number" data-pl="cog_paper" /></label>
-              <div class="pl-total">Total COGS <span id="pl-cogs">$0</span></div>
-            </div>
-
-            <div class="pl-col">
-              <h4>Labor</h4>
-              <label>Kitchen / pizzaiolo <input type="number" data-pl="lab_kitchen" /></label>
-              <label>Front of house <input type="number" data-pl="lab_foh" /></label>
-              <label>Drivers <input type="number" data-pl="lab_drivers" /></label>
-              <label>Manager salary <input type="number" data-pl="lab_mgr" /></label>
-              <label>Payroll taxes &amp; WC <input type="number" data-pl="lab_tax" /></label>
-              <label>Health / benefits <input type="number" data-pl="lab_bene" /></label>
-              <div class="pl-total">Total Labor <span id="pl-labor">$0</span></div>
-            </div>
-
-            <div class="pl-col">
-              <h4>Occupancy &amp; Operating</h4>
-              <label>Rent / CAM <input type="number" data-pl="op_rent" /></label>
-              <label>Utilities (power, gas, water) <input type="number" data-pl="op_util" /></label>
-              <label>Internet / phone <input type="number" data-pl="op_net" /></label>
-              <label>POS / software (SaaS) <input type="number" data-pl="op_pos" /></label>
-              <label>Payment processing fees <input type="number" data-pl="op_proc" /></label>
-              <label>3rd-party delivery fees <input type="number" data-pl="op_3p" /></label>
-              <label>Marketing / ads <input type="number" data-pl="op_mkt" /></label>
-              <label>Insurance (GL + property) <input type="number" data-pl="op_ins" /></label>
-              <label>Repairs / maintenance <input type="number" data-pl="op_rep" /></label>
-              <label>Cleaning / pest / trash <input type="number" data-pl="op_clean" /></label>
-              <label>Licenses &amp; permits <input type="number" data-pl="op_lic" /></label>
-              <label>Accounting / legal <input type="number" data-pl="op_acct" /></label>
-              <label>Uniforms / smallwares <input type="number" data-pl="op_small" /></label>
-              <div class="pl-total">Total Operating <span id="pl-ops">$0</span></div>
-            </div>
-          </div>
-
-          <div class="pl-summary">
-            <div><span>Gross Profit</span><strong id="pl-gp">$0</strong></div>
-            <div><span>Prime Cost</span><strong id="pl-prime">$0</strong></div>
-            <div><span>Operating Income</span><strong id="pl-opinc">$0</strong></div>
-            <div class="accent"><span>Net Margin</span><strong id="pl-net">0%</strong></div>
-          </div>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Break-Even Calculator</h3><span class="muted">Live</span></div>
-            <div class="be-body">
-              <div class="be-stat"><div class="be-label">Fixed costs / mo</div><div class="be-value" id="be-fixed">$0</div></div>
-              <div class="be-stat"><div class="be-label">Variable cost ratio</div><div class="be-value" id="be-var">0%</div></div>
-              <div class="be-stat big"><div class="be-label">Break-even revenue / mo</div><div class="be-value" id="be-rev">$0</div></div>
-              <div class="be-stat"><div class="be-label">Break-even / day</div><div class="be-value" id="be-day">$0</div></div>
-              <div class="be-stat"><div class="be-label">Avg ticket</div><div class="be-value"><input type="number" id="be-ticket" value="22" /></div></div>
-              <div class="be-stat"><div class="be-label">Orders needed / day</div><div class="be-value" id="be-orders">0</div></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head"><h3>Prime Cost Trend</h3><span class="muted">Weekly</span></div>
-            <div class="chart-wrap"><canvas id="chart-prime"></canvas></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- SALES & MENU -->
-      <section class="view" data-view="sales">
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Daily Sales (30D)</h3><span class="muted">By channel</span></div>
-            <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Sales Mix</h3><span class="muted">By category</span></div>
-            <div class="chart-wrap"><canvas id="chart-mix"></canvas></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Menu Engineering</h3>
-            <span class="muted">Stars, Plowhorses, Puzzles &amp; Dogs — edit costs and prices inline</span>
-          </div>
-          <table class="tbl">
-            <thead><tr><th>Item</th><th>Price</th><th>Food cost</th><th>Margin</th><th>Margin %</th><th>Units (30D)</th><th>Revenue</th><th>Class</th></tr></thead>
-            <tbody id="menu-body"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- INVENTORY -->
-      <section class="view" data-view="inventory">
-        <div class="card">
-          <div class="card-head">
-            <h3>Inventory &amp; Par Levels</h3>
-            <span class="muted">Red = below par</span>
-          </div>
-          <table class="tbl">
-            <thead><tr><th>Item</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th></tr></thead>
-            <tbody id="inv-body"></tbody>
-          </table>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Waste Log</h3><span class="muted">Click to add</span></div>
-            <button class="btn" id="add-waste">+ Log waste</button>
-            <table class="tbl compact"><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Reason</th><th>$ Loss</th></tr></thead><tbody id="waste-body"></tbody></table>
-            <div class="kpi-foot">Waste (30D): <strong id="waste-total">$0</strong> · Target &lt; 2% of food cost</div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Vendor Spend (30D)</h3></div>
-            <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- INVOICES & AP -->
-      <section class="view" data-view="invoices">
-        <div class="inv-kpi-row" id="invoices-kpis"></div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Upload an invoice</h3>
-            <span class="muted">Drop an image or PDF scan — Claude vision OCR extracts line items</span>
-          </div>
-          <div id="invoice-dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload invoice image">
-            <input type="file" id="invoice-file" accept="image/*" hidden />
-            <div class="dropzone-inner">
-              <div class="dropzone-icon">📄</div>
-              <div class="dropzone-title">Drop invoice image here</div>
-              <div class="dropzone-sub">or <button type="button" class="btn-link" id="invoice-browse">browse a file</button> · JPG, PNG, WEBP up to 10MB</div>
-              <div class="dropzone-status" id="invoice-status" hidden></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Recent invoices</h3>
-            <span class="muted" id="invoices-count">0 on file</span>
-          </div>
-          <div id="invoice-list" class="invoice-list"></div>
-        </div>
-
-        <div class="card" id="invoice-review-wrap" hidden>
-          <div class="card-head">
-            <h3 id="invoice-review-title">Review invoice</h3>
-            <div class="review-actions">
-              <button class="btn btn-ghost" id="invoice-cancel">Cancel</button>
-              <button class="btn" id="invoice-save">Save as reviewed</button>
-            </div>
-          </div>
-          <div id="invoice-review-body"></div>
-        </div>
-      </section>
-
-      <!-- LABOR -->
-      <section class="view" data-view="labor">
-        <div class="card">
-          <div class="card-head">
-            <h3>Staff Roster &amp; Weekly Cost</h3>
-            <span class="muted">Edit hours and wages</span>
-          </div>
-          <table class="tbl">
-            <thead><tr><th>Name</th><th>Role</th><th>Hourly</th><th>Hrs/wk</th><th>Weekly</th><th>Monthly (×4.33)</th><th>Food handler cert</th><th>Expires</th></tr></thead>
-            <tbody id="staff-body"></tbody>
-          </table>
-          <div class="staff-sum">
-            <div><span>Weekly labor</span><strong id="staff-week">$0</strong></div>
-            <div><span>Monthly labor</span><strong id="staff-month">$0</strong></div>
-            <div><span>Labor % of revenue</span><strong id="staff-pct">0%</strong></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h3>Labor vs. Sales (by hour)</h3><span class="muted">Identify over/under-staffed shifts</span></div>
-          <div class="chart-wrap"><canvas id="chart-labor"></canvas></div>
-        </div>
-      </section>
-
-      <!-- FOOD SAFETY -->
-      <section class="view" data-view="safety">
-        <div class="tabs" id="safety-tabs" role="tablist" aria-label="Food Safety sections">
-          <button class="tab-btn active" data-tab="temps" role="tab" aria-selected="true">Temperature Logs</button>
-          <button class="tab-btn" data-tab="labels" role="tab" aria-selected="false">Prep Labels</button>
-          <button class="tab-btn" data-tab="checks" role="tab" aria-selected="false">Checklists &amp; Cleaning</button>
-        </div>
-
-        <!-- TAB: Temperature Logs -->
-        <div class="tab-panel active" data-tab="temps">
-          <div class="row-2">
-            <div class="card">
-              <div class="card-head">
-                <h3>Cold-hold equipment</h3>
-                <span class="muted">FDA Food Code · keep ≤ 41°F</span>
+        <!-- Hero visual: mock dashboard -->
+        <div class="hero-visual">
+          <!-- Main dashboard card -->
+          <div class="mock-card mock-main">
+            <div class="mc-title">Overview · last 30 days</div>
+            <div class="kpi-grid">
+              <div class="kpi">
+                <div class="kpi-label">Revenue</div>
+                <div class="kpi-value">$85,200</div>
+                <div class="kpi-sub">+4.2% vs prior</div>
               </div>
-              <div class="temp-grid" id="temp-grid-cold"></div>
-            </div>
-            <div class="card">
-              <div class="card-head">
-                <h3>Hot-hold stations</h3>
-                <span class="muted">FDA Food Code · keep ≥ 135°F · log every 2h in service</span>
+              <div class="kpi">
+                <div class="kpi-label">Prime cost</div>
+                <div class="kpi-value" style="color: #a3d0a0;">53.8%</div>
+                <div class="kpi-sub">Target ≤ 60%</div>
               </div>
-              <div class="temp-grid" id="temp-grid-hot"></div>
+              <div class="kpi">
+                <div class="kpi-label">Food cost</div>
+                <div class="kpi-value">26.7%</div>
+                <div class="kpi-sub">Target 28–32%</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Labor</div>
+                <div class="kpi-value">27.1%</div>
+                <div class="kpi-sub">Target ≤ 28%</div>
+              </div>
             </div>
-          </div>
-          <div style="margin: 12px 0 18px 0;">
-            <button class="btn" id="log-temp">Log all readings</button>
-            <span class="muted small" style="margin-left:10px" id="temp-last-logged"></span>
-          </div>
-
-          <div class="card">
-            <div class="card-head"><h3>Recent temperature readings</h3><span class="muted">Last 14 days</span></div>
-            <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
-          </div>
-        </div>
-
-        <!-- TAB: Prep Labels -->
-        <div class="tab-panel" data-tab="labels">
-          <div class="kpi-grid kpi-4">
-            <div class="kpi"><div class="kpi-label">Active labels</div><div class="kpi-value" id="pl-active">0</div></div>
-            <div class="kpi"><div class="kpi-label">Expiring in 12h</div><div class="kpi-value" id="pl-soon">0</div><div class="kpi-foot">Use first</div></div>
-            <div class="kpi"><div class="kpi-label">Past use-by</div><div class="kpi-value" id="pl-expired">0</div><div class="kpi-foot">Discard</div></div>
-            <div class="kpi"><div class="kpi-label">Printed today</div><div class="kpi-value" id="pl-today">0</div></div>
-          </div>
-
-          <div class="row-2">
-            <div class="card">
-              <div class="card-head"><h3>Create a prep label</h3><span class="muted">Auto-calculates use-by from FDA shelf-life</span></div>
-              <form class="form-grid" id="label-form" autocomplete="off">
-                <label class="field">
-                  <span>Item</span>
-                  <input type="text" id="lf-item" placeholder="e.g. Marinara sauce" required />
-                </label>
-                <label class="field">
-                  <span>Label type</span>
-                  <select id="lf-type">
-                    <option value="prep">Prepped (72h)</option>
-                    <option value="open">Opened container (72h)</option>
-                    <option value="thaw">Thawing (24h)</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <span>Shelf life (hours)</span>
-                  <input type="number" id="lf-hours" min="1" max="168" step="1" placeholder="Auto" />
-                </label>
-                <label class="field">
-                  <span>Prepped by</span>
-                  <input type="text" id="lf-by" placeholder="Staff name or initials" />
-                </label>
-                <label class="field">
-                  <span>Station</span>
-                  <input type="text" id="lf-station" placeholder="Sauce station" />
-                </label>
-                <label class="field field-full">
-                  <span>Allergens</span>
-                  <div class="allergen-pick" id="lf-allergens">
-                    <label><input type="checkbox" value="wheat" /> Wheat</label>
-                    <label><input type="checkbox" value="dairy" /> Dairy</label>
-                    <label><input type="checkbox" value="egg" /> Egg</label>
-                    <label><input type="checkbox" value="soy" /> Soy</label>
-                    <label><input type="checkbox" value="tree nuts" /> Tree nuts</label>
-                    <label><input type="checkbox" value="peanut" /> Peanut</label>
-                    <label><input type="checkbox" value="fish" /> Fish</label>
-                    <label><input type="checkbox" value="shellfish" /> Shellfish</label>
-                    <label><input type="checkbox" value="sesame" /> Sesame</label>
-                  </div>
-                </label>
-                <label class="field field-full">
-                  <span>Notes</span>
-                  <input type="text" id="lf-notes" placeholder="Batch #, recipe, etc." />
-                </label>
-                <div class="form-actions">
-                  <button type="submit" class="btn" id="lf-submit">Create &amp; print</button>
-                  <button type="button" class="ghost-btn" id="lf-reset">Reset</button>
-                </div>
-              </form>
-            </div>
-
-            <div class="card">
-              <div class="card-head"><h3>Active labels</h3><span class="muted" id="pl-count">0 active</span></div>
-              <div class="label-list" id="label-list"></div>
+            <div class="mock-spark">
+              <svg viewBox="0 0 300 56" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="sparkGrad" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#e8a33d" stop-opacity="0.4"/>
+                    <stop offset="100%" stop-color="#e8a33d" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0 42 L25 38 L50 40 L75 32 L100 28 L125 30 L150 22 L175 20 L200 14 L225 18 L250 10 L275 14 L300 6 L300 56 L0 56 Z" fill="url(#sparkGrad)"/>
+                <path d="M0 42 L25 38 L50 40 L75 32 L100 28 L125 30 L150 22 L175 20 L200 14 L225 18 L250 10 L275 14 L300 6" stroke="#e8a33d" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-head"><h3>Recent history</h3><span class="muted">Used or discarded (last 7 days)</span></div>
-            <table class="tbl compact">
-              <thead><tr><th>Item</th><th>Type</th><th>Prepped</th><th>Use-by</th><th>Prepped by</th><th>Outcome</th></tr></thead>
-              <tbody id="label-history-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- TAB: Checklists &amp; Cleaning -->
-        <div class="tab-panel" data-tab="checks">
-          <div class="card">
-            <div class="card-head"><h3>Today's checklist</h3><span class="muted" id="check-done">0/0</span></div>
-            <ul class="checklist" id="checklist"></ul>
-          </div>
-          <div class="card">
-            <div class="card-head">
-              <h3>Cleaning &amp; sanitation schedule</h3>
-              <span class="muted">Daily · Weekly · Monthly</span>
+          <!-- Floating shifts card -->
+          <div class="mock-card mock-side">
+            <div class="mc-title">On the clock · now</div>
+            <div class="shift">
+              <div class="shift-avatar">M</div>
+              <div class="shift-name">Maria C.</div>
+              <div class="shift-time">4:12:08</div>
+              <span class="shift-live">Live</span>
             </div>
-            <table class="tbl">
-              <thead><tr><th>Task</th><th>Frequency</th><th>Last done</th><th>Next due</th><th>Assigned</th><th>Status</th><th></th></tr></thead>
-              <tbody id="clean-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- PRINTABLE LABEL (hidden until print) -->
-      <div id="label-print-root" class="label-print-root" aria-hidden="true"></div>
-
-      <!-- COMPLIANCE -->
-      <section class="view" data-view="compliance">
-        <div class="card">
-          <div class="card-head">
-            <h3>Licenses, Permits &amp; Certifications</h3>
-            <span class="muted">Florida DBPR · Osceola County</span>
-          </div>
-          <table class="tbl">
-            <thead><tr><th>Document</th><th>Issuer</th><th>Number</th><th>Issued</th><th>Expires</th><th>Status</th></tr></thead>
-            <tbody id="lic-body"></tbody>
-          </table>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Inspections</h3><span class="muted">FL DBPR Hotels &amp; Restaurants</span></div>
-            <table class="tbl compact">
-              <thead><tr><th>Date</th><th>Type</th><th>Violations</th><th>High-priority</th><th>Result</th></tr></thead>
-              <tbody id="insp-body"></tbody>
-            </table>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Staff Training Status</h3><span class="muted">Food handler · Allergen · Anti-harassment</span></div>
-            <table class="tbl compact">
-              <thead><tr><th>Staff</th><th>Food Handler</th><th>Allergen</th><th>ServSafe Mgr</th></tr></thead>
-              <tbody id="train-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h3>Compliance Score</h3><span class="muted">Weighted across categories</span></div>
-          <div class="comp-bars" id="comp-bars"></div>
-        </div>
-      </section>
-      <!-- WEEKLY BRIEFING (AI) -->
-      <section class="view" data-view="briefing">
-        <div class="briefing-hero">
-          <div class="briefing-badge">AI Briefing</div>
-          <h2 id="brief-headline">This week in the back office</h2>
-          <p class="sub" id="brief-period"></p>
-          <div class="brief-kpis" id="brief-kpis"></div>
-          <button class="btn" id="refresh-brief">Refresh briefing</button>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Key insights</h3><span class="muted">Auto-generated</span></div>
-            <ul class="insights" id="insights-list"></ul>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Anomalies detected</h3><span class="muted" id="anomaly-count">0</span></div>
-            <ul class="insights" id="anomalies-list"></ul>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h3>Next week's focus</h3><span class="muted">Top 3 actions</span></div>
-          <ol class="focus-list" id="focus-list"></ol>
-        </div>
-      </section>
-
-      <!-- RECIPE COSTING -->
-      <section class="view" data-view="recipes">
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Recipes</h3><span class="muted">Click to edit ingredients</span></div>
-            <ul class="recipe-list" id="recipe-list"></ul>
-          </div>
-          <div class="card recipe-detail" id="recipe-detail">
-            <div class="card-head"><h3 id="recipe-title">Select a recipe</h3><span class="muted" id="recipe-yield"></span></div>
-            <div id="recipe-body"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Theoretical vs. Actual Food Cost</h3>
-            <span class="muted">Shrinkage = waste + theft + over-portioning</span>
-          </div>
-          <div class="variance-grid">
-            <div class="var-stat"><div class="var-label">Theoretical food cost</div><div class="var-value" id="var-theo">$0</div><div class="var-foot" id="var-theo-pct">0%</div></div>
-            <div class="var-stat"><div class="var-label">Actual food cost</div><div class="var-value" id="var-act">$0</div><div class="var-foot" id="var-act-pct">0%</div></div>
-            <div class="var-stat big"><div class="var-label">Shrinkage / variance</div><div class="var-value" id="var-shrink">$0</div><div class="var-foot" id="var-shrink-pct">0%</div></div>
-          </div>
-          <p class="muted" style="margin-top:16px">Theoretical cost is calculated from unit sales × recipe cost. Actual comes from your P&amp;L COGS. A variance above 2–3% usually points to portioning, waste, comps, or inventory issues.</p>
-        </div>
-      </section>
-
-      <!-- SHIFT SCHEDULER -->
-      <section class="view" data-view="scheduler">
-        <div class="card">
-          <div class="card-head">
-            <h3>Weekly Schedule</h3>
-            <div class="sched-controls">
-              <span class="muted" id="sched-week"></span>
-              <span class="sched-pill" id="sched-cost">$0 / wk</span>
-              <span class="sched-pill" id="sched-pct">0% labor</span>
-              <button class="btn btn-primary" id="publish-schedule-btn">Publish &amp; text staff</button>
+            <div class="shift">
+              <div class="shift-avatar">A</div>
+              <div class="shift-name">Antonio G.</div>
+              <div class="shift-time">3:44:51</div>
+              <span class="shift-live">Live</span>
             </div>
-          </div>
-          <div class="sched-hint">Click a cell to add/remove a shift. Each shift defaults to 8 hours.</div>
-          <div class="sched-wrap">
-            <table class="sched-grid" id="sched-grid"></table>
-          </div>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Projected labor % vs. forecast sales</h3><span class="muted">Daily</span></div>
-            <div class="chart-wrap"><canvas id="chart-sched"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Coverage warnings</h3></div>
-            <ul class="insights" id="sched-warnings"></ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- TIME CLOCK (tablet mode) -->
-      <section class="view" data-view="clock">
-        <div class="clock-stage" id="clock-stage">
-          <!-- STATE 1: PIN pad -->
-          <div class="clock-pin-wrap" id="clock-pin-wrap">
-            <div class="clock-brand">
-              <div class="clock-brand-name" id="clock-brand-name">Bella Vita Bistro</div>
-              <div class="clock-brand-sub">Employee Time Clock</div>
+            <div class="shift">
+              <div class="shift-avatar">P</div>
+              <div class="shift-name">Paolo R.</div>
+              <div class="shift-time">2:18:33</div>
+              <span class="shift-live">Live</span>
             </div>
-            <div class="clock-clock" id="clock-clock">--:--</div>
-            <div class="pin-label" id="pin-label">Enter your 4-digit PIN</div>
-            <div class="pin-dots" id="pin-dots">
-              <span class="pin-dot"></span>
-              <span class="pin-dot"></span>
-              <span class="pin-dot"></span>
-              <span class="pin-dot"></span>
+            <div class="shift">
+              <div class="shift-avatar">F</div>
+              <div class="shift-name">Francesca L.</div>
+              <div class="shift-time">1:02:09</div>
+              <span class="shift-live">Live</span>
             </div>
-            <div class="pin-pad" id="pin-pad">
-              <button class="pin-key" data-digit="1">1</button>
-              <button class="pin-key" data-digit="2">2</button>
-              <button class="pin-key" data-digit="3">3</button>
-              <button class="pin-key" data-digit="4">4</button>
-              <button class="pin-key" data-digit="5">5</button>
-              <button class="pin-key" data-digit="6">6</button>
-              <button class="pin-key" data-digit="7">7</button>
-              <button class="pin-key" data-digit="8">8</button>
-              <button class="pin-key" data-digit="9">9</button>
-              <button class="pin-key pin-ghost" data-action="clear">Clear</button>
-              <button class="pin-key" data-digit="0">0</button>
-              <button class="pin-key pin-ghost" data-action="back">⌫</button>
-            </div>
-            <div class="pin-hint muted small">Tip for demo: Maria 1234 · Antonio 2345 · Paolo 3456</div>
-          </div>
-
-          <!-- STATE 2: employee card (hidden until PIN verified) -->
-          <div class="clock-card-wrap" id="clock-card-wrap" hidden>
-            <div class="clock-employee-card">
-              <div class="emp-avatar" id="emp-avatar">M</div>
-              <div class="emp-name" id="emp-name">Employee name</div>
-              <div class="emp-role" id="emp-role">Role</div>
-              <div class="emp-status" id="emp-status">Ready to clock in</div>
-              <div class="emp-timer" id="emp-timer" hidden>00:00:00</div>
-              <div class="emp-hours-today" id="emp-hours-today"></div>
-              <button class="clock-action-btn clock-in" id="clock-action-btn">Clock In</button>
-              <button class="btn-link" id="clock-back-btn">Not you? Go back</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- PUBLISH SCHEDULE MODAL -->
-      <div class="publish-backdrop" id="publish-modal" hidden>
-        <div class="publish-dialog">
-          <div class="modal-head">
-            <div>
-              <h3>Text the week's schedule</h3>
-              <p class="muted small" id="publish-week-label"></p>
-            </div>
-            <button class="icon-btn" id="publish-close" aria-label="Close">✕</button>
-          </div>
-          <div class="modal-body">
-            <div class="publish-hint muted small">Review each message before we send. Staff without a phone number on file are skipped.</div>
-            <div id="publish-preview-list"></div>
-          </div>
-          <div class="modal-foot">
-            <span class="muted small" id="publish-status"></span>
-            <button class="btn" id="publish-cancel">Cancel</button>
-            <button class="btn btn-primary" id="publish-send">Send texts</button>
           </div>
         </div>
       </div>
+    </section>
 
-      <!-- DBPR INSPECTION PREP -->
-      <section class="view" data-view="inspection">
-        <div class="insp-hero">
-          <div>
-            <div class="brief-badge">FL DBPR Readiness</div>
-            <h2>Inspection Readiness Score</h2>
-            <p class="sub">Based on the Florida Division of Hotels &amp; Restaurants Food Code violation categories</p>
-          </div>
-          <div class="insp-score">
-            <div class="insp-score-ring" id="insp-ring">
-              <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#2c2820" stroke-width="10"/><circle id="insp-ring-fg" cx="60" cy="60" r="52" fill="none" stroke="#6fbf73" stroke-width="10" stroke-linecap="round" transform="rotate(-90 60 60)" stroke-dasharray="327" stroke-dashoffset="327"/></svg>
-              <div class="insp-score-value" id="insp-score-value">0%</div>
-            </div>
-            <div class="insp-score-stats">
-              <div><span>High-priority passed</span><strong id="insp-hp">0/0</strong></div>
-              <div><span>Intermediate passed</span><strong id="insp-int">0/0</strong></div>
-              <div><span>Basic passed</span><strong id="insp-bas">0/0</strong></div>
-            </div>
-          </div>
+    <!-- FEATURES -->
+    <section id="features">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>Everything in one place</span>
+          <h2>The back office, reimagined for the line.</h2>
+          <p class="lede">Six tools most restaurants juggle across five apps. Stationly replaces spreadsheets, sticky notes, and the group chat.</p>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <h3>Walk the inspector's route</h3>
-            <div class="insp-filter">
-              <button class="chip active" data-insp-filter="all">All</button>
-              <button class="chip" data-insp-filter="high">High-priority</button>
-              <button class="chip" data-insp-filter="intermediate">Intermediate</button>
-              <button class="chip" data-insp-filter="basic">Basic</button>
-              <button class="chip" data-insp-filter="fail">Needs attention</button>
+        <div class="feature-grid">
+          <div class="feature">
+            <div class="feature-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1a15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 7v5l3 2"/>
+              </svg>
             </div>
-          </div>
-          <p class="muted">Check each item as you verify it. Scoring weights high-priority 3×, intermediate 2×, basic 1× — mirroring DBPR inspection impact.</p>
-          <div id="insp-groups"></div>
-        </div>
-
-        <div class="row-2">
-          <div class="card">
-            <div class="card-head"><h3>Top 10 FL DBPR violations this year</h3><span class="muted">Stay on watch</span></div>
-            <ol class="top-viol" id="top-viol"></ol>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Mock inspection</h3><span class="muted">Run a practice walkthrough</span></div>
-            <div id="mock-body">
-              <p class="muted">A DBPR inspector typically spends 45–90 minutes on a routine inspection. Launch a mock inspection to simulate what they'll check.</p>
-              <button class="btn" id="start-mock">Start mock inspection</button>
-              <div id="mock-results"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TEAM & INVITES -->
-      <section class="view" data-view="team">
-        <div class="team-shell">
-          <div class="card">
-            <div class="card-head">
-              <h3>Invite a teammate</h3>
-              <span class="muted">Owners and managers can invite others</span>
-            </div>
-            <div id="team-invite-gate" class="team-body">
-              <form id="invite-form" class="invite-form">
-                <label class="invite-field">
-                  <span>Email</span>
-                  <input type="email" id="invite-email" required placeholder="teammate@restaurant.com" autocomplete="off">
-                </label>
-                <label class="invite-field invite-field-narrow">
-                  <span>Role</span>
-                  <select id="invite-role">
-                    <option value="staff">Staff</option>
-                    <option value="manager">Manager</option>
-                  </select>
-                </label>
-                <button type="submit" class="btn" id="invite-submit">Send invite</button>
-              </form>
-              <div id="invite-form-msg" class="invite-msg" hidden></div>
-            </div>
-            <div id="team-invite-locked" class="team-body muted" hidden>
-              Only managers and owners can invite teammates. Ask your manager to add you.
-            </div>
+            <h3>Tablet time clock</h3>
+            <p>PIN clock‑in on a shared tablet. No apps for staff. Live shift timers, overtime flags, and break tracking built in.</p>
           </div>
 
-          <div class="card">
-            <div class="card-head">
-              <h3>Current team</h3>
-              <span class="muted" id="team-member-count">—</span>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1a15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="17" rx="2"/>
+                <path d="M16 2v4M8 2v4M3 10h18"/>
+              </svg>
             </div>
-            <div class="team-body">
-              <table class="team-table" id="team-members-table">
-                <thead><tr><th>Email</th><th>Role</th><th>Joined</th></tr></thead>
-                <tbody></tbody>
-              </table>
+            <h3>Smart scheduling</h3>
+            <p>Drag‑drop shifts, see labor cost in real time, and text the finished schedule to staff with one click.</p>
+          </div>
+
+          <div class="feature">
+            <div class="feature-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1a15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3h18v4H3zM5 7v14h14V7"/>
+                <path d="M9 11h6M9 15h6"/>
+              </svg>
             </div>
+            <h3>Invoices &amp; AP</h3>
+            <p>Photograph a vendor invoice. Stationly extracts line items, codes to the right GL, and flags price changes.</p>
           </div>
 
-          <div class="card">
-            <div class="card-head">
-              <h3>Pending invites</h3>
-              <span class="muted" id="team-invite-count">—</span>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1a15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12l4-4 4 4 6-6 4 4"/>
+                <path d="M3 20h18"/>
+              </svg>
             </div>
-            <div class="team-body">
-              <table class="team-table" id="team-invites-table">
-                <thead><tr><th>Email</th><th>Role</th><th>Expires</th><th>Link</th><th></th></tr></thead>
-                <tbody></tbody>
-              </table>
-              <div id="team-invites-empty" class="muted" style="padding: 12px 0;">No pending invites.</div>
+            <h3>Costs &amp; P&amp;L</h3>
+            <p>Prime cost, food cost, labor ratio — all live. Compare against targets and get weekly AI briefings on what to fix.</p>
+          </div>
+
+          <div class="feature">
+            <div class="feature-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1a15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+                <path d="M9 12l2 2 4-4"/>
+              </svg>
             </div>
+            <h3>Inspection‑ready</h3>
+            <p>Temperature logs, cleaning checklists, and license tracking. Walk into your DBPR inspection without the scramble.</p>
           </div>
-        </div>
-      </section>
 
-      <!-- TASK ASSIGNMENTS -->
-      <section class="view" data-view="tasks">
-        <div class="task-hero">
-          <div class="task-hero-kpis">
-            <div class="task-kpi"><span class="kpi-label">Today</span><div class="kpi-num" id="tk-today">—</div><span class="kpi-sub" id="tk-today-sub">—</span></div>
-            <div class="task-kpi"><span class="kpi-label">This week</span><div class="kpi-num" id="tk-week">—</div><span class="kpi-sub" id="tk-week-sub">—</span></div>
-            <div class="task-kpi"><span class="kpi-label">This month</span><div class="kpi-num" id="tk-month">—</div><span class="kpi-sub" id="tk-month-sub">—</span></div>
-            <div class="task-kpi"><span class="kpi-label">Overdue</span><div class="kpi-num warn" id="tk-overdue">—</div><span class="kpi-sub">needs attention</span></div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1a15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="7" width="16" height="13" rx="2"/>
+                <path d="M8 7V5a4 4 0 018 0v2M9 12h6M9 16h6"/>
+              </svg>
+            </div>
+            <h3>Recipe costing</h3>
+            <p>Know what every plate actually costs. When invoice prices change, your recipe margins update automatically.</p>
           </div>
-        </div>
-
-        <div class="task-filters">
-          <div class="chip-row" id="task-freq-filter">
-            <button class="chip active" data-tf="all">All</button>
-            <button class="chip" data-tf="daily">Daily</button>
-            <button class="chip" data-tf="weekly">Weekly</button>
-            <button class="chip" data-tf="monthly">Monthly</button>
-            <button class="chip" data-tf="quarterly">Quarterly</button>
-            <button class="chip" data-tf="annual">Annual</button>
-          </div>
-          <div class="chip-row" id="task-cat-filter">
-            <button class="chip active" data-tc="all">All categories</button>
-            <button class="chip" data-tc="Fire Safety">Fire safety</button>
-            <button class="chip" data-tc="Food Safety">Food safety</button>
-            <button class="chip" data-tc="Facility">Facility</button>
-            <button class="chip" data-tc="Compliance">Compliance</button>
-            <button class="chip" data-tc="Operations">Operations</button>
-            <button class="chip" data-tc="People">People</button>
-          </div>
-          <div class="chip-row">
-            <select id="task-assignee" class="task-select">
-              <option value="all">All assignees</option>
-            </select>
-          </div>
-        </div>
-
-        <div id="task-groups"></div>
-      </section>
-
-    </main>
-
-    <!-- Modal for adding waste -->
-    <div class="modal" id="waste-modal" hidden>
-      <div class="modal-card">
-        <h3>Log waste</h3>
-        <label>Item <input id="w-item" type="text" placeholder="Mozzarella" /></label>
-        <label>Qty <input id="w-qty" type="number" step="0.1" placeholder="2" /></label>
-        <label>Reason
-          <select id="w-reason"><option>Spoilage</option><option>Burn / overcook</option><option>Dropped</option><option>Customer return</option><option>Prep error</option></select>
-        </label>
-        <label>$ Loss <input id="w-loss" type="number" step="0.01" placeholder="12.50" /></label>
-        <div class="modal-actions">
-          <button class="ghost-btn" id="w-cancel">Cancel</button>
-          <button class="btn" id="w-save">Save</button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Auth guard: redirects to /login.html if not signed in, or /onboarding.html if no tenant.
-         Runs BEFORE app.js so app.js can assume a valid tenant context exists. -->
+    <!-- HOW IT WORKS -->
+    <section id="how" style="background: var(--bg-warm);">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>How it works</span>
+          <h2>Three steps to running on Stationly.</h2>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <h3>Connect your data</h3>
+            <p>Import staff, menu, and sales from Toast, Square, or a CSV. Takes 10 minutes — we do the mapping.</p>
+          </div>
+          <div class="step">
+            <h3>Set up the tablet</h3>
+            <p>Stand a tablet at the entrance. Staff type their PIN to clock in. No app install, no training.</p>
+          </div>
+          <div class="step">
+            <h3>Run the business</h3>
+            <p>Each morning, open the briefing. See labor, food cost, compliance, and what needs your attention — all in one place.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY -->
+    <section id="why" class="why">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow"><span class="eyebrow-dot" style="background: var(--amber);"></span>Why Stationly</span>
+          <h2>Built by people who've worked the pass.</h2>
+          <p class="lede">Most restaurant tech is either a bloated enterprise suite or a single‑feature app. Stationly is for the 500,000 independent restaurants in between — small enough to care about the details, big enough to need systems.</p>
+        </div>
+
+        <div class="why-quote">
+          <p>“I was paying for a scheduling app, a POS, a time clock, and a spreadsheet for invoices. Stationly replaced three of those and my morning coffee now has context.”</p>
+          <cite>— Maria, owner · Bella Vita Bistro</cite>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="email" class="cta">
+      <div class="container-narrow">
+        <span class="eyebrow" style="color: var(--ink);"><span class="eyebrow-dot" style="background: var(--ink);"></span>Get on the list</span>
+        <h2 style="margin-top: 14px;">See it running in your kitchen.</h2>
+        <p class="lede">Drop your email and I'll set up a guided walkthrough with your real menu and staff. Takes 30 minutes, free for early partners.</p>
+
+        <form class="cta-form" id="lead-form" novalidate>
+          <input type="email" id="lead-email" class="cta-input" placeholder="you@yourrestaurant.com" required autocomplete="email">
+          <button type="submit" class="btn btn-lg" id="lead-submit">Request walkthrough</button>
+        </form>
+        <div class="cta-error" id="lead-error"></div>
+        <div class="cta-success" id="lead-success">Thanks — we'll be in touch within one business day.</div>
+
+        <p class="cta-secondary">Prefer to explore on your own? <a href="./app.html">Open the live demo →</a></p>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="container">
+        <div class="foot-grid">
+          <div class="foot-about">
+            <a href="/" class="brand" style="color: var(--bg);">
+              <svg width="28" height="28" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
+                <rect width="64" height="64" rx="14" fill="#e8a33d"/>
+                <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
+              </svg>
+              <span>Stationly</span>
+            </a>
+            <p>Back-office operations for independent restaurants. Clock‑ins, schedules, inventory, costs, compliance — in one place.</p>
+          </div>
+          <div class="foot-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#how">How it works</a></li>
+              <li><a href="./app.html">Live demo</a></li>
+              <li><a href="./signup.html">Sign up</a></li>
+            </ul>
+          </div>
+          <div class="foot-col">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="./legal/terms.html">Terms</a></li>
+              <li><a href="./legal/privacy.html">Privacy</a></li>
+              <li><a href="mailto:hello@stationly.ai">Contact</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="foot-bottom">
+          <span>© 2026 Stationly · Made for restaurants</span>
+          <span>stationly.ai</span>
+        </div>
+      </div>
+    </footer>
+
     <script type="module">
-      import { loadTenantContext } from './tenantContext.js';
-      try {
-        const ctx = await loadTenantContext();
-        window.__RESTOPS_CTX__ = ctx;
-        // Update brand area with actual tenant name
-        const brandName = document.querySelector('.brand-name');
-        const brandSub = document.querySelector('.brand-sub');
-        if (brandName) brandName.textContent = ctx.tenant.name;
-        if (brandSub && ctx.tenant.restaurant_type) {
-          brandSub.textContent = ctx.tenant.restaurant_type.replace(/-/g, ' ');
+      // Email capture — writes to Supabase 'leads' table
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+      const SUPABASE_URL = 'https://vmnhizmibdtlizigbzks.supabase.co';
+      const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtbmhpem1pYmR0bGl6aWdiemtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3OTcyMDcsImV4cCI6MjA5MjM3MzIwN30.qCbbTLSpFEtyXy3XbsYj02ZEMjLye_1fypv8seK1NNE';
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+      const form = document.getElementById('lead-form');
+      const emailInput = document.getElementById('lead-email');
+      const submitBtn = document.getElementById('lead-submit');
+      const errEl = document.getElementById('lead-error');
+      const okEl = document.getElementById('lead-success');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errEl.classList.remove('show');
+        okEl.classList.remove('show');
+
+        const email = emailInput.value.trim().toLowerCase();
+        if (!email || !email.includes('@') || !email.includes('.')) {
+          errEl.textContent = 'Please enter a valid email address.';
+          errEl.classList.add('show');
+          return;
         }
-        // Signal app.js it can start
-        window.dispatchEvent(new CustomEvent('restops:ready'));
-      } catch (err) {
-        // loadTenantContext already redirects — this catch is just to stop execution
-        console.warn('Auth gate blocked:', err.message);
-      }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+
+        try {
+          const { error } = await supabase.from('leads').insert([{
+            email,
+            source: 'landing_hero',
+            user_agent: navigator.userAgent.slice(0, 200),
+            referrer: document.referrer || null,
+          }]);
+
+          if (error) {
+            // If table doesn't exist or RLS blocks, fall back gracefully
+            if (error.code === '42P01' || error.code === '23505') {
+              if (error.code === '23505') {
+                okEl.textContent = "You're already on the list — we'll be in touch soon.";
+              }
+            } else {
+              throw error;
+            }
+          }
+
+          form.reset();
+          okEl.classList.add('show');
+          submitBtn.textContent = 'Sent ✓';
+          setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Request walkthrough';
+          }, 3500);
+        } catch (err) {
+          console.error('lead capture failed', err);
+          errEl.textContent = "Couldn't submit — email hello@stationly.ai instead.";
+          errEl.classList.add('show');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Request walkthrough';
+        }
+      });
     </script>
-    <script type="module" src="app.js"></script>
   </body>
 </html>
