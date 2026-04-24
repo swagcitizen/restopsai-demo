@@ -20,7 +20,9 @@ async function bootstrap() {
   if (!profile || !profile.is_platform_owner) {
     showError("You don't have access to the Stationly platform admin. This page is reserved for platform owners.");
     document.getElementById('loading').hidden = true;
-    document.getElementById('new-tenant-btn').disabled = true;
+    // Hide the admin UI — leave only the error banner and topbar visible.
+    document.querySelector('.toolbar').style.display = 'none';
+    document.querySelector('.card').style.display = 'none';
     return;
   }
 
