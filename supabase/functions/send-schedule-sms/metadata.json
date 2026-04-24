@@ -1,0 +1,13 @@
+{
+  "id": "7d81ea8e-3605-48a2-a9b6-284827bc14b7",
+  "slug": "send-schedule-sms",
+  "version": 3,
+  "name": "send-schedule-sms",
+  "status": "ACTIVE",
+  "entrypoint_path": "/tmp/user_fn_vmnhizmibdtlizigbzks_7d81ea8e-3605-48a2-a9b6-284827bc14b7_1/source/index.ts",
+  "import_map": false,
+  "verify_jwt": true,
+  "created_at": 1777000290130,
+  "updated_at": 1777000290130,
+  "ezbr_sha256": "cf90dc55fa7cc0addd351ba63ae8ae5d0d73899b7af71ed67920eb96e707dfaa"
+}

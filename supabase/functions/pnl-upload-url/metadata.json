@@ -1,0 +1,13 @@
+{
+  "id": "613710f0-d9f3-4a85-be28-54c0eaf2acec",
+  "slug": "pnl-upload-url",
+  "version": 1,
+  "name": "pnl-upload-url",
+  "status": "ACTIVE",
+  "entrypoint_path": "/tmp/user_fn_vmnhizmibdtlizigbzks_613710f0-d9f3-4a85-be28-54c0eaf2acec_1/source/index.ts",
+  "import_map": false,
+  "verify_jwt": false,
+  "created_at": 1777059573288,
+  "updated_at": 1777059573288,
+  "ezbr_sha256": "77dcc99ed099d0ed9324bc65f5ca71bd16dfd7fbf05a692a9239794023de67aa"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "93d4c57b-0e15-4f55-89b1-b5634983db4f",
+  "slug": "pnl-parse",
+  "version": 3,
+  "name": "pnl-parse",
+  "status": "ACTIVE",
+  "entrypoint_path": "/tmp/user_fn_vmnhizmibdtlizigbzks_93d4c57b-0e15-4f55-89b1-b5634983db4f_3/source/index.ts",
+  "import_map": false,
+  "verify_jwt": false,
+  "created_at": 1777059643309,
+  "updated_at": 1777061114521,
+  "ezbr_sha256": "94dd8a2863320edcacc7e8c05a7f68c01b361791106d42bc2b78ddf5ac313cbf"
+}

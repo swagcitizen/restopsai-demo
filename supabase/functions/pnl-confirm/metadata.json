@@ -1,0 +1,13 @@
+{
+  "id": "7b37fa99-7662-4d0f-984e-35e7eef996d3",
+  "slug": "pnl-confirm",
+  "version": 2,
+  "name": "pnl-confirm",
+  "status": "ACTIVE",
+  "entrypoint_path": "/tmp/user_fn_vmnhizmibdtlizigbzks_7b37fa99-7662-4d0f-984e-35e7eef996d3_2/source/index.ts",
+  "import_map": false,
+  "verify_jwt": false,
+  "created_at": 1777059661297,
+  "updated_at": 1777061368386,
+  "ezbr_sha256": "cecb98df34ab7eb3693b5e26f5851f5694813b5e8a6c29e37a898e3f9601fc7b"
+}

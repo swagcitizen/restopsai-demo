@@ -1,0 +1,13 @@
+{
+  "id": "62702e73-39d5-484e-ac6f-94da9112254d",
+  "slug": "admin-purge-chase",
+  "version": 2,
+  "name": "admin-purge-chase",
+  "status": "ACTIVE",
+  "entrypoint_path": "/tmp/user_fn_vmnhizmibdtlizigbzks_62702e73-39d5-484e-ac6f-94da9112254d_2/source/index.ts",
+  "import_map": false,
+  "verify_jwt": true,
+  "created_at": 1777061881222,
+  "updated_at": 1777061913151,
+  "ezbr_sha256": "475f16f7b70fc9d38ae0498c2a78ec73ca7b1286171b349d04a16ac866a4e953"
+}

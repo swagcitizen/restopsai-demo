@@ -1,0 +1,13 @@
+{
+  "id": "5a737bf4-1afe-41f2-bd0c-338247485a74",
+  "slug": "ocr-invoice",
+  "version": 4,
+  "name": "ocr-invoice",
+  "status": "ACTIVE",
+  "entrypoint_path": "/tmp/user_fn_vmnhizmibdtlizigbzks_5a737bf4-1afe-41f2-bd0c-338247485a74_1/source/index.ts",
+  "import_map": false,
+  "verify_jwt": true,
+  "created_at": 1776994662640,
+  "updated_at": 1776994662640,
+  "ezbr_sha256": "ddc20aa6564be3f20affe917ca76bb23130e9543f5d17b774f52933f590f0c93"
+}
