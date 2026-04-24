@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="80" viewBox="0 0 320 80" fill="none" aria-label="Stationly">
+  <rect x="8" y="16" width="48" height="48" rx="10" fill="#e8a33d"/>
+  <path d="M23 22.5 Q23 16.5 32 16.5 Q41 16.5 41 22.5 L41 24 Q41 27 35 27 L29 27 Q23 27 23 31.5 Q23 36 29 36 L35 36 Q41 36 41 39 L41 40.5 Q41 46.5 32 46.5 Q23 46.5 23 40.5" stroke="#1c1a15" stroke-width="3.75" stroke-linecap="round" fill="none" transform="translate(0 8.5)"/>
+  <text x="72" y="52" font-family="'Fraunces', 'Times New Roman', serif" font-size="34" font-weight="500" fill="#1c1a15" letter-spacing="-0.5">Stationly</text>
+</svg>
