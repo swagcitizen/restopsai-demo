@@ -1,4 +1,4 @@
-// RestOps AI — Operations Dashboard
+// Stationly — Operations Dashboard
 // Vanilla JS + Chart.js. Supabase-backed (module by module).
 
 import {
@@ -876,7 +876,7 @@ function buildLabelPrintHTML(label, tenantName) {
   return `<div class="plabel">
     <div class="plabel-head">
       <span class="plabel-type">${typeUpper}</span>
-      <span class="plabel-tenant">${escapeHtml(tenantName || 'RestOps AI')}</span>
+      <span class="plabel-tenant">${escapeHtml(tenantName || 'Stationly')}</span>
     </div>
     <div class="plabel-item">${escapeHtml(label.item)}</div>
     <div class="plabel-grid">
@@ -892,7 +892,7 @@ function buildLabelPrintHTML(label, tenantName) {
 }
 
 function printPrepLabel(label) {
-  const tenantName = (window.__RESTOPS_CTX__ && window.__RESTOPS_CTX__.tenant && window.__RESTOPS_CTX__.tenant.name) || 'RestOps AI';
+  const tenantName = (window.__RESTOPS_CTX__ && window.__RESTOPS_CTX__.tenant && window.__RESTOPS_CTX__.tenant.name) || 'Stationly';
   const root = document.getElementById('label-print-root');
   if (!root) { window.print(); return; }
   root.innerHTML = buildLabelPrintHTML(label, tenantName);
