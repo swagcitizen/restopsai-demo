@@ -1259,9 +1259,9 @@ function renderBriefing() {
     focus.push(`Discard ${expiredLabels.length} prep-label item${expiredLabels.length === 1 ? "" : "s"} past use-by: ${preview}${expiredLabels.length > 3 ? ", …" : ""}.`);
   }
   // Food safety — hot-hold overdue checks (>2h since last log)
-  const now = Date.now();
+  const nowMs = now.getTime();
   const hotStations = (state.temps || []).filter(t => t.kind === "hot");
-  const overdueHot = hotStations.filter(t => !t.lastLoggedAt || (now - new Date(t.lastLoggedAt).getTime()) > 2 * 60 * 60 * 1000);
+  const overdueHot = hotStations.filter(t => !t.lastLoggedAt || (nowMs - new Date(t.lastLoggedAt).getTime()) > 2 * 60 * 60 * 1000);
   if (overdueHot.length > 0) focus.push(`Log hot-hold temps on ${overdueHot.length} station${overdueHot.length === 1 ? "" : "s"} overdue past 2 hours: ${overdueHot.map(s => s.label || s.equipment).join(", ")}.`);
   // Menu engineering
   const dogs = state.menu.filter(m => {
