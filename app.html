@@ -841,6 +841,7 @@
     <script type="module">
       import { loadTenantContext } from './tenantContext.js';
       import { mountPnlImport } from './pnlImport.js';
+      import { mountQboExport } from './qboExport.js';
       try {
         const ctx = await loadTenantContext();
         window.__RESTOPS_CTX__ = ctx;
@@ -853,6 +854,9 @@
         }
         // Signal app.js it can start
         window.dispatchEvent(new CustomEvent('restops:ready'));
+
+        // Mount the QuickBooks export dropdown on the Costs view.
+        mountQboExport();
 
         // Mount the Import P&L button on the Costs view.
         // After import, map totals into the existing P&L inputs and recompute.

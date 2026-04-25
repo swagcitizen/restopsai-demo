@@ -362,6 +362,120 @@
         font-family: 'Inter', sans-serif;
       }
 
+      /* Pricing */
+      .pricing {
+        background: var(--bg);
+        padding: 96px 0;
+      }
+      .pricing-card {
+        max-width: 560px;
+        margin: 56px auto 0;
+        padding: 40px 36px;
+        background: #fff;
+        border: 1px solid rgba(28, 26, 21, 0.08);
+        border-radius: 16px;
+        box-shadow: 0 30px 60px -25px rgba(28, 26, 21, 0.18), 0 6px 20px -10px rgba(28, 26, 21, 0.08);
+        position: relative;
+      }
+      .pricing-card::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: 16px;
+        padding: 2px;
+        background: linear-gradient(135deg, var(--amber), transparent 40%);
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+                mask-composite: exclude;
+        pointer-events: none;
+      }
+      .price-tier {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--amber);
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+      .price-amount {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 56px;
+        line-height: 1;
+        font-weight: 500;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+      .price-amount sup {
+        font-size: 24px;
+        font-weight: 500;
+        margin-right: 4px;
+        vertical-align: top;
+        position: relative;
+        top: 12px;
+      }
+      .price-period {
+        font-family: 'Inter', sans-serif;
+        font-size: 16px;
+        color: var(--ink-soft);
+        font-weight: 500;
+        margin-left: 6px;
+      }
+      .price-trial {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--ink-soft);
+      }
+      .price-trial strong { color: var(--ink); font-weight: 600; }
+      .price-divider {
+        height: 1px;
+        background: rgba(28, 26, 21, 0.08);
+        margin: 28px 0;
+      }
+      .price-features {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 20px;
+      }
+      .price-features li {
+        font-size: 14.5px;
+        color: var(--ink);
+        padding-left: 22px;
+        position: relative;
+        line-height: 1.5;
+      }
+      .price-features li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 7px;
+        width: 12px;
+        height: 7px;
+        border-left: 2px solid var(--amber);
+        border-bottom: 2px solid var(--amber);
+        transform: rotate(-45deg);
+      }
+      .price-cta {
+        margin-top: 32px;
+        display: flex;
+        justify-content: center;
+      }
+      .price-cta .btn { padding: 14px 28px; }
+      .price-compare {
+        margin-top: 28px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--ink-soft);
+      }
+      .price-compare strong { color: var(--ink); font-weight: 600; }
+      @media (max-width: 600px) {
+        .pricing-card { padding: 32px 24px; }
+        .price-features { grid-template-columns: 1fr; }
+        .price-amount { font-size: 48px; }
+      }
+
       /* CTA */
       .cta {
         background: var(--amber);
@@ -487,6 +601,7 @@
           <a href="#features">Features</a>
           <a href="#how">How it works</a>
           <a href="#why">Why Stationly</a>
+          <a href="#pricing">Pricing</a>
           <a href="./login.html" class="btn ghost">Sign in</a>
           <a href="./app.html" class="btn amber">Try the demo</a>
         </nav>
@@ -700,6 +815,48 @@
       </div>
     </section>
 
+    <!-- PRICING -->
+    <section id="pricing" class="pricing">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>Pricing</span>
+          <h2>Honest pricing. One plan.</h2>
+          <p class="lede">No tiers, no upsells, no per‑seat games. Pay one flat rate per location and use everything.</p>
+        </div>
+
+        <div class="pricing-card">
+          <div class="price-tier">Stationly · all‑in</div>
+          <div>
+            <span class="price-amount"><sup>$</sup>79</span><span class="price-period">/ month per location</span>
+          </div>
+          <p class="price-trial"><strong>30‑day free trial.</strong> No credit card required.</p>
+
+          <div class="price-divider"></div>
+
+          <ul class="price-features">
+            <li>Bank‑statement P&amp;L import</li>
+            <li>Scheduling &amp; SMS to staff</li>
+            <li>Time clock with PIN login</li>
+            <li>Inventory &amp; recipe costing</li>
+            <li>Food safety logs</li>
+            <li>DBPR compliance tracking</li>
+            <li>QuickBooks / Xero export</li>
+            <li>Unlimited staff accounts</li>
+            <li>All future updates included</li>
+            <li>Email &amp; chat support</li>
+          </ul>
+
+          <div class="price-cta">
+            <a href="./signup.html" class="btn amber btn-lg">Start free trial →</a>
+          </div>
+        </div>
+
+        <p class="price-compare">
+          For comparison: <strong>MarginEdge ~$350/loc</strong> · <strong>Restaurant365 ~$469/loc</strong> · <strong>Stationly $79/loc</strong>
+        </p>
+      </div>
+    </section>
+
     <!-- CTA -->
     <section id="email" class="cta">
       <div class="container-narrow">
@@ -737,6 +894,7 @@
             <ul>
               <li><a href="#features">Features</a></li>
               <li><a href="#how">How it works</a></li>
+              <li><a href="#pricing">Pricing</a></li>
               <li><a href="./app.html">Live demo</a></li>
               <li><a href="./signup.html">Sign up</a></li>
             </ul>
