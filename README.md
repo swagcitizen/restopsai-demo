@@ -2,7 +2,9 @@
 
 Restaurant back-office SaaS for independent restaurant owners. Originally RestOps AI, rebranded to Stationly.
 
-**Live site**: https://swagcitizen.github.io/restopsai-demo/ (GitHub Pages from `master`)
+**Live site**: https://stationly.ai (GitHub Pages from `master` via CNAME)
+**Mirror**: https://swagcitizen.github.io/restopsai-demo/
+**Redirect**: stationly.net → stationly.ai (301 via Namecheap URL forward)
 **Backend**: Supabase project `vmnhizmibdtlizigbzks` (https://vmnhizmibdtlizigbzks.supabase.co)
 
 ## Structure
