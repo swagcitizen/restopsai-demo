@@ -59,15 +59,31 @@
 
   <script type="module">
     import { supabase, getSession } from './supabaseClient.js';
-    import { ensureDemoSession } from './demoMode.js';
+    import { disableDemoForSession } from './demoMode.js';
 
-    // Demo build: auto-sign-in visitors so the app is accessible without creds.
-    await ensureDemoSession();
+    // Visiting /login.html means the user wants to sign in with real creds —
+    // do NOT auto-sign them in as the demo user. Mark demo as disabled for
+    // this browser session so app.html doesn't auto-promote them either.
+    disableDemoForSession();
 
-    // If signed in (either normally or via demo auto-signin), skip to app.
+    // Decide where to send a signed-in user: platform owners go to /platform.html,
+    // everyone else goes to /app.html.
+    async function destinationFor(userId) {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('is_platform_owner')
+          .eq('id', userId)
+          .maybeSingle();
+        if (data?.is_platform_owner) return './platform.html';
+      } catch (_) {}
+      return './app.html';
+    }
+
+    // If already signed in (real session), forward to the right place.
     const existing = await getSession();
-    if (existing) {
-      window.location.href = './app.html';
+    if (existing?.user?.id) {
+      window.location.href = await destinationFor(existing.user.id);
     }
 
     const form = document.getElementById('login-form');
@@ -80,7 +96,7 @@
       btn.disabled = true;
       btn.textContent = 'Signing in…';
       const fd = new FormData(form);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: fd.get('email'),
         password: fd.get('password'),
       });
@@ -91,7 +107,7 @@
         btn.textContent = 'Sign in';
         return;
       }
-      window.location.href = './app.html';
+      window.location.href = await destinationFor(data.user.id);
     });
   </script>
 </body>
