@@ -13,6 +13,7 @@ import * as tasksRepo from './tasksRepo.js';
 import * as dataRepo from './dataRepo.js';
 import * as invitesRepo from './invitesRepo.js';
 import * as clockRepo from './clockRepo.js';
+import { supabase } from './supabaseClient.js';
 
 // In-memory state persistence. Data resets when the page reloads.
 const STORAGE_KEY = "anthonys-pizza-dashboard-v1";
@@ -2800,6 +2801,55 @@ function bindTeamView() {
   if (!canInvite) {
     if (gate) gate.hidden = true;
     if (locked) locked.hidden = false;
+  }
+
+  // Owner-only notification health check
+  const notifCard = document.getElementById('notif-health-card');
+  const notifBtn = document.getElementById('notif-test-btn');
+  const notifMsg = document.getElementById('notif-test-msg');
+  if (notifCard && role === 'owner') {
+    notifCard.hidden = false;
+    if (notifBtn && !notifBtn.dataset.bound) {
+      notifBtn.dataset.bound = '1';
+      notifBtn.addEventListener('click', async () => {
+        const session = (await supabase.auth.getSession()).data.session;
+        if (!session) {
+          notifMsg.textContent = 'Sign in first.';
+          return;
+        }
+        notifBtn.disabled = true;
+        notifBtn.textContent = 'Sending…';
+        notifMsg.textContent = '';
+        try {
+          const url = 'https://vmnhizmibdtlizigbzks.supabase.co/functions/v1/notify';
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + session.access_token,
+            },
+            body: JSON.stringify({
+              type: 'test',
+              note: 'Test from ' + (window.__RESTOPS_CTX__?.user?.email || 'unknown'),
+            }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (r.ok && j.ok) {
+            notifMsg.textContent = '✓ Test email sent. Check your inbox in ~30 seconds.';
+            notifMsg.style.color = 'var(--ok, #2e7d32)';
+          } else {
+            notifMsg.textContent = 'Failed: ' + (j.message || j.error || ('HTTP ' + r.status));
+            notifMsg.style.color = 'var(--danger, #c9302c)';
+          }
+        } catch (err) {
+          notifMsg.textContent = 'Failed: ' + (err.message || err);
+          notifMsg.style.color = 'var(--danger, #c9302c)';
+        } finally {
+          notifBtn.disabled = false;
+          notifBtn.textContent = 'Send test email';
+        }
+      });
+    }
   }
 
   const form = document.getElementById('invite-form');
