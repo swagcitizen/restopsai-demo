@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Security · Stationly</title>
+    <meta name="description" content="How Stationly protects your restaurant data: encryption in transit and at rest, tenant isolation via row-level security, encrypted backups, and trusted sub-processors." />
+    <meta property="og:title" content="Security at Stationly" />
+    <meta property="og:description" content="Encryption, tenant isolation, backups, and our security commitments." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stationly.ai/security.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./marketing.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+  </head>
+  <body class="mkt-body">
+    <!-- NAV -->
+    <header class="mkt-nav">
+      <div class="mkt-container mkt-nav-inner">
+        <a href="/" class="mkt-brand">
+          <svg width="34" height="34" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
+            <rect width="64" height="64" rx="14" fill="#e8a33d"/>
+            <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
+          </svg>
+          <span>Stationly</span>
+        </a>
+        <nav class="mkt-nav-links">
+          <a href="./index.html#features">Features</a>
+          <a href="./index.html#pricing">Pricing</a>
+          <a href="./about.html">About</a>
+          <a href="./security.html">Security</a>
+          <a href="./login.html" class="mkt-btn mkt-btn-ghost">Sign in</a>
+          <a href="./app.html" class="mkt-btn mkt-btn-amber">Try the demo</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="mkt-hero">
+      <div class="mkt-narrow mkt-hero-inner">
+        <span class="mkt-eyebrow">Security</span>
+        <h1>Your data, properly&nbsp;protected.</h1>
+        <p class="mkt-lede" style="margin-left: auto; margin-right: auto;">Restaurant data is sensitive — staff records, sales numbers, supplier relationships, compliance logs. Here's exactly how we protect it, in plain English.</p>
+      </div>
+    </section>
+
+    <!-- CORE PILLARS -->
+    <section class="mkt-section">
+      <div class="mkt-container">
+        <div class="mkt-section-head">
+          <span class="mkt-eyebrow">The fundamentals</span>
+          <h2>Six things we get right.</h2>
+        </div>
+
+        <div class="mkt-pillars">
+          <div class="mkt-pillar">
+            <div class="mkt-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11 V7 a4 4 0 0 1 8 0 v4"/></svg>
+            </div>
+            <div>
+              <h3>Encryption in transit and at rest</h3>
+              <p>Every connection to Stationly uses TLS 1.2+ with HTTPS enforced site-wide and HSTS preloaded. All data in our database and backups is encrypted at rest with AES-256 (provided by Supabase / AWS). Passwords are hashed with bcrypt — we never see, store, or transmit them in plaintext.</p>
+            </div>
+          </div>
+
+          <div class="mkt-pillar">
+            <div class="mkt-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22 c5 -2 8 -6 8 -12 V4 l-8 -2 -8 2 v6 c0 6 3 10 8 12 z"/></svg>
+            </div>
+            <div>
+              <h3>Tenant isolation via row-level security</h3>
+              <p>Every restaurant on Stationly is a separate tenant. We enforce isolation at the database layer with PostgreSQL row-level security (RLS) policies — your records can never be queried by another tenant, even if a bug in our application code tried. Every table that holds tenant data has a <code>tenant_id</code> filter enforced by the database, not by application code.</p>
+            </div>
+          </div>
+
+          <div class="mkt-pillar">
+            <div class="mkt-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21 c0 -4 4 -7 8 -7 s8 3 8 7"/></svg>
+            </div>
+            <div>
+              <h3>Role-based access inside your tenant</h3>
+              <p>Within a restaurant, every user has a role: Owner, Manager, or Staff. Staff can clock in and view their schedule. Managers can edit schedules, run reports, and log inspections. Only Owners can change billing, invite Owners, or delete the tenant. Roles are enforced both in the UI and at the API layer.</p>
+            </div>
+          </div>
+
+          <div class="mkt-pillar">
+            <div class="mkt-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12 a9 9 0 1 1 -3 -6.7"/><path d="M21 4 v5 h-5"/></svg>
+            </div>
+            <div>
+              <h3>Daily encrypted backups</h3>
+              <p>Your data is automatically backed up daily, with point-in-time recovery available for the last 7 days on paid plans. Backups are encrypted at rest and stored in a separate region. We test restoration quarterly so we know they actually work — not just that they exist.</p>
+            </div>
+          </div>
+
+          <div class="mkt-pillar">
+            <div class="mkt-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6 h18 v12 H3 z"/><path d="M3 10 h18"/><circle cx="7.5" cy="14" r="1.5"/></svg>
+            </div>
+            <div>
+              <h3>Secure billing — we never see your card</h3>
+              <p>All payments are processed by Stripe (PCI DSS Level 1). Card numbers are tokenized and stored only with Stripe; we never see, log, or store full card data. We receive only the last four digits and your subscription status, used to display billing info inside the app.</p>
+            </div>
+          </div>
+
+          <div class="mkt-pillar">
+            <div class="mkt-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 v6"/><path d="M12 16 v6"/><path d="M2 12 h6"/><path d="M16 12 h6"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div>
+              <h3>Audit logs &amp; least-privilege access</h3>
+              <p>Sensitive actions (deleting records, changing roles, exporting data) are logged with a user, timestamp, and IP. Internally, only a small number of engineers have production access, gated behind hardware keys (WebAuthn). Customer data is accessed only when you explicitly ask for support, and access is logged.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INFRASTRUCTURE -->
+    <section class="mkt-section" style="background: var(--bg-warm);">
+      <div class="mkt-narrow">
+        <div class="mkt-prose">
+          <span class="mkt-eyebrow">Infrastructure</span>
+          <h2 style="margin-top: 18px; margin-bottom: 22px;">Where your data actually lives.</h2>
+          <p>Stationly runs on <strong>Supabase</strong> (managed PostgreSQL on AWS, US East region), with the application served from <strong>GitHub Pages + Cloudflare</strong>. Email is delivered through Supabase's transactional provider. Payments flow through <strong>Stripe</strong>.</p>
+          <p>We don't operate our own servers, our own database hardware, or our own data centers. We rely on best-in-class providers — each independently audited under SOC 2 — and we configure them carefully. We believe this is more secure than rolling our own.</p>
+          <p>Our application code is deployed from a private CI pipeline on every push to <code>master</code>, with database migrations applied through a signed, version-controlled process. There's no manual SSH-ing into production.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SUB-PROCESSORS -->
+    <section class="mkt-section">
+      <div class="mkt-container">
+        <div class="mkt-section-head">
+          <span class="mkt-eyebrow">Trusted partners</span>
+          <h2>Sub-processors.</h2>
+          <p class="mkt-lede">The vetted third parties we use to operate Stationly. Each is contractually bound to handle your data only on our instructions, in line with our Privacy Policy.</p>
+        </div>
+        <table class="mkt-table">
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Purpose</th>
+              <th>Data location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Supabase</strong></td>
+              <td>Authentication, PostgreSQL database, file storage, transactional email</td>
+              <td>US (AWS us-east)</td>
+            </tr>
+            <tr>
+              <td><strong>Stripe</strong></td>
+              <td>Subscription billing &amp; payment processing</td>
+              <td>US</td>
+            </tr>
+            <tr>
+              <td><strong>Cloudflare</strong></td>
+              <td>DNS, DDoS protection, edge caching</td>
+              <td>Global edge</td>
+            </tr>
+            <tr>
+              <td><strong>GitHub</strong></td>
+              <td>Source-code hosting &amp; static-site deployment</td>
+              <td>US</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- INCIDENTS / DISCLOSURE -->
+    <section class="mkt-section" style="background: var(--bg-warm);">
+      <div class="mkt-narrow">
+        <div class="mkt-prose">
+          <span class="mkt-eyebrow">Responsible disclosure</span>
+          <h2 style="margin-top: 18px; margin-bottom: 22px;">Found something? Tell us.</h2>
+          <p>If you believe you've discovered a vulnerability in Stationly, please email <a href="mailto:security@stationly.ai">security@stationly.ai</a> with details. We'll acknowledge within 2 business days and work with you to validate and fix the issue. We won't take legal action against good-faith researchers who follow responsible disclosure.</p>
+          <p>We're a small team, so we don't run a paid bug-bounty program yet — but we'll publicly credit you (with your permission) once any fix is deployed.</p>
+          <p><strong>In the event of a confirmed security incident</strong> affecting customer data, we will notify affected customers by email within 72 hours and publish a post-mortem with timeline, scope, root cause, and remediation steps.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPLIANCE NOTE -->
+    <section class="mkt-section">
+      <div class="mkt-container">
+        <div class="mkt-section-head">
+          <span class="mkt-eyebrow">Compliance</span>
+          <h2>Where we are today.</h2>
+        </div>
+        <div class="mkt-grid-3">
+          <div class="mkt-card">
+            <h3>GDPR &amp; CCPA</h3>
+            <p>Customers in the EEA, UK, and California can request access, export, correction, or deletion of their personal data — see our <a href="./legal/privacy.html">Privacy Policy</a> for details and contact email.</p>
+          </div>
+          <div class="mkt-card">
+            <h3>SOC 2 — in progress</h3>
+            <p>We are working toward SOC 2 Type II readiness in 2026. Until we publish a formal report, our infrastructure relies on the SOC 2 attestations of Supabase, AWS, and Stripe.</p>
+          </div>
+          <div class="mkt-card">
+            <h3>Data residency</h3>
+            <p>All Customer Data is stored in the United States. If you have data-residency requirements that need processing in another region, email us and we'll talk.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="mkt-section">
+      <div class="mkt-container">
+        <div class="mkt-cta">
+          <h2>Questions about security?</h2>
+          <p>We're happy to walk through our setup with you in detail — including for procurement reviews. Reach out and we'll set up a call.</p>
+          <div class="mkt-cta-row">
+            <a href="mailto:security@stationly.ai" class="mkt-btn mkt-btn-amber mkt-btn-lg">Email security@stationly.ai</a>
+            <a href="./legal/privacy.html" class="mkt-btn mkt-btn-ghost mkt-btn-lg">Read the Privacy Policy</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="mkt-footer">
+      <div class="mkt-container">
+        <div class="mkt-foot-grid">
+          <div class="mkt-foot-about">
+            <a href="/" class="mkt-brand" style="color: var(--bg);">
+              <svg width="28" height="28" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
+                <rect width="64" height="64" rx="14" fill="#e8a33d"/>
+                <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
+              </svg>
+              <span>Stationly</span>
+            </a>
+            <p>Back-office operations for independent restaurants. Clock-ins, schedules, inventory, costs, compliance — in one place.</p>
+          </div>
+          <div class="mkt-foot-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="./index.html#features">Features</a></li>
+              <li><a href="./index.html#how">How it works</a></li>
+              <li><a href="./index.html#pricing">Pricing</a></li>
+              <li><a href="./app.html">Live demo</a></li>
+              <li><a href="./signup.html">Sign up</a></li>
+            </ul>
+          </div>
+          <div class="mkt-foot-col">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="./about.html">About</a></li>
+              <li><a href="./security.html">Security</a></li>
+              <li><a href="./legal/terms.html">Terms</a></li>
+              <li><a href="./legal/privacy.html">Privacy</a></li>
+              <li><a href="mailto:hello@stationly.ai">Contact</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mkt-foot-bottom">
+          <span>© 2026 Stationly · Made for restaurants</span>
+          <span>stationly.ai</span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
