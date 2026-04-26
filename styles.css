@@ -613,6 +613,47 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 .legal-head { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
 .legal-head .brand { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; font-weight: 600; }
 
+/* Trial countdown banner */
+.trial-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: rgba(232, 163, 61, 0.08);
+  border: 1px solid rgba(232, 163, 61, 0.25);
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+.trial-banner[hidden] { display: none; }
+.trial-banner.trial-banner-warn {
+  background: rgba(201, 48, 44, 0.10);
+  border-color: rgba(201, 48, 44, 0.35);
+}
+.trial-banner-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent, #E8A33D);
+  flex: none;
+  box-shadow: 0 0 0 4px rgba(232, 163, 61, 0.15);
+}
+.trial-banner-warn .trial-banner-dot {
+  background: #c9302c;
+  box-shadow: 0 0 0 4px rgba(201, 48, 44, 0.18);
+}
+.trial-banner-text { flex: 1 1 auto; color: var(--text); opacity: 0.92; }
+.trial-banner-text strong { color: var(--text); font-weight: 600; }
+.trial-banner-link {
+  flex: none;
+  color: var(--accent, #E8A33D);
+  text-decoration: none;
+  font-weight: 600;
+  border: 1px solid rgba(232, 163, 61, 0.4);
+  border-radius: 8px;
+  padding: 6px 12px;
+  transition: background 0.15s;
+}
+.trial-banner-link:hover { background: rgba(232, 163, 61, 0.1); }
+
 /* Demo mode banner */
 .demo-banner {
   display: flex;

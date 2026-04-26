@@ -2693,13 +2693,38 @@ async function bootApp() {
   try {
     const tc = await import('./tenantContext.js');
     const ctx = tc.getTenantContext?.();
-    if (ctx?.user?.email === 'demo@bellavita.app') {
+    const isDemo = ctx?.user?.email === 'demo@bellavita.app';
+    if (isDemo) {
       const banner = document.getElementById('demo-banner');
       if (banner) banner.hidden = false;
     }
     if (ctx?.profile?.is_platform_owner) {
       const plink = document.getElementById('platform-link');
       if (plink) plink.hidden = false;
+    }
+
+    // Trial countdown banner — shown to real (non-demo) trialing tenants.
+    if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
+      const banner = document.getElementById('trial-banner');
+      const textEl = document.getElementById('trial-banner-text');
+      if (banner && textEl) {
+        const msLeft = new Date(ctx.tenant.trial_ends_at) - Date.now();
+        const daysLeft = Math.ceil(msLeft / 86400000);
+        const tenantName = ctx.tenant?.name || 'your restaurant';
+        if (daysLeft > 1) {
+          textEl.innerHTML = `<strong>${daysLeft} days left</strong> in your free trial of Stationly for <strong>${tenantName}</strong>. No card required until you're ready.`;
+        } else if (daysLeft === 1) {
+          textEl.innerHTML = `<strong>1 day left</strong> in your free trial. Add billing to keep your data flowing.`;
+          banner.classList.add('trial-banner-warn');
+        } else if (daysLeft === 0) {
+          textEl.innerHTML = `Your free trial ends <strong>today</strong>. Add billing to avoid interruption.`;
+          banner.classList.add('trial-banner-warn');
+        } else {
+          textEl.innerHTML = `Your free trial has ended. Add billing to restore full access.`;
+          banner.classList.add('trial-banner-warn');
+        }
+        banner.hidden = false;
+      }
     }
   } catch (_) { /* non-fatal */ }
 

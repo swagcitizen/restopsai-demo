@@ -37,12 +37,16 @@
           <span>Password</span>
           <input type="password" name="password" required autocomplete="new-password" minlength="8" placeholder="at least 8 characters">
         </label>
+        <label class="auth-check">
+          <input type="checkbox" name="agree" required>
+          <span>I agree to the <a href="./legal/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="./legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+        </label>
         <div id="signup-error" class="auth-error" hidden></div>
         <button type="submit" class="btn-primary" id="signup-btn">Create account</button>
       </form>
 
       <p class="auth-alt">
-        Already have an account? <a href="./login.html">Sign in</a>
+        Already have an account? <a href="./login.html?nodemo=1">Sign in</a>
       </p>
     </section>
 
@@ -77,7 +81,7 @@
         password: fd.get('password'),
         options: {
           data: { full_name: fd.get('fullName') },
-          emailRedirectTo: new URL('./onboarding.html', window.location.href).toString(),
+          emailRedirectTo: new URL('./verify.html', window.location.href).toString(),
         },
       });
 

@@ -212,6 +212,56 @@
   color: rgba(244, 236, 216, 0.7);
 }
 
+/* Terms acceptance checkbox */
+.auth-check {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 10px !important;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(244, 236, 216, 0.7);
+  padding: 4px 2px;
+}
+.auth-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--accent, #E8A33D);
+  flex: none;
+}
+.auth-check a {
+  color: var(--accent, #E8A33D);
+  text-decoration: none;
+}
+.auth-check a:hover { text-decoration: underline; }
+
+/* Forgot password row inside the password label — only when a label has nested span+link */
+.auth-form label > span:has(.auth-inline-link) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.auth-inline-link {
+  font-size: 12px;
+  color: var(--accent, #E8A33D);
+  text-decoration: none;
+  letter-spacing: 0;
+}
+.auth-inline-link:hover { text-decoration: underline; }
+
+/* Spinner used on verify.html */
+.auth-spinner {
+  width: 22px;
+  height: 22px;
+  margin: 18px auto 8px;
+  border: 2px solid rgba(232, 163, 61, 0.25);
+  border-top-color: var(--accent, #E8A33D);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+
 @media (max-width: 480px) {
   .auth-card {
     padding: 28px 22px;
