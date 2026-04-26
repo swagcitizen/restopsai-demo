@@ -273,3 +273,30 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Real-time field validation ---------------------------------- */
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(244, 236, 216, 0.55);
+}
+.field-hint.ok  { color: #b8dab8; }
+.field-hint.err { color: #e8a39a; }
+
+.pw-meter { margin-top: 8px; }
+.pw-meter-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pw-meter-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #c9302c;
+  border-radius: 999px;
+  transition: width 0.18s ease, background 0.18s ease;
+}

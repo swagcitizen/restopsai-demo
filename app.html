@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
+    <meta name="theme-color" content="#faf5ea" />
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
@@ -861,8 +862,46 @@
       import { loadTenantContext } from './tenantContext.js';
       import { mountPnlImport } from './pnlImport.js';
       import { mountQboExport } from './qboExport.js';
+      function showBootError(title, body) {
+        // Avoid stacking duplicates
+        if (document.getElementById('boot-error')) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'boot-error';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(28,26,21,0.86);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);font-family:Inter,system-ui,sans-serif;padding:24px';
+        overlay.innerHTML = `
+          <div style="background:#faf5ea;color:#1c1a15;border:1px solid #d7c99f;border-radius:14px;padding:28px 30px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35);text-align:left">
+            <div style="width:40px;height:40px;border-radius:10px;background:#fdecd1;display:flex;align-items:center;justify-content:center;margin-bottom:14px">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c9831b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+            </div>
+            <h2 style="font-family:Fraunces,serif;font-size:22px;line-height:1.2;margin:0 0 8px;font-weight:600">${title}</h2>
+            <p style="margin:0 0 20px;font-size:14px;line-height:1.5;color:#3d3830">${body}</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="boot-retry" style="background:#e8a33d;color:#1c1a15;border:none;border-radius:9px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Try again</button>
+              <a href="./login.html" style="background:transparent;color:#1c1a15;border:1px solid #d7c99f;border-radius:9px;padding:11px 18px;font-size:14px;font-weight:500;text-decoration:none;font-family:inherit">Sign in again</a>
+              <a href="mailto:hello@stationly.ai" style="background:transparent;color:#7a715f;border:none;padding:11px 8px;font-size:13px;text-decoration:none;font-family:inherit;align-self:center">Contact support</a>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        document.getElementById('boot-retry').addEventListener('click', () => window.location.reload());
+      }
+
+      // Safety net: if boot stalls (network hung), surface a friendly message after 12s.
+      let __bootSettled = false;
+      const __bootTimeout = setTimeout(() => {
+        if (!__bootSettled) {
+          showBootError(
+            "Taking longer than expected",
+            "We're having trouble reaching the Stationly servers. Check your connection and try again."
+          );
+        }
+      }, 12000);
+
       try {
         const ctx = await loadTenantContext();
+        __bootSettled = true;
+        clearTimeout(__bootTimeout);
         window.__RESTOPS_CTX__ = ctx;
         // Update brand area with actual tenant name
         const brandName = document.querySelector('.brand-name');
@@ -912,8 +951,21 @@
           setTimeout(() => t.remove(), 6000);
         });
       } catch (err) {
-        // loadTenantContext already redirects — this catch is just to stop execution
-        console.warn('Auth gate blocked:', err.message);
+        __bootSettled = true;
+        clearTimeout(__bootTimeout);
+        // loadTenantContext throws after navigating to login/onboarding for known cases.
+        // For those, the redirect is already in flight and we don't need an overlay.
+        const msg = (err && err.message) || '';
+        const isKnown = /No session|No tenant/i.test(msg);
+        if (!isKnown) {
+          console.error('App boot failed:', err);
+          showBootError(
+            "We couldn't load your workspace",
+            "Something went wrong while starting the app. This is usually temporary \u2014 try again, or sign in again if the problem persists."
+          );
+        } else {
+          console.warn('Auth gate blocked:', msg);
+        }
       }
     </script>
     <script type="module" src="app.js"></script>
