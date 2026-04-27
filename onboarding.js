@@ -30,22 +30,27 @@ let tenantId = null;
 let onboarding = null; // tenant_onboarding row or null
 let currentStep = 1;
 
-const memberships = await getMemberships();
-if (memberships.length > 0) {
-  tenantId = memberships[0].tenant_id;
-  const { data: row } = await supabase
-    .from('tenant_onboarding')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
-  onboarding = row;
-  if (row?.finished_at) {
-    // Already completed — bounce them straight to the app.
-    window.location.href = './app.html';
+try {
+  const memberships = await getMemberships();
+  if (memberships.length > 0) {
+    tenantId = memberships[0].tenant_id;
+    const { data: row } = await supabase
+      .from('tenant_onboarding')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    onboarding = row;
+    if (row?.finished_at) {
+      // Already completed — bounce them straight to the app.
+      window.location.href = './app.html';
+    }
+    // Resume at the next step after the highest completed.
+    const next = Math.min(TOTAL_STEPS, (row?.step_completed || 0) + 1);
+    currentStep = next;
   }
-  // Resume at the next step after the highest completed.
-  const next = Math.min(TOTAL_STEPS, (row?.step_completed || 0) + 1);
-  currentStep = next;
+} catch (err) {
+  // Network or RLS hiccup — fall through to step 1, the user can still create.
+  console.warn('Onboarding pre-fetch failed; starting at step 1:', err);
 }
 
 // ----------------------------------------------------------------------------

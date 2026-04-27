@@ -4,8 +4,48 @@
 */
 
 .onb-body {
+  margin: 0;
+  min-height: 100vh;
   background: var(--cream, #faf5ea);
   color: var(--ink, #1c1a15);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.onb-body .auth-error {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(196, 60, 60, 0.08);
+  border: 1px solid rgba(196, 60, 60, 0.3);
+  color: #c43c3c;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.onb-body .btn-primary {
+  background: var(--accent, #e8a33d);
+  color: #1c1a15;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: filter 160ms, transform 160ms;
+}
+.onb-body .btn-primary:hover { filter: brightness(0.94); }
+.onb-body .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.onb-body .btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(28, 26, 21, 0.16);
+  padding: 9px 16px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
 }
 
 .onb-shell {
