@@ -42,9 +42,18 @@ export async function getMemberships() {
   return data || [];
 }
 
-// Helper: get the user's profile row (or null)
+// Helper: get the user's profile row (or null).
+// We filter by id explicitly because profiles RLS also exposes tenant-mate
+// rows — without the filter, .maybeSingle() can collapse to null when the
+// caller shares a tenant with someone else.
 export async function getProfile() {
-  const { data } = await supabase.from('profiles').select('*').maybeSingle();
+  const user = await getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
   return data;
 }
 
