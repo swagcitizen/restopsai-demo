@@ -6,14 +6,15 @@
   <title>Set up your restaurant · Stationly</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="onboarding.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
   <meta name="description" content="Set up your restaurant in Stationly." />
   <meta name="theme-color" content="#faf5ea" />
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Cpath d='M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46' stroke='%231c1a15' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E" />
 </head>
-<body class="auth-body">
-  <main class="auth-shell">
-    <header class="auth-head">
+<body class="auth-body onb-body">
+  <main class="onb-shell">
+    <header class="onb-head">
       <a href="./app.html" class="brand">
         <svg width="32" height="32" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
           <rect width="64" height="64" rx="14" fill="#e8a33d"/>
@@ -24,103 +25,281 @@
       <button id="signout" class="btn-ghost">Sign out</button>
     </header>
 
-    <section class="auth-card auth-card-wide">
-      <h1>Set up your restaurant</h1>
-      <p class="auth-sub">We'll use this to tailor your dashboard. You can change everything later.</p>
+    <div class="onb-progress" aria-hidden="true">
+      <div class="onb-progress-bar"><span id="onb-progress-fill"></span></div>
+      <div class="onb-progress-label"><span id="onb-progress-text">Step 1 of 6</span></div>
+    </div>
 
-      <form id="onboarding-form" class="auth-form">
-        <label>
-          <span>Restaurant name</span>
-          <input type="text" name="name" required placeholder="e.g. Anthony's Pizza">
-        </label>
+    <div class="onb-grid">
+      <!-- Left rail: step list -->
+      <aside class="onb-rail">
+        <ol class="onb-steps">
+          <li data-step="1"><span class="onb-step-num">1</span><span class="onb-step-label">Restaurant basics</span></li>
+          <li data-step="2"><span class="onb-step-num">2</span><span class="onb-step-label">How you operate</span></li>
+          <li data-step="3"><span class="onb-step-num">3</span><span class="onb-step-label">Invite your team</span></li>
+          <li data-step="4"><span class="onb-step-num">4</span><span class="onb-step-label">Bring your numbers</span></li>
+          <li data-step="5"><span class="onb-step-num">5</span><span class="onb-step-label">Compliance</span></li>
+          <li data-step="6"><span class="onb-step-num">6</span><span class="onb-step-label">You're set</span></li>
+        </ol>
+      </aside>
 
-        <label>
-          <span>Restaurant type</span>
-          <select name="restaurantType" required>
-            <option value="pizzeria">Pizzeria</option>
-            <option value="burger">Burger / fast-casual</option>
-            <option value="taqueria">Taqueria / Mexican</option>
-            <option value="cafe">Cafe / bakery</option>
-            <option value="fine-dining">Fine dining</option>
-            <option value="bar">Bar / gastropub</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
+      <!-- Right pane: active step -->
+      <section class="onb-pane">
+        <!-- ============ STEP 1 ============ -->
+        <div class="onb-step" data-pane="1" hidden>
+          <h1 class="onb-title">Tell us about your restaurant</h1>
+          <p class="onb-sub">We use this to tailor your dashboard and benchmarks. You can change anything later.</p>
 
-        <div class="auth-grid-2">
-          <label>
-            <span>City</span>
-            <input type="text" name="city" placeholder="Orlando">
-          </label>
-          <label>
-            <span>State</span>
-            <select name="state">
-              <option value="FL" selected>Florida</option>
-              <option value="GA">Georgia</option>
-              <option value="TX">Texas</option>
-              <option value="NY">New York</option>
-              <option value="CA">California</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
+          <form id="form-1" class="onb-form" novalidate>
+            <label class="onb-field">
+              <span>Restaurant name</span>
+              <input type="text" name="name" required placeholder="e.g. Anthony's Pizza" autocomplete="organization">
+            </label>
+
+            <label class="onb-field">
+              <span>Cuisine type</span>
+              <select name="restaurantType" required>
+                <option value="" disabled selected>Choose one…</option>
+                <option value="pizzeria">Pizzeria</option>
+                <option value="burger">Burger / fast-casual</option>
+                <option value="taqueria">Taqueria / Mexican</option>
+                <option value="cafe">Cafe / bakery</option>
+                <option value="fine-dining">Fine dining</option>
+                <option value="bar">Bar / gastropub</option>
+                <option value="ghost-kitchen">Ghost kitchen</option>
+                <option value="food-truck">Food truck</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+
+            <label class="onb-field">
+              <span>Street address <span class="onb-opt">(optional)</span></span>
+              <input type="text" name="address" placeholder="123 Main St" autocomplete="street-address">
+            </label>
+
+            <div class="onb-grid-2">
+              <label class="onb-field">
+                <span>City</span>
+                <input type="text" name="city" placeholder="Orlando" autocomplete="address-level2">
+              </label>
+              <label class="onb-field">
+                <span>State</span>
+                <select name="state">
+                  <option value="FL" selected>Florida</option>
+                  <option value="AL">Alabama</option>
+                  <option value="GA">Georgia</option>
+                  <option value="TX">Texas</option>
+                  <option value="NY">New York</option>
+                  <option value="CA">California</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="onb-grid-2">
+              <label class="onb-field">
+                <span>Number of seats <span class="onb-opt">(optional)</span></span>
+                <input type="number" name="seats" min="0" max="999" placeholder="60">
+              </label>
+              <label class="onb-field">
+                <span>Timezone</span>
+                <select name="timezone" id="onb-tz"></select>
+              </label>
+            </div>
+          </form>
         </div>
 
-        <div id="onboarding-error" class="auth-error" hidden></div>
-        <button type="submit" class="btn-primary" id="onb-btn">Create my dashboard →</button>
+        <!-- ============ STEP 2 ============ -->
+        <div class="onb-step" data-pane="2" hidden>
+          <h1 class="onb-title">How do you operate?</h1>
+          <p class="onb-sub">Tells us which features to surface and how to compute your breakeven.</p>
 
-        <p class="auth-note">
-          This seeds 37 compliance checklist items, 31 recurring tasks (fire extinguisher, grease trap, hood cleaning, pest, licenses), and 3 license templates based on your state.
-        </p>
-      </form>
-    </section>
+          <form id="form-2" class="onb-form" novalidate>
+            <fieldset class="onb-field">
+              <legend>Service types</legend>
+              <div class="onb-chip-group" id="svc-types">
+                <label class="onb-chip"><input type="checkbox" name="service" value="dine-in"><span>Dine-in</span></label>
+                <label class="onb-chip"><input type="checkbox" name="service" value="takeout"><span>Takeout</span></label>
+                <label class="onb-chip"><input type="checkbox" name="service" value="delivery"><span>Delivery</span></label>
+                <label class="onb-chip"><input type="checkbox" name="service" value="catering"><span>Catering</span></label>
+                <label class="onb-chip"><input type="checkbox" name="service" value="drive-thru"><span>Drive-thru</span></label>
+                <label class="onb-chip"><input type="checkbox" name="service" value="counter"><span>Counter / pickup</span></label>
+              </div>
+            </fieldset>
 
-    <footer class="auth-foot">
+            <fieldset class="onb-field">
+              <legend>Days you're open</legend>
+              <div class="onb-chip-group" id="open-days">
+                <label class="onb-chip"><input type="checkbox" name="day" value="mon"><span>Mon</span></label>
+                <label class="onb-chip"><input type="checkbox" name="day" value="tue"><span>Tue</span></label>
+                <label class="onb-chip"><input type="checkbox" name="day" value="wed"><span>Wed</span></label>
+                <label class="onb-chip"><input type="checkbox" name="day" value="thu"><span>Thu</span></label>
+                <label class="onb-chip"><input type="checkbox" name="day" value="fri"><span>Fri</span></label>
+                <label class="onb-chip"><input type="checkbox" name="day" value="sat"><span>Sat</span></label>
+                <label class="onb-chip"><input type="checkbox" name="day" value="sun"><span>Sun</span></label>
+              </div>
+            </fieldset>
+
+            <label class="onb-field">
+              <span>Average ticket <span class="onb-opt">(optional, helps with breakeven math)</span></span>
+              <div class="onb-input-prefix">
+                <span class="onb-prefix">$</span>
+                <input type="number" name="avg_ticket" step="0.01" min="0" placeholder="22.50">
+              </div>
+            </label>
+          </form>
+        </div>
+
+        <!-- ============ STEP 3 ============ -->
+        <div class="onb-step" data-pane="3" hidden>
+          <h1 class="onb-title">Invite your team</h1>
+          <p class="onb-sub">Add up to 3 teammates now. They'll get an email invite. You can invite the rest later from <strong>Team & Invites</strong>.</p>
+
+          <form id="form-3" class="onb-form" novalidate>
+            <div id="invite-rows">
+              <div class="invite-row">
+                <input type="text" name="invite_name" placeholder="Maria Conti" autocomplete="off">
+                <input type="email" name="invite_email" placeholder="maria@example.com" autocomplete="off">
+                <select name="invite_role">
+                  <option value="manager" selected>Manager</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+              <div class="invite-row">
+                <input type="text" name="invite_name" placeholder="(optional)" autocomplete="off">
+                <input type="email" name="invite_email" placeholder="(optional)" autocomplete="off">
+                <select name="invite_role">
+                  <option value="manager" selected>Manager</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+              <div class="invite-row">
+                <input type="text" name="invite_name" placeholder="(optional)" autocomplete="off">
+                <input type="email" name="invite_email" placeholder="(optional)" autocomplete="off">
+                <select name="invite_role">
+                  <option value="manager" selected>Manager</option>
+                  <option value="staff">Staff</option>
+                </select>
+              </div>
+            </div>
+
+            <p class="onb-helper">
+              <strong>Manager</strong> gets full operational access — schedules, costs, inventory, compliance.
+              <strong>Staff</strong> can only clock in/out and view their schedule.
+            </p>
+          </form>
+        </div>
+
+        <!-- ============ STEP 4 ============ -->
+        <div class="onb-step" data-pane="4" hidden>
+          <h1 class="onb-title">Bring your numbers</h1>
+          <p class="onb-sub">Optional. Skip if you'd rather start fresh — you can import any time from the dashboard.</p>
+
+          <div class="onb-options">
+            <a href="./app.html#pnl-import" class="onb-option" id="opt-pnl">
+              <div class="onb-option-icon">📊</div>
+              <div class="onb-option-body">
+                <h3>Upload last month's P&amp;L</h3>
+                <p>CSV or PDF from QuickBooks, Toast, Square. We'll parse and categorize automatically.</p>
+              </div>
+              <div class="onb-option-arrow">→</div>
+            </a>
+
+            <button type="button" class="onb-option" id="opt-pos" data-pos="square">
+              <div class="onb-option-icon">🟦</div>
+              <div class="onb-option-body">
+                <h3>Connect Square <span class="onb-badge">Coming soon</span></h3>
+                <p>Real-time sales, items sold, labor sync. Click to be notified when it ships.</p>
+              </div>
+              <div class="onb-option-arrow">→</div>
+            </button>
+
+            <button type="button" class="onb-option" id="opt-pos-toast" data-pos="toast">
+              <div class="onb-option-icon">🍞</div>
+              <div class="onb-option-body">
+                <h3>Connect Toast <span class="onb-badge">Coming soon</span></h3>
+                <p>Notify me when Toast integration is available.</p>
+              </div>
+              <div class="onb-option-arrow">→</div>
+            </button>
+
+            <div id="pos-confirm" class="onb-helper" hidden></div>
+          </div>
+        </div>
+
+        <!-- ============ STEP 5 ============ -->
+        <div class="onb-step" data-pane="5" hidden>
+          <h1 class="onb-title">Compliance &amp; licenses</h1>
+          <p class="onb-sub">We've already preloaded 37 inspection items and 31 recurring tasks (fire extinguisher, grease trap, hood cleaning, pest, license renewals) tailored to your state.</p>
+
+          <form id="form-5" class="onb-form" novalidate>
+            <div class="onb-callout">
+              <div class="onb-callout-icon">✓</div>
+              <div>
+                <strong>Compliance pack ready.</strong> All your DBPR inspection-prep items, food-safety logs, and recurring tasks are in place. Find them under <strong>DBPR Inspection Prep</strong> and <strong>Task Assignments</strong>.
+              </div>
+            </div>
+
+            <label class="onb-field">
+              <span>When does your DBPR food service license expire?</span>
+              <input type="date" name="license_expires_at">
+              <small class="onb-opt">We'll remind you 90, 60, and 30 days before renewal.</small>
+            </label>
+          </form>
+        </div>
+
+        <!-- ============ STEP 6 ============ -->
+        <div class="onb-step" data-pane="6" hidden>
+          <div class="onb-success">
+            <div class="onb-success-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="32" cy="32" r="28"/>
+                <path d="M20 33 L29 42 L46 24"/>
+              </svg>
+            </div>
+            <h1 class="onb-title">You're set, <span id="onb-name">friend</span>.</h1>
+            <p class="onb-sub">Your dashboard is live. Here are four things you can do right now:</p>
+
+            <div class="onb-actions">
+              <a href="./app.html#clock" class="onb-action">
+                <h4>Clock in / out staff</h4>
+                <p>Open the Time Clock to start tracking shifts today.</p>
+              </a>
+              <a href="./app.html#food-safety" class="onb-action">
+                <h4>Log temps</h4>
+                <p>Log walk-in &amp; freezer temps to start your compliance trail.</p>
+              </a>
+              <a href="./app.html#compliance" class="onb-action">
+                <h4>Run an inspection drill</h4>
+                <p>Walk through the DBPR checklist before your next visit.</p>
+              </a>
+              <a href="./app.html#team" class="onb-action">
+                <h4>Invite more team</h4>
+                <p>Add the rest of your managers and staff.</p>
+              </a>
+            </div>
+
+            <a href="./app.html" class="btn-primary onb-cta-final">Take me to my dashboard →</a>
+          </div>
+        </div>
+
+        <!-- ============ Nav controls ============ -->
+        <div class="onb-controls" id="onb-controls">
+          <button type="button" id="btn-back" class="btn-ghost" hidden>← Back</button>
+          <span class="onb-controls-spacer"></span>
+          <button type="button" id="btn-skip" class="btn-ghost" hidden>Skip for now</button>
+          <button type="button" id="btn-next" class="btn-primary">Next →</button>
+        </div>
+
+        <div id="onb-error" class="auth-error" hidden></div>
+      </section>
+    </div>
+
+    <footer class="onb-foot">
       <span>© 2026 Stationly</span>
     </footer>
   </main>
 
-  <script type="module">
-    import { supabase, getSession, getMemberships, signOut, createTenant } from './supabaseClient.js';
-
-    const session = await getSession();
-    if (!session) {
-      window.location.href = './login.html';
-    }
-
-    // If they already have a tenant, skip to app
-    const memberships = await getMemberships();
-    if (memberships.length > 0) {
-      window.location.href = './app.html';
-    }
-
-    document.getElementById('signout').addEventListener('click', signOut);
-
-    const form = document.getElementById('onboarding-form');
-    const errBox = document.getElementById('onboarding-error');
-    const btn = document.getElementById('onb-btn');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errBox.hidden = true;
-      btn.disabled = true;
-      btn.textContent = 'Setting up your dashboard…';
-
-      const fd = new FormData(form);
-      try {
-        await createTenant({
-          name: fd.get('name').trim(),
-          restaurantType: fd.get('restaurantType'),
-          state: fd.get('state'),
-          city: fd.get('city') || null,
-        });
-        window.location.href = './app.html';
-      } catch (err) {
-        errBox.textContent = err.message || 'Something went wrong. Try again.';
-        errBox.hidden = false;
-        btn.disabled = false;
-        btn.textContent = 'Create my dashboard →';
-      }
-    });
-  </script>
+  <script type="module" src="./onboarding.js"></script>
 </body>
 </html>

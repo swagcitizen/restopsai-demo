@@ -31,6 +31,28 @@ export async function loadTenantContext() {
   const m = memberships[0];
   const profile = await getProfile();
 
+  // If onboarding wizard hasn't been finished for this tenant, route owners
+  // and managers back to it so they can complete setup. Demo tenant and
+  // staff are exempt (staff can't manage onboarding anyway, and the demo
+  // tenant was backfilled as finished).
+  if (m.role === 'owner' || m.role === 'manager') {
+    try {
+      const { data: onb } = await supabase
+        .from('tenant_onboarding')
+        .select('finished_at')
+        .eq('tenant_id', m.tenant_id)
+        .maybeSingle();
+      if (onb && !onb.finished_at && !window.location.pathname.match(/onboarding/)) {
+        window.location.href = './onboarding.html';
+        throw new Error('Onboarding incomplete');
+      }
+    } catch (e) {
+      if (e?.message === 'Onboarding incomplete') throw e;
+      // Soft-fail on any other error — don't block the app for a missing row.
+      console.warn('Onboarding check failed:', e);
+    }
+  }
+
   _cache = {
     session,
     user: session.user,
