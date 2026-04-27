@@ -381,10 +381,25 @@ input[type="number"]:focus, input[type="text"]:focus, select:focus { outline: no
 .mock-summary h4 { margin: 0 0 6px; color: var(--accent); font-family: var(--font-display); font-size: 18px; }
 
 /* Role-based visibility */
-body.role-manager [data-role="owner-only"] { display: none; }
-body.role-staff [data-role="owner-only"], body.role-staff [data-role="manager-up"] { display: none; }
-body.role-staff .nav-item[data-view="costs"], body.role-staff .nav-item[data-view="briefing"], body.role-staff .nav-item[data-view="recipes"], body.role-staff .nav-item[data-view="sales"], body.role-staff .nav-item[data-view="scheduler"], body.role-staff .nav-item[data-view="compliance"] { display: none; }
-body.role-manager .nav-item[data-view="costs"], body.role-manager .nav-item[data-view="briefing"] { display: none; }
+/* Permission model:
+   - Owner: full access to every module.
+   - Manager: same as owner (operational equals).
+   - Staff: time clock only. Everything else is hidden, including the entire sidebar nav except Time Clock.
+*/
+
+/* Owner-only / manager-up callouts inside views — manager keeps owner parity now,
+   so only staff hides these. */
+body.role-staff [data-role="owner-only"],
+body.role-staff [data-role="manager-up"] { display: none; }
+
+/* Staff: hide every nav item EXCEPT time clock. */
+body.role-staff .nav-item:not([data-view="clock"]) { display: none; }
+/* Staff: hide the entire "View as" / reset-data footer (owner-only tooling). */
+body.role-staff .role-switch,
+body.role-staff #reset-data { display: none; }
+/* Manager: hide owner-only tooling but keep all nav items. */
+body.role-manager .role-switch,
+body.role-manager #reset-data { display: none; }
 
 @media (max-width: 1100px) {
   body { grid-template-columns: 1fr; }

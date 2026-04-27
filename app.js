@@ -1197,6 +1197,19 @@ function applyRole() {
   document.body.classList.add(`role-${state.role}`);
   const sel = document.getElementById("role-select");
   if (sel && sel.value !== state.role) sel.value = state.role;
+
+  // Staff are locked to the Time Clock view. If the current view is anything
+  // else (e.g. they bookmarked a deeper page or the persisted state had them
+  // on overview), force-switch them.
+  if (state.role === 'staff') {
+    const visibleClock = document.querySelector('.nav-item[data-view="clock"]');
+    if (visibleClock && !visibleClock.classList.contains('active')) {
+      // Defer to next tick so DOM is ready when called early in boot.
+      setTimeout(() => {
+        try { showView('clock'); } catch (_) {}
+      }, 0);
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -2690,10 +2703,26 @@ function setToday() {
 async function bootApp() {
   setToday();
 
-  // Show demo banner if the current session was created via the demo auto-signin.
+  // Load tenant context (session, tenant, role) BEFORE applying any
+  // role-gated UI. Role drives sidebar visibility, the View-as widget,
+  // staff-only Time Clock locking, etc.
+  let ctx = null;
   try {
     const tc = await import('./tenantContext.js');
-    const ctx = tc.getTenantContext?.();
+    ctx = await tc.loadTenantContext();
+    // Sync the in-memory state.role with the user's actual membership role.
+    // 'owner' | 'manager' | 'staff'. Owner-only tooling reads state.role too,
+    // so this is the single source of truth for the app's permission checks.
+    if (ctx?.role) {
+      state.role = ctx.role;
+      applyRole();
+    }
+  } catch (e) {
+    console.warn('Tenant context load failed:', e);
+  }
+
+  // Show demo banner if the current session was created via the demo auto-signin.
+  try {
     const isDemo = ctx?.user?.email === 'demo@bellavita.app';
     if (isDemo) {
       const banner = document.getElementById('demo-banner');
@@ -2703,6 +2732,14 @@ async function bootApp() {
       const plink = document.getElementById('platform-link');
       if (plink) plink.hidden = false;
     }
+
+    // Hide the "Reset sample data" footer button for any non-demo tenant
+    // (it only makes sense on the demo tenant; for real tenants it's a
+    // dangerous footgun that would wipe their actual data).
+    const isDemoTenantBoot = ctx?.tenant?.id === 'a2e00ee7-1f30-4fbd-86b9-e560fc062f72'
+      || ctx?.user?.email === 'demo@bellavita.app';
+    const resetBtn = document.getElementById('reset-data');
+    if (resetBtn && !isDemoTenantBoot) resetBtn.style.display = 'none';
 
     // Trial countdown banner — shown to real (non-demo) trialing tenants.
     if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
@@ -2761,15 +2798,45 @@ async function bootApp() {
       state.inspections = inspHistory.map(h => ({
         date: h.date, type: 'Routine', violations: h.violations, high: 0, result: 'Met',
       }));
+    } else {
+      // No history logged yet — don't show fake inspections from SAMPLE.
+      state.inspections = [];
     }
-    // else keep the SAMPLE.inspections so charts/briefing still have data; user hasn't logged any yet.
 
-    // Seed-or-use for menu / inventory / recipes / sales.
-    // Seeding is idempotent (each seedXxxFromSample checks existing first).
-    state.menu      = menu.length      > 0 ? menu      : await dataRepo.seedMenuFromSample(SAMPLE.menu);
-    state.inv       = inv.length       > 0 ? inv       : await dataRepo.seedInventoryFromSample(SAMPLE.inv);
-    state.recipes   = recipes.length   > 0 ? recipes   : await dataRepo.seedRecipesFromSample(SAMPLE_RECIPES);
-    state.sales30   = sales.length     > 0 ? sales     : await dataRepo.seedDailySalesFromSample(state.sales30);
+    // Determine whether this is the public demo tenant. ONLY the demo tenant
+    // gets sample-data auto-seeding; real tenants start empty so owners only
+    // see what they (or their staff) have actually entered or imported.
+    const DEMO_TENANT_ID = 'a2e00ee7-1f30-4fbd-86b9-e560fc062f72';
+    const isDemoTenant = ctx?.tenant?.id === DEMO_TENANT_ID
+      || ctx?.user?.email === 'demo@bellavita.app';
+
+    if (isDemoTenant) {
+      // Demo tenant: seed any missing modules from SAMPLE so visitors see a
+      // working dashboard. Idempotent — each helper no-ops if rows exist.
+      state.menu    = menu.length    > 0 ? menu    : await dataRepo.seedMenuFromSample(SAMPLE.menu);
+      state.inv     = inv.length     > 0 ? inv     : await dataRepo.seedInventoryFromSample(SAMPLE.inv);
+      state.recipes = recipes.length > 0 ? recipes : await dataRepo.seedRecipesFromSample(SAMPLE_RECIPES);
+      state.sales30 = sales.length   > 0 ? sales   : await dataRepo.seedDailySalesFromSample(state.sales30);
+    } else {
+      // Real tenant: zero data unless they've created/imported it themselves.
+      state.menu    = menu;
+      state.inv     = inv;
+      state.recipes = recipes;
+      state.sales30 = sales;
+      // P&L is hardcoded from SAMPLE.pl in seed() — zero it out for real tenants
+      // until P&L import or manual entry replaces it. Keeps the schema shape
+      // intact so renderers don't crash, but every value reads $0 / 0%.
+      state.pl = Object.fromEntries(Object.keys(state.pl || {}).map(k => [k, 0]));
+      // Same for hardcoded staff/temps/checklist/cleaning/licenses that came
+      // from seed(). Real data comes from Supabase fetches above; if those
+      // returned empty arrays (already assigned), good. The remaining fields
+      // were set from SAMPLE during initial seed() and need clearing.
+      state.checklist = (state.checklist || []).map(c => ({ ...c, done: false }));
+      // staff/temps/waste/licenses are already overwritten above with real fetches.
+      // checklist/cleaning are local-state operational checklists, kept as templates.
+      state.forecastSales = 0;
+      state.beTicket = 0;
+    }
     // selectedRecipe was initialised to 'r1' (sample id). Switch to the first real recipe
     // so recipe detail renders without needing the user to click.
     if (state.recipes.length > 0) state.selectedRecipe = state.recipes[0].id;
