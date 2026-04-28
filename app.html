@@ -579,6 +579,24 @@
 
       <!-- SHIFT SCHEDULER -->
       <section class="view" data-view="scheduler">
+        <div class="card smart-sched-card" id="smart-sched-card">
+          <div class="card-head">
+            <h3>✨ Smart suggestion</h3>
+            <div class="smart-sched-controls">
+              <label class="smart-sched-target">Target labor%
+                <input type="number" id="smart-sched-target" value="28" min="15" max="45" step="1" />
+              </label>
+              <button class="btn btn-secondary" id="smart-sched-forecast-btn" data-write-action>Forecast next week</button>
+              <button class="btn btn-primary" id="smart-sched-apply-btn" data-write-action disabled>Apply suggestion</button>
+            </div>
+          </div>
+          <div id="smart-sched-content">
+            <div class="smart-sched-empty muted">
+              Click <strong>Forecast next week</strong> to predict next week’s sales by hour from your last 8 weeks of POS data, then suggest staff coverage to hit your target labor %.
+            </div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-head">
             <h3>Weekly Schedule</h3>

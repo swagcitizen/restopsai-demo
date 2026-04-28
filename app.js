@@ -2763,6 +2763,13 @@ async function bootApp() {
         .catch(e => console.warn('pos integrations init failed', e));
     }
 
+    // Smart Scheduler — sales-by-hour forecast + coverage suggestion.
+    if (ctx?.tenant?.id) {
+      import('./smartScheduler.js')
+        .then(mod => mod.initSmartScheduler({ tenantId: ctx.tenant.id }))
+        .catch(e => console.warn('smart scheduler init failed', e));
+    }
+
     // Trial countdown banner — shown to real (non-demo) trialing tenants.
     if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
       const banner = document.getElementById('trial-banner');
