@@ -2439,7 +2439,17 @@ async function saveReviewInvoice() {
     // Refresh full list to pull in variance + history rows
     state.invoices = await dataRepo.fetchInvoices({ limit: 100 });
     state.reviewInvoice = null;
-    setInvoiceStatus('Saved.', 'ok');
+    const flaggedCount = saved?.variance?.flagged_count || 0;
+    if (flaggedCount > 0) {
+      const top = saved.variance.flagged?.[0];
+      const pct = top ? `${(top.variance_pct * 100).toFixed(0)}%` : '';
+      setInvoiceStatus(
+        `Saved. ⚠️ ${flaggedCount} line${flaggedCount === 1 ? '' : 's'} priced >15% above 4-week avg${top ? ` (top: "${top.description?.slice(0, 40) || ''}" +${pct})` : ''} — alert sent.`,
+        'warn',
+      );
+    } else {
+      setInvoiceStatus('Saved.', 'ok');
+    }
     renderAll();
   } catch (err) {
     console.error('[save invoice]', err);

@@ -874,7 +874,29 @@ export async function saveInvoice(invoice) {
     if (hErr) throw hErr;
   }
 
-  return invoiceId;
+  // Fire-and-forget: run variance check after save. Returns flagged lines (if any)
+  // so the UI can surface them; also fires an `invoice_variance` alert via
+  // alerts-dispatch when one or more lines are >15% above 4-week category avg.
+  let varianceResult = null;
+  try {
+    const { data, error } = await supabase.functions.invoke('invoice-variance-check', {
+      body: { invoice_id: invoiceId, threshold: 0.15 },
+    });
+    if (!error && data) varianceResult = data;
+  } catch (err) {
+    console.warn('[saveInvoice] variance check failed', err);
+  }
+
+  return { invoiceId, variance: varianceResult };
+}
+
+export async function checkInvoiceVariance(invoiceId, threshold = 0.15) {
+  // Manual re-check (e.g. "Recheck variance" button on an existing invoice).
+  const { data, error } = await supabase.functions.invoke('invoice-variance-check', {
+    body: { invoice_id: invoiceId, threshold },
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteInvoice(invoiceId) {
