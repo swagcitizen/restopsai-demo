@@ -2749,6 +2749,13 @@ async function bootApp() {
         .catch(e => console.warn('billing init failed', e));
     }
 
+    // Alerts inbox + bell — initialize for all real tenants and demo.
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      import('./alertsView.js')
+        .then(mod => mod.initAlerts({ tenantId: ctx.tenant.id, user: ctx.user }))
+        .catch(e => console.warn('alerts init failed', e));
+    }
+
     // Trial countdown banner — shown to real (non-demo) trialing tenants.
     if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
       const banner = document.getElementById('trial-banner');

@@ -55,6 +55,7 @@
 
         <div class="nav-section">Account</div>
         <button class="nav-item" data-view="team"><span class="dot"></span>Team &amp; Invites</button>
+        <button class="nav-item" data-view="alerts"><span class="dot"></span>Alerts</button>
         <button class="nav-item" data-view="billing"><span class="dot"></span>Billing</button>
       </nav>
 
@@ -100,6 +101,10 @@
             <span class="health-dot"></span>
             <span class="health-text">Healthy</span>
           </div>
+          <button class="alerts-bell" id="alerts-bell" title="Alerts" aria-label="Alerts">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+            <span class="alerts-bell-count" id="alerts-bell-count" hidden>0</span>
+          </button>
           <a href="./platform.html" id="platform-link" class="platform-pill" hidden title="Stationly platform admin">
             <span class="platform-pill-dot"></span>
             <span>Platform</span>
@@ -854,6 +859,40 @@
         <div id="billing-events-card" class="card billing-card" hidden>
           <h3>Recent billing activity</h3>
           <div id="billing-events-list" class="billing-events"></div>
+        </div>
+      </section>
+
+      <!-- ALERTS INBOX -->
+      <section class="view" data-view="alerts">
+        <div class="section-header">
+          <div>
+            <h2>Alerts</h2>
+            <p class="muted">Real-time notifications from your operations — sales, labor, invoices, schedule.</p>
+          </div>
+          <div class="alerts-actions">
+            <button class="btn btn-ghost" id="alerts-mark-all-read">Mark all as read</button>
+            <button class="btn btn-secondary" id="alerts-test-briefing" data-write-action>Send test briefing</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="alerts-tabs">
+            <button class="alerts-tab active" data-alerts-filter="unread">Unread <span id="alerts-tab-unread-count">0</span></button>
+            <button class="alerts-tab" data-alerts-filter="all">All</button>
+            <button class="alerts-tab" data-alerts-filter="settings">Settings</button>
+          </div>
+          <div id="alerts-list-container">
+            <div id="alerts-list" class="alerts-feed"></div>
+            <div id="alerts-settings" hidden>
+              <p class="muted">Choose which alerts you want and how you receive them. SMS requires a verified phone number.</p>
+              <div id="alerts-rules-list"></div>
+              <div class="alerts-phone-row">
+                <label class="label" for="alerts-phone">SMS phone number</label>
+                <input type="tel" id="alerts-phone" placeholder="+1 555 555 5555" class="input" />
+                <button class="btn btn-primary" id="alerts-save-phone">Save</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
