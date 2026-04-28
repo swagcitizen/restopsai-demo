@@ -2756,6 +2756,13 @@ async function bootApp() {
         .catch(e => console.warn('alerts init failed', e));
     }
 
+    // POS integrations (Toast + Square) — owners/managers only.
+    if (ctx?.tenant?.id && (ctx?.role === 'owner' || ctx?.role === 'manager')) {
+      import('./posIntegrationsView.js')
+        .then(mod => mod.initPosIntegrations({ tenantId: ctx.tenant.id }))
+        .catch(e => console.warn('pos integrations init failed', e));
+    }
+
     // Trial countdown banner — shown to real (non-demo) trialing tenants.
     if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
       const banner = document.getElementById('trial-banner');

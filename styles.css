@@ -1773,3 +1773,89 @@ body.app-readonly .readonly-overlay-msg {
   font-size: 16px;
   font-weight: 600;
 }
+
+/* ============================================================
+   POS integrations
+   ============================================================ */
+.alerts-section-divider {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border, #e5e5e5);
+}
+.alerts-section-divider h3 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+.alerts-section-divider p { margin: 0 0 16px; font-size: 13px; }
+
+.pos-integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.pos-card {
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 10px;
+  padding: 18px;
+  background: var(--surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pos-card.connected { border-color: var(--accent, #0d9488); }
+.pos-card-head { display: flex; gap: 12px; align-items: center; }
+.pos-card-logo {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+}
+.pos-card-name { font-weight: 600; font-size: 15px; }
+.pos-card-status { font-size: 12px; color: var(--muted, #666); display: flex; align-items: center; gap: 5px; }
+.pos-status-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+.pos-status-dot.ok { background: #10b981; }
+.pos-status-dot.off { background: #94a3b8; }
+.pos-card-desc { font-size: 13px; color: var(--muted, #555); margin: 0; line-height: 1.5; }
+.pos-card-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-2, #fafafa);
+  border-radius: 8px;
+  font-size: 11px;
+}
+.pos-card-meta div { display: flex; flex-direction: column; gap: 2px; }
+.pos-card-meta span.muted { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pos-card-meta strong { font-size: 13px; font-weight: 600; }
+.pos-card-meta strong.status-success { color: #10b981; }
+.pos-card-meta strong.status-failed { color: #e11d48; }
+.pos-card-error {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: #b91c1c;
+  margin-top: 4px;
+}
+.pos-card-actions { display: flex; gap: 8px; }
+.pos-card-actions .btn { flex: 1; }
+
+/* Toast notifications */
+.pos-toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  padding: 14px 18px;
+  border-radius: 8px;
+  background: #1f2937;
+  color: white;
+  font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 10000;
+  max-width: 400px;
+}
+.pos-toast.show { opacity: 1; transform: translateY(0); }
+.pos-toast-success { background: #047857; }
+.pos-toast-error { background: #b91c1c; }
