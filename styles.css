@@ -1472,3 +1472,83 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 }
 .btn-primary:hover { background: #f0b75b; }
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ==================== Billing tab ==================== */
+.billing-card { padding: 28px; margin-bottom: 20px; }
+.billing-summary {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 24px; flex-wrap: wrap;
+}
+.billing-plan-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #8a8478; }
+.billing-plan-name { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; margin: 4px 0 8px; }
+.billing-meta { color: #6f6a5e; font-size: 14px; }
+.billing-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.billing-pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+@media (max-width: 720px) { .billing-pricing { grid-template-columns: 1fr; } }
+
+.billing-toggle { cursor: pointer; }
+.billing-toggle input { position: absolute; opacity: 0; }
+.billing-toggle-card {
+  border: 1.5px solid #e5e0d3; border-radius: 14px; padding: 20px;
+  background: #fbf8f1; transition: all 0.18s ease;
+}
+.billing-toggle-card--featured { border-color: #d9b04b; position: relative; }
+.billing-toggle input:checked + .billing-toggle-card {
+  border-color: #c47b1a; background: #fff8e8;
+  box-shadow: 0 0 0 3px rgba(196, 123, 26, 0.12);
+}
+.billing-toggle-price {
+  font-family: 'Fraunces', serif; font-size: 36px; font-weight: 600;
+  margin: 12px 0 4px;
+}
+.billing-toggle-price span { font-size: 14px; font-weight: 400; color: #8a8478; font-family: inherit; }
+.billing-badge {
+  background: #c47b1a; color: #fff; font-size: 11px; padding: 3px 8px;
+  border-radius: 6px; margin-left: 8px; letter-spacing: 0.04em;
+}
+
+.billing-locations {
+  display: flex; align-items: center; gap: 16px; margin: 16px 0 24px;
+  flex-wrap: wrap;
+}
+.billing-locations label { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.billing-locations input[type="number"] {
+  width: 80px; padding: 8px 12px; border: 1.5px solid #e5e0d3;
+  border-radius: 8px; font-size: 16px; background: #fff;
+}
+.btn-large { padding: 14px 24px; font-size: 16px; }
+
+.billing-events { display: flex; flex-direction: column; gap: 8px; }
+.billing-event-row {
+  display: flex; justify-content: space-between; padding: 12px 0;
+  border-bottom: 1px solid #efebde; font-size: 14px;
+}
+.billing-event-row:last-child { border-bottom: none; }
+
+/* ==================== Billing banners (top of app) ==================== */
+.billing-banner {
+  padding: 12px 20px; border-radius: 10px; margin: 0 0 16px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  font-size: 14px;
+}
+.billing-banner-info  { background: #eef5fb; color: #1f4a6b; border: 1px solid #d2e4f2; }
+.billing-banner-warn  { background: #fff4dc; color: #6b4a1f; border: 1px solid #f0d89a; }
+.billing-banner-error { background: #fbeaea; color: #6b2424; border: 1px solid #f0c5c5; }
+.billing-banner .btn-link {
+  background: none; border: none; padding: 0; color: inherit;
+  text-decoration: underline; cursor: pointer; font-size: 14px; font-weight: 600;
+}
+
+/* ==================== Read-only mode ==================== */
+body.app-readonly [data-write-action],
+body.app-readonly button.btn-primary:not(.billing-allowed):not([data-billing-checkout]):not([data-billing-portal]):not(#billing-start-btn) {
+  pointer-events: none; opacity: 0.45;
+}
+body.app-readonly .readonly-overlay-msg {
+  display: block; padding: 8px 14px; background: #fbeaea;
+  border: 1px solid #f0c5c5; border-radius: 8px; color: #6b2424;
+  font-size: 13px; margin-bottom: 12px;
+}
+.readonly-overlay-msg { display: none; }
+.muted.small { font-size: 12px; }

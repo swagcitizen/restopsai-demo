@@ -2741,6 +2741,14 @@ async function bootApp() {
     const resetBtn = document.getElementById('reset-data');
     if (resetBtn && !isDemoTenantBoot) resetBtn.style.display = 'none';
 
+    // Billing: status banner + read-only enforcement + Billing tab UI.
+    // Runs in the background — must not block boot.
+    if (ctx?.tenant?.id) {
+      import('./billingView.js')
+        .then(mod => mod.initBilling(ctx))
+        .catch(e => console.warn('billing init failed', e));
+    }
+
     // Trial countdown banner — shown to real (non-demo) trialing tenants.
     if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
       const banner = document.getElementById('trial-banner');

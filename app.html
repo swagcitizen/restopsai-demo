@@ -55,6 +55,7 @@
 
         <div class="nav-section">Account</div>
         <button class="nav-item" data-view="team"><span class="dot"></span>Team &amp; Invites</button>
+        <button class="nav-item" data-view="billing"><span class="dot"></span>Billing</button>
       </nav>
 
       <div class="side-footer">
@@ -795,6 +796,64 @@
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- BILLING -->
+      <section class="view" data-view="billing">
+        <div class="section-header">
+          <div>
+            <h2>Billing &amp; subscription</h2>
+            <p class="muted">Stationly · all-in. One flat plan, every feature, no per-seat fees.</p>
+          </div>
+        </div>
+
+        <div id="billing-status-card" class="card billing-card" hidden>
+          <div class="billing-summary">
+            <div>
+              <div class="billing-plan-label">Current plan</div>
+              <div class="billing-plan-name" id="billing-plan-name">—</div>
+              <div class="billing-meta" id="billing-meta">—</div>
+            </div>
+            <div class="billing-actions">
+              <button class="btn btn-ghost" id="billing-portal-btn" hidden>Manage payment &amp; invoices</button>
+              <button class="btn btn-primary" id="billing-checkout-btn" hidden>Add a card</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="billing-empty" class="card billing-card" hidden>
+          <h3>Start your subscription</h3>
+          <p class="muted">14-day free trial. No card required to start. Cancel anytime from this page.</p>
+          <div class="billing-pricing">
+            <label class="billing-toggle">
+              <input type="radio" name="billing-interval" value="month" checked>
+              <div class="billing-toggle-card">
+                <strong>Monthly</strong>
+                <div class="billing-toggle-price">$89<span>/loc/mo</span></div>
+                <div class="muted">Cancel anytime</div>
+              </div>
+            </label>
+            <label class="billing-toggle">
+              <input type="radio" name="billing-interval" value="year">
+              <div class="billing-toggle-card billing-toggle-card--featured">
+                <strong>Annual <span class="billing-badge">Save 20%</span></strong>
+                <div class="billing-toggle-price">$71<span>/loc/mo</span></div>
+                <div class="muted">$852/loc billed yearly</div>
+              </div>
+            </label>
+          </div>
+          <div class="billing-locations">
+            <label>Locations <input type="number" id="billing-quantity" value="1" min="1" max="50"></label>
+            <span class="muted" id="billing-total">Total: $89/month</span>
+          </div>
+          <button class="btn btn-primary btn-large" id="billing-start-btn">Start 14-day free trial</button>
+          <p class="muted small">By starting, you agree to our terms of service. Demo accounts cannot subscribe.</p>
+        </div>
+
+        <div id="billing-events-card" class="card billing-card" hidden>
+          <h3>Recent billing activity</h3>
+          <div id="billing-events-list" class="billing-events"></div>
         </div>
       </section>
 
