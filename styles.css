@@ -1492,7 +1492,10 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 .billing-toggle-card {
   border: 1.5px solid #e5e0d3; border-radius: 14px; padding: 20px;
   background: #fbf8f1; transition: all 0.18s ease;
+  color: #2a241b;
 }
+.billing-toggle-card strong { color: #2a241b; }
+.billing-toggle-card .muted { color: #6f6a5e; }
 .billing-toggle-card--featured { border-color: #d9b04b; position: relative; }
 .billing-toggle input:checked + .billing-toggle-card {
   border-color: #c47b1a; background: #fff8e8;
@@ -1501,6 +1504,7 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 .billing-toggle-price {
   font-family: 'Fraunces', serif; font-size: 36px; font-weight: 600;
   margin: 12px 0 4px;
+  color: #2a241b;
 }
 .billing-toggle-price span { font-size: 14px; font-weight: 400; color: #8a8478; font-family: inherit; }
 .billing-badge {
