@@ -1897,3 +1897,28 @@ body.app-readonly .readonly-overlay-msg {
   .ssch-table { font-size: 11px; }
   .ssch-cell { min-width: 30px; height: 24px; }
 }
+
+/* ===== Granular Role Permissions ===== */
+.rp-hidden { display: none !important; }
+
+#role-perm-card { margin-top: 16px; }
+.role-perm-content { padding: 8px 0; }
+.rp-table-wrap { overflow-x: auto; }
+.rp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rp-table th { text-align: left; padding: 10px 12px; font-weight: 500; color: var(--text-muted, #64748b); border-bottom: 1px solid var(--border, #e2e8f0); }
+.rp-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-light, #f1f5f9); }
+.rp-table .rp-view-col { width: 50%; }
+.rp-table .rp-role-col { width: 25%; text-align: center; }
+.rp-group td { background: var(--surface-2, #f8fafc); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #64748b); padding: 6px 12px; }
+
+.rp-switch { position: relative; display: inline-block; width: 36px; height: 20px; cursor: pointer; }
+.rp-switch input { opacity: 0; width: 0; height: 0; }
+.rp-slider { position: absolute; inset: 0; background: #cbd5e1; border-radius: 20px; transition: 0.2s; }
+.rp-slider::before { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+.rp-switch input:checked + .rp-slider { background: var(--brand, #10b981); }
+.rp-switch input:checked + .rp-slider::before { transform: translateX(16px); }
+
+.rp-actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; padding-top: 14px; border-top: 1px solid var(--border, #e2e8f0); margin-top: 4px; }
+.rp-actions .muted { font-size: 12px; }
+.rp-ok { color: #047857; font-size: 12px; }
+.rp-error { color: #b91c1c; font-size: 12px; }

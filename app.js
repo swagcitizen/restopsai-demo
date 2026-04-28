@@ -2780,6 +2780,21 @@ async function bootApp() {
         .catch(e => console.warn('smart scheduler init failed', e));
     }
 
+    // Granular role permissions — apply hidden views for non-owners,
+    // and render the settings UI inside Team view for owners.
+    if (ctx?.tenant?.id) {
+      import('./rolePermissions.js')
+        .then(async (mod) => {
+          if (ctx.role !== 'owner') {
+            const hidden = await mod.loadMyHiddenViews(ctx.tenant.id);
+            mod.applyHiddenViews(hidden);
+          } else {
+            await mod.initRolePermissionsUI({ tenantId: ctx.tenant.id, role: ctx.role });
+          }
+        })
+        .catch(e => console.warn('role permissions init failed', e));
+    }
+
     // Trial countdown banner — shown to real (non-demo) trialing tenants.
     if (!isDemo && ctx?.tenant?.subscription_status === 'trialing' && ctx?.tenant?.trial_ends_at) {
       const banner = document.getElementById('trial-banner');
