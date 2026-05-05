@@ -75,6 +75,35 @@ export function getTenantContext() {
   return _cache;
 }
 
+// ---------------------------------------------------------------------------
+// Location selection — persisted per tenant in localStorage.
+// `null` means "all locations" (no scoping). Operational reads/writes default
+// to NULL on the row when no location is selected; that's fine because NULL
+// rows are treated as "applies everywhere."
+// ---------------------------------------------------------------------------
+export function locationStorageKey(tenantId) {
+  return `stationly:currentLocation:${tenantId || 'unknown'}`;
+}
+
+export function getCurrentLocationId() {
+  if (!_cache) return null;
+  try {
+    const v = localStorage.getItem(locationStorageKey(_cache.tenantId));
+    return v && v !== 'null' && v !== '' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCurrentLocationId(id) {
+  if (!_cache) return;
+  try {
+    if (id) localStorage.setItem(locationStorageKey(_cache.tenantId), id);
+    else localStorage.removeItem(locationStorageKey(_cache.tenantId));
+  } catch {}
+  document.dispatchEvent(new CustomEvent('stationly:location-changed', { detail: { locationId: id } }));
+}
+
 export async function handleSignOut() {
   _cache = null;
   await supabase.auth.signOut();

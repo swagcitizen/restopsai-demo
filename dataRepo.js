@@ -108,12 +108,16 @@ const DEFAULT_EQUIPMENT = [
   { equipment: 'Soup well',              min: 135, max: 180, last: 158, kind: 'hot' },
 ];
 
-export async function fetchTempLogs() {
-  const { data, error } = await supabase
+export async function fetchTempLogs({ locationId = null } = {}) {
+  let q = supabase
     .from('temp_logs')
-    .select('equipment, temp_f, logged_at, within_range, notes')
+    .select('equipment, temp_f, logged_at, within_range, notes, location_id')
     .order('logged_at', { ascending: false })
     .limit(500);
+  if (locationId) {
+    q = q.or(`location_id.eq.${locationId},location_id.is.null`);
+  }
+  const { data, error } = await q;
   if (error) throw error;
 
   const latestByEquip = new Map();
@@ -385,11 +389,16 @@ export async function seedMenuFromSample(sampleMenu) {
 // DB shape: inventory_items (id, tenant_id, name, unit, on_hand, par, unit_cost, supplier)
 // Note: DB doesn't have a `reorder` threshold column — UI derives it as par * 0.6.
 
-export async function fetchInventory() {
-  const { data, error } = await supabase
+export async function fetchInventory({ locationId = null } = {}) {
+  let q = supabase
     .from('inventory_items')
-    .select('id, name, unit, on_hand, par, unit_cost, supplier')
+    .select('id, name, unit, on_hand, par, unit_cost, supplier, location_id')
     .order('name', { ascending: true });
+  if (locationId) {
+    // Show items at the selected location plus tenant-wide (NULL location_id) rows.
+    q = q.or(`location_id.eq.${locationId},location_id.is.null`);
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data || []).map((i) => ({
     id: i.id,
@@ -400,6 +409,7 @@ export async function fetchInventory() {
     reorder: Math.round((Number(i.par) || 0) * 0.6),
     cost: Number(i.unit_cost) || 0,
     vendor: i.supplier || '',
+    locationId: i.location_id || null,
   }));
 }
 
@@ -670,13 +680,14 @@ export async function seedDailySalesFromSample(sampleSales) {
 // Default shelf-life hours by prep_type; override per-item at create time.
 const DEFAULT_SHELF_HOURS = { prep: 72, open: 72, thaw: 24 };
 
-export async function fetchPrepLabels({ includeVoided = false, limit = 200 } = {}) {
+export async function fetchPrepLabels({ includeVoided = false, limit = 200, locationId = null } = {}) {
   let q = supabase
     .from('prep_labels')
-    .select('id, item, prep_type, prepped_by, prepped_at, use_by, allergens, station, notes, voided_at, voided_reason')
+    .select('id, item, prep_type, prepped_by, prepped_at, use_by, allergens, station, notes, voided_at, voided_reason, location_id')
     .order('use_by', { ascending: true })
     .limit(limit);
   if (!includeVoided) q = q.is('voided_at', null);
+  if (locationId) q = q.or(`location_id.eq.${locationId},location_id.is.null`);
   const { data, error } = await q;
   if (error) throw error;
   return data || [];

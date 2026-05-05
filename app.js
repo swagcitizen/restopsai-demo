@@ -13,6 +13,9 @@ import * as tasksRepo from './tasksRepo.js';
 import * as dataRepo from './dataRepo.js';
 import * as invitesRepo from './invitesRepo.js';
 import * as clockRepo from './clockRepo.js';
+import * as locationsRepo from './locationsRepo.js';
+import * as transfersRepo from './transfersRepo.js';
+import { getCurrentLocationId, setCurrentLocationId } from './tenantContext.js';
 import { supabase } from './supabaseClient.js';
 
 // In-memory state persistence. Data resets when the page reloads.
@@ -183,6 +186,10 @@ function seed() {
     prepLabels: [],
     invoices: [],
     reviewInvoice: null,
+    locations: [],
+    transfers: [],
+    transferTab: 'outgoing',
+    transferDraft: null, // { fromLocationId, toLocationId, lines: [...] }
   };
 }
 
@@ -1683,6 +1690,8 @@ function bindEvents() {
         tasks: ["Task Assignments", "Daily, weekly, and monthly duties — fire, grease trap, hood vents, and more"],
         compliance: ["Licenses", "Licenses, inspections, and training status"],
         team: ["Team & Invites", "Invite teammates and manage access to this restaurant"],
+        locations: ["Locations", "Manage your physical locations and the commissary kitchen"],
+        commissary: ["Commissary", "Move prepped batches and inventory between locations"],
       };
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
@@ -2974,6 +2983,336 @@ function setToday() {
 }
 
 // -----------------------------------------------------------------------------
+// LOCATIONS + COMMISSARY (multi-location)
+// -----------------------------------------------------------------------------
+function initLocationSwitcher() {
+  const wrap = document.getElementById('location-switcher');
+  const sel = document.getElementById('location-select');
+  if (!wrap || !sel) return;
+  // Hide entirely if 0 or 1 locations — single-site operators see no UX change.
+  if ((state.locations || []).length < 2) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  // Populate options.
+  const cur = getCurrentLocationId();
+  sel.innerHTML = '<option value="">All locations</option>' +
+    state.locations.map(l => {
+      const tag = l.is_commissary ? ' · commissary' : (l.is_primary ? ' · primary' : '');
+      return `<option value="${l.id}">${escapeHtml(l.name)}${tag}</option>`;
+    }).join('');
+  if (cur) sel.value = cur;
+  sel.onchange = () => {
+    setCurrentLocationId(sel.value || null);
+    refreshAfterLocationChange().catch(err => console.error(err));
+  };
+}
+
+async function refreshAfterLocationChange() {
+  const locId = getCurrentLocationId();
+  try {
+    state.inv = await dataRepo.fetchInventory({ locationId: locId });
+    state.temps = await dataRepo.fetchTempLogs({ locationId: locId });
+    state.prepLabels = await dataRepo.fetchPrepLabels({ includeVoided: true, locationId: locId });
+  } catch (e) { console.warn('Location-scoped refresh failed', e); }
+  if (typeof renderInventory === 'function') renderInventory();
+  if (typeof renderTemps === 'function') renderTemps();
+  if (typeof renderPrepLabels === 'function') renderPrepLabels();
+  renderLocations();
+  renderCommissary();
+}
+
+function renderCommissaryNavVisibility() {
+  const navItem = document.getElementById('nav-commissary');
+  if (!navItem) return;
+  const hasCommissary = (state.locations || []).some(l => l.is_commissary);
+  navItem.hidden = !hasCommissary;
+}
+
+function renderLocations() {
+  const tbody = document.getElementById('locations-body');
+  if (!tbody) return;
+  const locs = state.locations || [];
+  if (locs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:#7a715f">Loading locations…</td></tr>';
+    return;
+  }
+  tbody.innerHTML = locs.map(l => {
+    const addr = [l.address_line1, l.city, l.state, l.postal_code].filter(Boolean).join(', ') || '—';
+    const badges = [];
+    if (l.is_primary) badges.push('<span class="pill primary">Primary</span>');
+    if (l.is_commissary) badges.push('<span class="pill commissary">Commissary</span>');
+    if (badges.length === 0) badges.push('<span class="pill ok">Active</span>');
+    const actions = [
+      `<button class="ghost-btn" data-loc-edit="${l.id}">Edit</button>`,
+      l.is_commissary
+        ? `<button class="ghost-btn" data-loc-uncommissary="${l.id}">Unset commissary</button>`
+        : `<button class="ghost-btn" data-loc-commissary="${l.id}">Mark as commissary</button>`,
+      l.is_primary ? '' : `<button class="row-del" data-loc-del="${l.id}" title="Remove">×</button>`,
+    ].filter(Boolean).join(' ');
+    return `<tr>
+      <td><strong>${escapeHtml(l.name)}</strong></td>
+      <td>${escapeHtml(addr)}</td>
+      <td>${badges.join(' ')}</td>
+      <td style="text-align:right">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openLocationModal(locId = null) {
+  const m = document.getElementById('location-modal');
+  if (!m) return;
+  const loc = locId ? (state.locations || []).find(l => l.id === locId) : null;
+  document.getElementById('location-modal-title').textContent = loc ? 'Edit location' : 'Add location';
+  document.getElementById('loc-id').value = loc?.id || '';
+  document.getElementById('loc-name').value = loc?.name || '';
+  document.getElementById('loc-addr').value = loc?.address_line1 || '';
+  document.getElementById('loc-city').value = loc?.city || '';
+  document.getElementById('loc-state').value = loc?.state || '';
+  document.getElementById('loc-zip').value = loc?.postal_code || '';
+  document.getElementById('loc-commissary').checked = !!loc?.is_commissary;
+  m.hidden = false;
+}
+function closeLocationModal() {
+  const m = document.getElementById('location-modal'); if (m) m.hidden = true;
+}
+
+async function saveLocationFromModal() {
+  const id = document.getElementById('loc-id').value || null;
+  const patch = {
+    name: document.getElementById('loc-name').value.trim(),
+    address_line1: document.getElementById('loc-addr').value.trim() || null,
+    city: document.getElementById('loc-city').value.trim() || null,
+    state: document.getElementById('loc-state').value.trim() || null,
+    postal_code: document.getElementById('loc-zip').value.trim() || null,
+  };
+  const isCommissary = document.getElementById('loc-commissary').checked;
+  if (!patch.name) { alert('Location name is required'); return; }
+  try {
+    let savedId = id;
+    if (id) {
+      await locationsRepo.updateLocation(id, patch);
+    } else {
+      const created = await locationsRepo.addLocation({ ...patch, isCommissary });
+      savedId = created?.id;
+    }
+    if (id && savedId) {
+      // For edits, also reconcile commissary toggle.
+      const cur = (state.locations || []).find(l => l.id === id);
+      if (cur && cur.is_commissary !== isCommissary) {
+        await locationsRepo.setCommissary(savedId, isCommissary);
+      }
+    }
+    state.locations = await locationsRepo.fetchLocations();
+    initLocationSwitcher();
+    renderLocations();
+    renderCommissaryNavVisibility();
+    closeLocationModal();
+  } catch (err) {
+    console.error(err); alert('Save failed: ' + err.message);
+  }
+}
+
+function renderCommissary() {
+  const tbody = document.getElementById('transfers-body');
+  if (!tbody) return;
+  const sub = document.getElementById('commissary-sub');
+  const hasCommissary = (state.locations || []).some(l => l.is_commissary);
+  if (!hasCommissary) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#7a715f">Designate one of your locations as a commissary to start using transfers.</td></tr>';
+    if (sub) sub.textContent = 'Mark a location as commissary in the Locations tab to start moving inventory.';
+    return;
+  }
+  if (sub) sub.textContent = 'Move prepped batches and inventory between locations.';
+  const locId = getCurrentLocationId();
+  const tab = state.transferTab || 'outgoing';
+  let rows = state.transfers || [];
+  if (tab === 'outgoing' && locId) rows = rows.filter(r => r.from_location_id === locId);
+  else if (tab === 'incoming' && locId) rows = rows.filter(r => r.to_location_id === locId);
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:24px;text-align:center;color:#7a715f">No ${tab === 'all' ? '' : tab + ' '}transfers yet.</td></tr>`;
+    return;
+  }
+  const locName = (id) => (state.locations.find(l => l.id === id) || {}).name || '—';
+  tbody.innerHTML = rows.map(t => {
+    const lineCount = (t.lines || []).length;
+    const total = (t.lines || []).reduce((s, l) => s + (Number(l.line_total) || 0), 0);
+    const created = t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '—';
+    const status = `<span class="pill ${t.status}">${t.status}</span>`;
+    let actions = '';
+    if (t.status === 'draft') actions = `<button class="ghost-btn" data-tr-send="${t.id}">Mark sent</button>`;
+    else if (t.status === 'sent') actions = `<button class="ghost-btn" data-tr-recv="${t.id}">Mark received</button>`;
+    return `<tr>
+      <td>${escapeHtml(locName(t.from_location_id))}</td>
+      <td>${escapeHtml(locName(t.to_location_id))}</td>
+      <td>${status}</td>
+      <td>${lineCount}</td>
+      <td>${fmtUSD2(total)}</td>
+      <td>${created}</td>
+      <td style="text-align:right">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openTransferModal() {
+  const m = document.getElementById('transfer-modal'); if (!m) return;
+  const fromSel = document.getElementById('tr-from');
+  const toSel = document.getElementById('tr-to');
+  const itemSel = document.getElementById('tr-line-item');
+  const opts = (state.locations || []).map(l => `<option value="${l.id}">${escapeHtml(l.name)}${l.is_commissary ? ' · commissary' : ''}</option>`).join('');
+  fromSel.innerHTML = opts;
+  toSel.innerHTML = opts;
+  // Default "from" to the commissary if there is one
+  const commissary = (state.locations || []).find(l => l.is_commissary);
+  if (commissary) fromSel.value = commissary.id;
+  // Default "to" to first non-commissary
+  const dest = (state.locations || []).find(l => l.id !== fromSel.value);
+  if (dest) toSel.value = dest.id;
+  itemSel.innerHTML = '<option value="">— Pick item —</option>' +
+    (state.inv || []).filter(i => i.id).map(i => `<option value="${i.id}" data-unit="${escapeHtml(i.unit||'')}" data-cost="${i.cost||0}">${escapeHtml(i.item)}</option>`).join('');
+  document.getElementById('tr-id').value = '';
+  document.getElementById('tr-when').value = '';
+  document.getElementById('tr-notes').value = '';
+  document.getElementById('tr-line-qty').value = '';
+  state.transferDraft = { lines: [] };
+  renderTransferDraftLines();
+  m.hidden = false;
+}
+function closeTransferModal() {
+  const m = document.getElementById('transfer-modal'); if (m) m.hidden = true;
+  state.transferDraft = null;
+}
+function renderTransferDraftLines() {
+  const tbody = document.getElementById('tr-lines-body'); if (!tbody) return;
+  const lines = state.transferDraft?.lines || [];
+  if (lines.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:10px;text-align:center;color:#7a715f">No lines yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lines.map((l, idx) => `<tr>
+    <td>${escapeHtml(l.description)}</td>
+    <td>${l.quantity}</td>
+    <td>${escapeHtml(l.unit||'')}</td>
+    <td>${fmtUSD2(l.unit_cost)}</td>
+    <td><button class="row-del" data-tr-rmline="${idx}">×</button></td>
+  </tr>`).join('');
+}
+
+async function saveTransferDraft() {
+  const fromId = document.getElementById('tr-from').value;
+  const toId   = document.getElementById('tr-to').value;
+  if (!fromId || !toId || fromId === toId) { alert('Pick distinct from/to locations'); return; }
+  const when   = document.getElementById('tr-when').value || null;
+  const notes  = document.getElementById('tr-notes').value || null;
+  const lines  = state.transferDraft?.lines || [];
+  if (lines.length === 0) { alert('Add at least one line'); return; }
+  try {
+    const transfer = await transfersRepo.createTransfer({ fromLocationId: fromId, toLocationId: toId, scheduledFor: when, notes });
+    for (const ln of lines) {
+      await transfersRepo.addTransferLine(transfer.id, ln);
+    }
+    state.transfers = await transfersRepo.listTransfers();
+    closeTransferModal();
+    renderCommissary();
+  } catch (err) {
+    console.error(err); alert('Could not save transfer: ' + err.message);
+  }
+}
+
+async function handleTransferAction(action, transferId) {
+  try {
+    if (action === 'send') await transfersRepo.markSent(transferId);
+    else if (action === 'recv') await transfersRepo.markReceived(transferId);
+    state.transfers = await transfersRepo.listTransfers();
+    // Refresh inventory — receive can change on_hand at destination.
+    state.inv = await dataRepo.fetchInventory({ locationId: getCurrentLocationId() });
+    renderCommissary();
+    if (typeof renderInventory === 'function') renderInventory();
+  } catch (err) {
+    console.error(err); alert('Action failed: ' + err.message);
+  }
+}
+
+// Bind events for locations + commissary tabs (delegated)
+function bindCommissaryEvents() {
+  const addBtn = document.getElementById('add-location');
+  if (addBtn) addBtn.addEventListener('click', () => openLocationModal());
+  const locCancel = document.getElementById('loc-cancel');
+  if (locCancel) locCancel.addEventListener('click', closeLocationModal);
+  const locSave = document.getElementById('loc-save');
+  if (locSave) locSave.addEventListener('click', saveLocationFromModal);
+
+  const newTransfer = document.getElementById('new-transfer');
+  if (newTransfer) newTransfer.addEventListener('click', openTransferModal);
+  const trCancel = document.getElementById('tr-cancel');
+  if (trCancel) trCancel.addEventListener('click', closeTransferModal);
+  const trSave = document.getElementById('tr-save');
+  if (trSave) trSave.addEventListener('click', saveTransferDraft);
+  const trAddLine = document.getElementById('tr-add-line');
+  if (trAddLine) trAddLine.addEventListener('click', () => {
+    const sel = document.getElementById('tr-line-item');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) { alert('Pick an inventory item'); return; }
+    const qty = Number(document.getElementById('tr-line-qty').value);
+    if (!(qty > 0)) { alert('Enter quantity'); return; }
+    state.transferDraft = state.transferDraft || { lines: [] };
+    state.transferDraft.lines.push({
+      inventoryItemId: opt.value,
+      description: opt.textContent,
+      quantity: qty,
+      unit: opt.dataset.unit || null,
+      unitCost: Number(opt.dataset.cost) || 0,
+    });
+    document.getElementById('tr-line-qty').value = '';
+    renderTransferDraftLines();
+  });
+
+  // Tabs in commissary view
+  document.querySelectorAll('[data-transfer-tab]').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('[data-transfer-tab]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      state.transferTab = b.dataset.transferTab;
+      renderCommissary();
+    });
+  });
+
+  // Delegated row actions on locations + transfers tables
+  document.addEventListener('click', async (e) => {
+    const t = e.target;
+    if (t.dataset.locEdit) { openLocationModal(t.dataset.locEdit); return; }
+    if (t.dataset.locCommissary) {
+      try { await locationsRepo.setCommissary(t.dataset.locCommissary, true); state.locations = await locationsRepo.fetchLocations(); initLocationSwitcher(); renderLocations(); renderCommissaryNavVisibility(); renderCommissary(); }
+      catch (err) { alert('Could not set commissary: ' + err.message); }
+      return;
+    }
+    if (t.dataset.locUncommissary) {
+      try { await locationsRepo.setCommissary(t.dataset.locUncommissary, false); state.locations = await locationsRepo.fetchLocations(); initLocationSwitcher(); renderLocations(); renderCommissaryNavVisibility(); renderCommissary(); }
+      catch (err) { alert('Could not unset commissary: ' + err.message); }
+      return;
+    }
+    if (t.dataset.locDel) {
+      if (!confirm('Remove this location?')) return;
+      try { await locationsRepo.deleteLocation(t.dataset.locDel); state.locations = await locationsRepo.fetchLocations(); initLocationSwitcher(); renderLocations(); }
+      catch (err) { alert('Could not delete: ' + err.message); }
+      return;
+    }
+    if (t.dataset.trSend) { await handleTransferAction('send', t.dataset.trSend); return; }
+    if (t.dataset.trRecv) { await handleTransferAction('recv', t.dataset.trRecv); return; }
+    if (t.dataset.trRmline !== undefined && t.dataset.trRmline !== '') {
+      const idx = Number(t.dataset.trRmline);
+      if (state.transferDraft?.lines) {
+        state.transferDraft.lines.splice(idx, 1);
+        renderTransferDraftLines();
+      }
+      return;
+    }
+  });
+}
+
+
+// -----------------------------------------------------------------------------
 // INIT — waits for the auth guard in index.html to fire 'restops:ready'
 // -----------------------------------------------------------------------------
 async function bootApp() {
@@ -3107,6 +3446,14 @@ async function bootApp() {
       dataRepo.fetchPrepLabels({ includeVoided: true }),
       dataRepo.fetchInvoices({ limit: 100 }),
     ]);
+    // Locations + transfers (multi-location commissary). Failures are non-fatal
+    // — a single-location tenant works without these.
+    try {
+      state.locations = await locationsRepo.fetchLocations();
+    } catch (e) { console.warn('locations fetch failed', e); state.locations = []; }
+    try {
+      state.transfers = await transfersRepo.listTransfers();
+    } catch (e) { console.warn('transfers fetch failed', e); state.transfers = []; }
     state.staff = staff;
     state.temps = temps;
     state.waste = waste;
@@ -3170,11 +3517,16 @@ async function bootApp() {
   bindTeamView();
   bindClockEvents();
   bindPublishEvents();
+  bindCommissaryEvents();
   renderAll();
   window.__restopsBooted = true;
   // Dev-only debug hook so Playwright QA can inspect state.
   window.__restopsState = state;
-  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo };
+  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo };
+  initLocationSwitcher();
+  renderLocations();
+  renderCommissaryNavVisibility();
+  renderCommissary();
 
   // Connection status pill + offline sync queue indicator.
   // Mounts a pill in the topbar and shows toasts when offline writes are queued / flushed.

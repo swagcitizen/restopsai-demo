@@ -64,6 +64,8 @@
 
         <div class="nav-section">Account</div>
         <button class="nav-item" data-view="team"><span class="dot"></span>Team &amp; Invites</button>
+        <button class="nav-item" data-view="locations"><span class="dot"></span>Locations</button>
+        <button class="nav-item" data-view="commissary" id="nav-commissary" hidden><span class="dot"></span>Commissary</button>
         <button class="nav-item" data-view="alerts"><span class="dot"></span>Alerts</button>
         <button class="nav-item" data-view="billing"><span class="dot"></span>Billing</button>
       </nav>
@@ -114,6 +116,12 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
             <span class="alerts-bell-count" id="alerts-bell-count" hidden>0</span>
           </button>
+          <div class="location-switcher" id="location-switcher" hidden>
+            <label for="location-select" class="sr-only">Location</label>
+            <select id="location-select" aria-label="Active location">
+              <option value="">All locations</option>
+            </select>
+          </div>
           <a href="./platform.html" id="platform-link" class="platform-pill" hidden title="Stationly platform admin">
             <span class="platform-pill-dot"></span>
             <span>Platform</span>
@@ -966,7 +974,93 @@
         <div id="task-groups"></div>
       </section>
 
+      <!-- LOCATIONS -->
+      <section class="view" data-view="locations">
+        <div class="card" style="padding:0">
+          <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+            <div>
+              <h3 style="margin:0">Your locations</h3>
+              <p class="sub" style="margin:4px 0 0">Add satellite locations and (optionally) designate a commissary kitchen.</p>
+            </div>
+            <button class="btn" id="add-location" data-write-action>+ Add location</button>
+          </div>
+          <table class="data-table" style="width:100%">
+            <thead><tr><th>Name</th><th>Address</th><th>Status</th><th></th></tr></thead>
+            <tbody id="locations-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- COMMISSARY -->
+      <section class="view" data-view="commissary">
+        <div class="card" style="padding:0">
+          <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+            <div>
+              <h3 style="margin:0">Commissary transfers</h3>
+              <p class="sub" style="margin:4px 0 0" id="commissary-sub">Move prepped batches and inventory between locations.</p>
+            </div>
+            <button class="btn" id="new-transfer" data-write-action>+ New transfer</button>
+          </div>
+          <div style="padding:8px 18px;display:flex;gap:8px;border-top:1px solid var(--border, #e8dcc0);border-bottom:1px solid var(--border, #e8dcc0)">
+            <button class="chip active" data-transfer-tab="outgoing">Outgoing</button>
+            <button class="chip" data-transfer-tab="incoming">Incoming</button>
+            <button class="chip" data-transfer-tab="all">All</button>
+          </div>
+          <table class="data-table" style="width:100%">
+            <thead><tr><th>From</th><th>To</th><th>Status</th><th>Lines</th><th>Total</th><th>Created</th><th></th></tr></thead>
+            <tbody id="transfers-body"></tbody>
+          </table>
+        </div>
+      </section>
+
     </main>
+
+    <!-- Modal: add/edit location -->
+    <div class="modal" id="location-modal" hidden>
+      <div class="modal-card">
+        <h3 id="location-modal-title">Add location</h3>
+        <input type="hidden" id="loc-id" />
+        <label>Name <input id="loc-name" type="text" placeholder="Downtown" /></label>
+        <label>Address <input id="loc-addr" type="text" placeholder="123 Main St" /></label>
+        <label>City <input id="loc-city" type="text" placeholder="Orlando" /></label>
+        <label>State <input id="loc-state" type="text" placeholder="FL" /></label>
+        <label>ZIP <input id="loc-zip" type="text" placeholder="32801" /></label>
+        <label><input id="loc-commissary" type="checkbox" /> This location is the commissary kitchen</label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="loc-cancel">Cancel</button>
+          <button class="btn" id="loc-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: new transfer -->
+    <div class="modal" id="transfer-modal" hidden>
+      <div class="modal-card" style="max-width:560px">
+        <h3 id="transfer-modal-title">New transfer</h3>
+        <input type="hidden" id="tr-id" />
+        <label>From <select id="tr-from"></select></label>
+        <label>To <select id="tr-to"></select></label>
+        <label>Scheduled for <input id="tr-when" type="date" /></label>
+        <label>Notes <input id="tr-notes" type="text" placeholder="Optional" /></label>
+        <hr style="border:none;border-top:1px solid var(--border,#e8dcc0);margin:12px 0" />
+        <h4 style="margin:0 0 8px">Line items</h4>
+        <table class="data-table" style="width:100%;font-size:13px">
+          <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Cost</th><th></th></tr></thead>
+          <tbody id="tr-lines-body"></tbody>
+        </table>
+        <div style="display:flex;gap:6px;align-items:flex-end;margin-top:8px;flex-wrap:wrap">
+          <label style="flex:1;min-width:140px">Inventory item
+            <select id="tr-line-item"><option value="">—</option></select>
+          </label>
+          <label style="width:80px">Qty <input id="tr-line-qty" type="number" step="0.1" min="0" /></label>
+          <button class="ghost-btn" id="tr-add-line" type="button">Add</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px">
+          <button class="ghost-btn" id="tr-cancel">Close</button>
+          <button class="btn" id="tr-save">Save draft</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal: add menu item -->
     <div class="modal" id="menu-modal" hidden>

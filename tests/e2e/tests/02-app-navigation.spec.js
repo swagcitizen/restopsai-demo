@@ -8,7 +8,7 @@ const DEMO_PW = process.env.STATIONLY_DEMO_PW || ''; // must be supplied via env
 const ALL_VIEWS = [
   'overview', 'briefing', 'costs', 'recipes', 'sales', 'inventory',
   'invoices', 'labor', 'scheduler', 'clock', 'tasks', 'safety',
-  'inspection', 'compliance', 'team', 'alerts', 'billing',
+  'inspection', 'compliance', 'team', 'locations', 'alerts', 'billing',
 ];
 
 test.describe('app navigation (signed in)', () => {

@@ -2218,3 +2218,25 @@ body.app-readonly .readonly-overlay-msg {
 .food-cost-good { color: #2e7d32; font-weight: 600; }
 .food-cost-mid  { color: #8a5a14; font-weight: 600; }
 .food-cost-bad  { color: #c73131; font-weight: 600; }
+
+/* Location switcher in topbar */
+.location-switcher select {
+  background: var(--surface, #faf5ea);
+  border: 1px solid var(--border, #d7c99f);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink, #1c1a15);
+  cursor: pointer;
+}
+.location-switcher select:focus { outline: 2px solid var(--accent, #e8a33d); outline-offset: 1px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* Location & transfer pills */
+.pill.primary { background: rgba(232,163,61,0.18); color: #8a5a14; border: 1px solid rgba(232,163,61,0.5); }
+.pill.commissary { background: rgba(76,134,90,0.15); color: #2e7d32; border: 1px solid rgba(76,134,90,0.4); }
+.pill.draft { background: rgba(120,113,108,0.15); color: #57534e; border: 1px solid rgba(120,113,108,0.4); }
+.pill.sent { background: rgba(232,163,61,0.18); color: #8a5a14; border: 1px solid rgba(232,163,61,0.5); }
+.pill.received { background: rgba(76,134,90,0.18); color: #2e7d32; border: 1px solid rgba(76,134,90,0.4); }
+.pill.cancelled { background: rgba(120,113,108,0.1); color: #78716c; border: 1px solid rgba(120,113,108,0.3); }

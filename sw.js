@@ -8,7 +8,7 @@
 //
 // On every release, bump CACHE_VERSION below.
 
-const CACHE_VERSION = 'stationly-v3';
+const CACHE_VERSION = 'stationly-v4';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -30,6 +30,8 @@ const PRECACHE_URLS = [
   '/connectionStatus.js',
   '/tenantContext.js',
   '/supabaseClient.js',
+  '/locationsRepo.js',
+  '/transfersRepo.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
