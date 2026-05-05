@@ -15,6 +15,8 @@ import * as invitesRepo from './invitesRepo.js';
 import * as clockRepo from './clockRepo.js';
 import * as locationsRepo from './locationsRepo.js';
 import * as transfersRepo from './transfersRepo.js';
+import * as countsRepo from './countsRepo.js';
+import * as varianceRepo from './varianceRepo.js';
 import { getCurrentLocationId, setCurrentLocationId } from './tenantContext.js';
 import { supabase } from './supabaseClient.js';
 
@@ -1692,6 +1694,7 @@ function bindEvents() {
         team: ["Team & Invites", "Invite teammates and manage access to this restaurant"],
         locations: ["Locations", "Manage your physical locations and the commissary kitchen"],
         commissary: ["Commissary", "Move prepped batches and inventory between locations"],
+        variance: ["Variance", "Theoretical-vs-actual usage from counts, recipes, and POS — drill into every item"],
       };
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
@@ -1699,6 +1702,7 @@ function bindEvents() {
       // Lazy-load team data when the team view opens (avoid extra fetches during boot).
       if (view === 'team') refreshTeamView().catch(err => console.error('Team view load failed:', err));
       if (view === 'clock') resetClockToPinPad();
+      if (view === 'variance') renderVariance().catch(err => console.error('Variance load failed:', err));
       // redraw charts on visibility change
       setTimeout(renderCharts, 50);
     });
@@ -3518,11 +3522,12 @@ async function bootApp() {
   bindClockEvents();
   bindPublishEvents();
   bindCommissaryEvents();
+  bindVarianceEvents();
   renderAll();
   window.__restopsBooted = true;
   // Dev-only debug hook so Playwright QA can inspect state.
   window.__restopsState = state;
-  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo };
+  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo, countsRepo, varianceRepo };
   initLocationSwitcher();
   renderLocations();
   renderCommissaryNavVisibility();
@@ -4090,6 +4095,423 @@ function bindPublishEvents() {
   // Click outside modal body closes
   const backdrop = document.getElementById('publish-modal');
   if (backdrop) backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closePublishModal(); });
+}
+
+// =============================================================================
+// VARIANCE (Theoretical-vs-Actual)
+// =============================================================================
+const variance = {
+  counts: [],          // recent count headers for current location
+  countTotals: {},     // count_id -> { lineCount, totalDollars }
+  draftCount: null,    // { id?, locationId, periodLabel, lines: [{inventoryItemId, name, unit, on_hand, unit_cost, counted_qty}] }
+  rows: [],            // last variance run rows
+  fromCountId: null,
+  toCountId: null,
+  sortKey: 'variance_dollars',
+  sortDir: 'desc',
+};
+
+function varianceFmtUSD(n) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(Number(n) || 0);
+}
+function varianceFmtQty(n) {
+  if (n == null) return '—';
+  const v = Number(n);
+  if (!isFinite(v)) return '—';
+  return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+function varianceFmtPct(n) {
+  if (n == null) return '—';
+  const v = Number(n);
+  if (!isFinite(v)) return '—';
+  return `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+}
+
+async function renderVariance() {
+  const locId = getCurrentLocationId();
+  // 1) Load counts for this location
+  try {
+    variance.counts = await countsRepo.listCounts({ locationId: locId, limit: 50 });
+  } catch (err) {
+    console.error('listCounts failed', err);
+    variance.counts = [];
+  }
+  await renderCountsTable();
+  populateVarianceCountSelectors();
+  renderVarianceTable();
+  renderVarianceKpis();
+}
+
+async function renderCountsTable() {
+  const tbody = document.getElementById('counts-body');
+  if (!tbody) return;
+  const role = window.__RESTOPS_CTX__?.role;
+  const canWrite = role === 'owner' || role === 'manager';
+  if (!variance.counts.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:24px;text-align:center;color:#7a715f">No counts yet. ${canWrite ? 'Click <strong>+ New count</strong> to start.' : 'Ask a manager to run the first count.'}</td></tr>`;
+    return;
+  }
+  // Fetch totals for visible counts (lazy)
+  const ids = variance.counts.map(c => c.id);
+  const need = ids.filter(id => !variance.countTotals[id]);
+  await Promise.all(need.map(async (id) => {
+    try { variance.countTotals[id] = await countsRepo.countTotals(id); }
+    catch { variance.countTotals[id] = { lineCount: 0, totalDollars: 0 }; }
+  }));
+  tbody.innerHTML = variance.counts.map(c => {
+    const tot = variance.countTotals[c.id] || { lineCount: 0, totalDollars: 0 };
+    const date = c.counted_at ? new Date(c.counted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const status = `<span class="pill ${c.status}">${c.status}</span>`;
+    let actions = '';
+    if (canWrite) {
+      if (c.status === 'draft') actions += `<button class="ghost-btn" data-cnt-open="${c.id}">Edit</button> <button class="ghost-btn" data-cnt-finalize="${c.id}">Finalize</button> `;
+      actions += `<button class="row-del" data-cnt-del="${c.id}" title="Delete">×</button>`;
+    }
+    return `<tr>
+      <td>${date}</td>
+      <td>${escapeHtml(c.period_label || '—')}</td>
+      <td>${status}</td>
+      <td>${tot.lineCount}</td>
+      <td>${varianceFmtUSD(tot.totalDollars)}</td>
+      <td style="text-align:right">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function populateVarianceCountSelectors() {
+  const fromSel = document.getElementById('var-from-count');
+  const toSel = document.getElementById('var-to-count');
+  if (!fromSel || !toSel) return;
+  const finalized = variance.counts.filter(c => c.status === 'finalized');
+  const opt = (c) => {
+    const date = c.counted_at ? new Date(c.counted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+    const label = c.period_label ? `${date} — ${c.period_label}` : date;
+    return `<option value="${c.id}">${escapeHtml(label)}</option>`;
+  };
+  if (finalized.length < 2) {
+    fromSel.innerHTML = '<option value="">Need 2 finalized counts</option>';
+    toSel.innerHTML = '<option value="">Need 2 finalized counts</option>';
+    return;
+  }
+  fromSel.innerHTML = finalized.slice().reverse().map(opt).join(''); // ascending date
+  toSel.innerHTML = finalized.map(opt).join(''); // descending date
+  // Defaults: oldest finalized -> newest finalized
+  fromSel.value = finalized[finalized.length - 1].id;
+  toSel.value = finalized[0].id;
+}
+
+function renderVarianceKpis() {
+  const summary = varianceRepo.summarize(variance.rows || []);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('vk-theo', varianceFmtUSD(summary.totalTheoretical));
+  set('vk-actual', varianceFmtUSD(summary.totalActual));
+  set('vk-var', varianceFmtUSD(summary.varianceDollars));
+  set('vk-pct', `${(summary.variancePct || 0).toFixed(1)}%`);
+}
+
+function renderVarianceTable() {
+  const tbody = document.getElementById('variance-body');
+  if (!tbody) return;
+  const rows = (variance.rows || []).slice();
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:#7a715f">Run a report from two finalized counts to see variance for every item.</td></tr>`;
+    document.getElementById('export-variance')?.setAttribute('disabled', '');
+    return;
+  }
+  document.getElementById('export-variance')?.removeAttribute('disabled');
+  // Sort
+  const dir = variance.sortDir === 'asc' ? 1 : -1;
+  const k = variance.sortKey;
+  rows.sort((a, b) => {
+    const av = a[k]; const bv = b[k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string') return av.localeCompare(bv) * dir;
+    return (av - bv) * dir;
+  });
+  tbody.innerHTML = rows.map(r => {
+    const sev = r.severity || 'unknown';
+    const badge = `<span class="sev-badge var-${sev}">${sev === 'unknown' ? 'POS data needed' : sev}</span>`;
+    return `<tr data-var-row="${r.inventory_item_id}" style="cursor:pointer">
+      <td>${escapeHtml(r.item_name || '')}</td>
+      <td>${escapeHtml(r.unit || '')}</td>
+      <td style="text-align:right">${varianceFmtQty(r.theoretical_used_qty)}</td>
+      <td style="text-align:right">${varianceFmtQty(r.actual_used_qty)}</td>
+      <td style="text-align:right">${varianceFmtQty(r.variance_qty)}</td>
+      <td style="text-align:right">${r.variance_dollars == null ? '—' : varianceFmtUSD(r.variance_dollars)}</td>
+      <td style="text-align:right">${varianceFmtPct(r.variance_pct)}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function runVarianceReport() {
+  const fromId = document.getElementById('var-from-count')?.value;
+  const toId = document.getElementById('var-to-count')?.value;
+  if (!fromId || !toId) { alert('Pick two finalized counts'); return; }
+  if (fromId === toId) { alert('From and To must differ'); return; }
+  variance.fromCountId = fromId;
+  variance.toCountId = toId;
+  try {
+    variance.rows = await varianceRepo.runReport({ fromCountId: fromId, toCountId: toId, locationId: getCurrentLocationId() });
+  } catch (err) {
+    console.error('Variance report failed', err);
+    alert('Could not run report: ' + (err.message || 'unknown error'));
+    return;
+  }
+  renderVarianceTable();
+  renderVarianceKpis();
+}
+
+// ---- Drill-down drawer ----
+async function openVarianceDrawer(itemId) {
+  const row = (variance.rows || []).find(r => r.inventory_item_id === itemId);
+  if (!row) return;
+  const drawer = document.getElementById('variance-drawer');
+  const title = document.getElementById('vd-title');
+  const body = document.getElementById('vd-body');
+  if (!drawer || !body) return;
+  title.textContent = `${row.item_name} — ${row.unit || ''}`;
+  body.innerHTML = `
+    <div class="vd-summary">
+      <div><span class="muted">Beginning</span><strong>${varianceFmtQty(row.beginning_qty)}</strong></div>
+      <div><span class="muted">+ Purchases</span><strong>${varianceFmtQty(row.purchases_qty)}</strong></div>
+      <div><span class="muted">− Ending</span><strong>${varianceFmtQty(row.ending_qty)}</strong></div>
+      <div><span class="muted">= Actual</span><strong>${varianceFmtQty(row.actual_used_qty)}</strong></div>
+      <div><span class="muted">Theoretical</span><strong>${varianceFmtQty(row.theoretical_used_qty)}</strong></div>
+      <div><span class="muted">Waste</span><strong>${varianceFmtQty(row.waste_qty)}</strong></div>
+      <div class="vd-headline"><span class="muted">Variance</span>
+        <strong class="var-${row.severity || 'unknown'}">${varianceFmtQty(row.variance_qty)} · ${row.variance_dollars == null ? '—' : varianceFmtUSD(row.variance_dollars)} · ${varianceFmtPct(row.variance_pct)}</strong>
+      </div>
+    </div>
+    ${row.reason ? `<p class="sub" style="margin-top:10px">${escapeHtml(row.reason)}</p>` : ''}
+    <div id="vd-detail-sections" style="margin-top:14px"><span class="muted">Loading recipes, purchases, and waste details…</span></div>
+  `;
+  drawer.hidden = false;
+  // Lazy-load deeper detail. Best-effort — if any of these fail we still show the summary above.
+  try {
+    const [{ data: ri }, { data: il }, { data: wl }] = await Promise.all([
+      supabase.from('recipe_ingredients').select('id, recipe_id, name, qty, unit').ilike('name', row.item_name),
+      supabase.from('invoice_lines').select('id, raw_description, qty, unit, extended_price, invoice_id').or(`matched_inventory_id.eq.${row.inventory_item_id},raw_description.ilike.${row.item_name}`).limit(50),
+      supabase.from('waste_logs').select('id, item, qty, reason, dollar_loss, logged_at').ilike('item', row.item_name).order('logged_at', { ascending: false }).limit(20),
+    ]);
+    const sec = document.getElementById('vd-detail-sections');
+    if (sec) {
+      const recipesHtml = (ri || []).length
+        ? `<h4>Recipes using this item</h4><ul>${ri.map(r => `<li>${escapeHtml(r.qty)} ${escapeHtml(r.unit||'')} — recipe ${escapeHtml(r.recipe_id?.slice(0,8) || '')}</li>`).join('')}</ul>`
+        : '<h4>Recipes using this item</h4><p class="muted">None linked.</p>';
+      const invHtml = (il || []).length
+        ? `<h4>Recent invoice lines</h4><ul>${il.slice(0, 10).map(l => `<li>${escapeHtml(l.raw_description||'—')}: ${varianceFmtQty(l.qty)} ${escapeHtml(l.unit||'')}${l.extended_price != null ? ' · ' + varianceFmtUSD(l.extended_price) : ''}</li>`).join('')}</ul>`
+        : '<h4>Recent invoice lines</h4><p class="muted">No matching invoices.</p>';
+      const wasteHtml = (wl || []).length
+        ? `<h4>Recent waste</h4><ul>${wl.map(w => `<li>${new Date(w.logged_at).toLocaleDateString()}: ${varianceFmtQty(w.qty)} — ${escapeHtml(w.reason||'')}${w.dollar_loss != null ? ' · ' + varianceFmtUSD(w.dollar_loss) : ''}</li>`).join('')}</ul>`
+        : '<h4>Recent waste</h4><p class="muted">No waste logged for this item.</p>';
+      sec.innerHTML = recipesHtml + invHtml + wasteHtml;
+    }
+  } catch (err) {
+    console.warn('Drawer detail load failed', err);
+  }
+}
+function closeVarianceDrawer() {
+  const drawer = document.getElementById('variance-drawer');
+  if (drawer) drawer.hidden = true;
+}
+
+// ---- CSV export ----
+function exportVarianceCsv() {
+  const rows = variance.rows || [];
+  if (!rows.length) return;
+  const header = ['Item','Unit','Theoretical','Actual','Variance Qty','Variance $','Variance %','Severity'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push([
+      JSON.stringify(r.item_name || ''),
+      JSON.stringify(r.unit || ''),
+      r.theoretical_used_qty == null ? '' : Number(r.theoretical_used_qty).toFixed(3),
+      Number(r.actual_used_qty || 0).toFixed(3),
+      r.variance_qty == null ? '' : Number(r.variance_qty).toFixed(3),
+      r.variance_dollars == null ? '' : Number(r.variance_dollars).toFixed(2),
+      r.variance_pct == null ? '' : Number(r.variance_pct).toFixed(2),
+      r.severity || '',
+    ].join(','));
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `variance-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// ---- Count modal ----
+function openCountModal(existingCountId = null) {
+  const m = document.getElementById('count-modal'); if (!m) return;
+  const locSel = document.getElementById('cnt-loc');
+  const opts = (state.locations || []).map(l => `<option value="${l.id}">${escapeHtml(l.name)}${l.is_commissary ? ' · commissary' : ''}</option>`).join('');
+  locSel.innerHTML = opts || '<option value="">(no locations)</option>';
+  const curLoc = getCurrentLocationId();
+  if (curLoc) locSel.value = curLoc;
+  document.getElementById('cnt-id').value = existingCountId || '';
+  document.getElementById('cnt-label').value = '';
+  document.getElementById('cnt-notes').value = '';
+  // Pre-fill lines from current inventory
+  const locId = locSel.value || null;
+  const inv = (state.inv || []).filter(i => i.id && (!locId || !i.location_id || i.location_id === locId));
+  variance.draftCount = {
+    locationId: locId,
+    lines: inv.map(i => ({
+      inventoryItemId: i.id,
+      name: i.item || i.name || 'Item',
+      unit: i.unit || '',
+      on_hand: Number(i.qty != null ? i.qty : i.on_hand) || 0,
+      unit_cost: Number(i.cost != null ? i.cost : i.unit_cost) || 0,
+      counted_qty: '',
+    })),
+  };
+  renderCountModalLines();
+  m.hidden = false;
+}
+
+function renderCountModalLines() {
+  const tbody = document.getElementById('cnt-lines-body');
+  if (!tbody || !variance.draftCount) return;
+  const lines = variance.draftCount.lines || [];
+  if (!lines.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#7a715f">No inventory items at this location.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lines.map((l, idx) => {
+    const counted = l.counted_qty === '' ? '' : Number(l.counted_qty);
+    const ext = (counted === '' ? 0 : counted * (l.unit_cost || 0));
+    return `<tr>
+      <td>${escapeHtml(l.name)}</td>
+      <td style="text-align:right">${varianceFmtQty(l.on_hand)}</td>
+      <td><input type="number" step="0.01" min="0" data-cnt-line-idx="${idx}" value="${l.counted_qty === '' ? '' : l.counted_qty}" style="width:100%" /></td>
+      <td>${escapeHtml(l.unit || '')}</td>
+      <td style="text-align:right">${counted === '' ? '—' : varianceFmtUSD(ext)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function closeCountModal() {
+  const m = document.getElementById('count-modal'); if (m) m.hidden = true;
+  variance.draftCount = null;
+}
+
+async function saveCount({ finalize = false } = {}) {
+  if (!variance.draftCount) return;
+  const locId = document.getElementById('cnt-loc')?.value || null;
+  const label = document.getElementById('cnt-label')?.value || null;
+  const notes = document.getElementById('cnt-notes')?.value || null;
+  const linesIn = (variance.draftCount.lines || []).filter(l => l.counted_qty !== '' && l.counted_qty != null);
+  if (!linesIn.length) { alert('Enter at least one counted quantity.'); return; }
+  try {
+    const cnt = await countsRepo.createCount({ locationId: locId, periodLabel: label, notes });
+    for (const ln of linesIn) {
+      await countsRepo.addLine(cnt.id, {
+        inventoryItemId: ln.inventoryItemId,
+        countedQty: Number(ln.counted_qty) || 0,
+        unit: ln.unit,
+        unitCost: ln.unit_cost,
+      });
+    }
+    if (finalize) {
+      await countsRepo.finalizeCount(cnt.id);
+    }
+    closeCountModal();
+    await renderVariance();
+  } catch (err) {
+    console.error('saveCount failed', err);
+    alert('Could not save count: ' + (err.message || 'unknown error'));
+  }
+}
+
+function bindVarianceEvents() {
+  // Open new count
+  document.getElementById('new-count')?.addEventListener('click', () => openCountModal());
+  document.getElementById('cnt-cancel')?.addEventListener('click', closeCountModal);
+  document.getElementById('cnt-save-draft')?.addEventListener('click', () => saveCount({ finalize: false }));
+  document.getElementById('cnt-finalize')?.addEventListener('click', () => saveCount({ finalize: true }));
+  document.getElementById('cnt-prefill')?.addEventListener('click', () => {
+    if (!variance.draftCount) return;
+    variance.draftCount.lines.forEach(l => { l.counted_qty = l.on_hand; });
+    renderCountModalLines();
+  });
+  // Edit on count line input
+  document.addEventListener('input', (e) => {
+    const idx = e.target?.dataset?.cntLineIdx;
+    if (idx == null || !variance.draftCount) return;
+    const i = Number(idx);
+    const v = e.target.value;
+    variance.draftCount.lines[i].counted_qty = v === '' ? '' : v;
+    // Update extended on the right cell only (cheap full re-render is fine for <500 lines)
+    renderCountModalLines();
+  });
+  // Re-prefill if location changes
+  document.getElementById('cnt-loc')?.addEventListener('change', (e) => {
+    if (!variance.draftCount) return;
+    const locId = e.target.value || null;
+    const inv = (state.inv || []).filter(i => i.id && (!locId || !i.location_id || i.location_id === locId));
+    variance.draftCount = {
+      locationId: locId,
+      lines: inv.map(i => ({
+        inventoryItemId: i.id,
+        name: i.item || i.name || 'Item',
+        unit: i.unit || '',
+        on_hand: Number(i.qty != null ? i.qty : i.on_hand) || 0,
+        unit_cost: Number(i.cost != null ? i.cost : i.unit_cost) || 0,
+        counted_qty: '',
+      })),
+    };
+    renderCountModalLines();
+  });
+
+  // Counts table actions
+  document.addEventListener('click', async (e) => {
+    const t = e.target;
+    if (t.dataset.cntFinalize) {
+      const id = t.dataset.cntFinalize;
+      try { await countsRepo.finalizeCount(id); await renderVariance(); }
+      catch (err) { alert('Finalize failed: ' + (err.message || err)); }
+    }
+    if (t.dataset.cntDel) {
+      const id = t.dataset.cntDel;
+      if (!confirm('Delete this count?')) return;
+      try { await countsRepo.deleteCount(id); delete variance.countTotals[id]; await renderVariance(); }
+      catch (err) { alert('Delete failed: ' + (err.message || err)); }
+    }
+    if (t.dataset.varRow) {
+      openVarianceDrawer(t.dataset.varRow).catch(err => console.error(err));
+    }
+    // Close drawer when clicking outside the card
+    if (t.id === 'variance-drawer') {
+      closeVarianceDrawer();
+    }
+  });
+
+  // Run report
+  document.getElementById('run-variance')?.addEventListener('click', () => runVarianceReport().catch(err => console.error(err)));
+  document.getElementById('export-variance')?.addEventListener('click', exportVarianceCsv);
+  document.getElementById('vd-close')?.addEventListener('click', closeVarianceDrawer);
+
+  // Sortable header
+  document.querySelectorAll('#variance-table thead th[data-sort]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (variance.sortKey === k) variance.sortDir = variance.sortDir === 'desc' ? 'asc' : 'desc';
+      else { variance.sortKey = k; variance.sortDir = 'desc'; }
+      renderVarianceTable();
+    });
+  });
+
+  // Re-render when location switches
+  document.addEventListener('stationly:location-changed', () => {
+    const active = document.querySelector('.view[data-view="variance"].active');
+    if (active) renderVariance().catch(err => console.error(err));
+  });
 }
 
 if (window.__RESTOPS_CTX__) {

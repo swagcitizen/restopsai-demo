@@ -66,6 +66,7 @@
         <button class="nav-item" data-view="team"><span class="dot"></span>Team &amp; Invites</button>
         <button class="nav-item" data-view="locations"><span class="dot"></span>Locations</button>
         <button class="nav-item" data-view="commissary" id="nav-commissary" hidden><span class="dot"></span>Commissary</button>
+        <button class="nav-item" data-view="variance"><span class="dot"></span>Variance <span class="nav-badge">TvA</span></button>
         <button class="nav-item" data-view="alerts"><span class="dot"></span>Alerts</button>
         <button class="nav-item" data-view="billing"><span class="dot"></span>Billing</button>
       </nav>
@@ -1013,6 +1014,77 @@
         </div>
       </section>
 
+      <section class="view" data-view="variance">
+        <!-- KPI tiles for the active variance run -->
+        <div class="kpi-row" id="variance-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+          <div class="kpi"><div class="kpi-label">Theoretical $</div><div class="kpi-value" id="vk-theo">$0</div><div class="kpi-foot">From recipes &times; sales</div></div>
+          <div class="kpi"><div class="kpi-label">Actual $</div><div class="kpi-value" id="vk-actual">$0</div><div class="kpi-foot">Beginning + Purchases &minus; Ending</div></div>
+          <div class="kpi"><div class="kpi-label">Variance $</div><div class="kpi-value" id="vk-var">$0</div><div class="kpi-foot">Actual &minus; Theoretical</div></div>
+          <div class="kpi"><div class="kpi-label">Variance % of actual</div><div class="kpi-value" id="vk-pct">0%</div><div class="kpi-foot">Target &le; 2%</div></div>
+        </div>
+
+        <!-- Inventory counts table -->
+        <div class="card" style="padding:0;margin-bottom:18px">
+          <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+            <div>
+              <h3 style="margin:0">Inventory counts</h3>
+              <p class="sub" style="margin:4px 0 0" id="counts-sub">Walk the line, snap a count, finalize to push to on-hand.</p>
+            </div>
+            <button class="btn" id="new-count" data-write-action>+ New count</button>
+          </div>
+          <table class="data-table" style="width:100%">
+            <thead><tr><th>Date</th><th>Label</th><th>Status</th><th>Lines</th><th>Total $</th><th></th></tr></thead>
+            <tbody id="counts-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Variance report runner + table -->
+        <div class="card" style="padding:0">
+          <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;flex-wrap:wrap;gap:10px">
+            <div>
+              <h3 style="margin:0">Theoretical vs. Actual usage</h3>
+              <p class="sub" style="margin:4px 0 0">Pick two finalized counts and we&rsquo;ll compute purchases, recipe-driven theoretical, and variance for every item between them.</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label style="font-size:12px">From
+                <select id="var-from-count" style="min-width:200px"></select>
+              </label>
+              <label style="font-size:12px">To
+                <select id="var-to-count" style="min-width:200px"></select>
+              </label>
+              <button class="btn" id="run-variance">Run report</button>
+              <button class="ghost-btn" id="export-variance" disabled>Export CSV</button>
+            </div>
+          </div>
+          <table class="data-table" style="width:100%" id="variance-table">
+            <thead>
+              <tr>
+                <th data-sort="item_name">Item</th>
+                <th data-sort="unit">Unit</th>
+                <th data-sort="theoretical_used_qty" style="text-align:right">Theoretical</th>
+                <th data-sort="actual_used_qty" style="text-align:right">Actual</th>
+                <th data-sort="variance_qty" style="text-align:right">&Delta; qty</th>
+                <th data-sort="variance_dollars" style="text-align:right">&Delta; $</th>
+                <th data-sort="variance_pct" style="text-align:right">&Delta; %</th>
+                <th>Severity</th>
+              </tr>
+            </thead>
+            <tbody id="variance-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Drill-down drawer -->
+        <aside class="variance-drawer" id="variance-drawer" hidden>
+          <div class="variance-drawer-card">
+            <div class="variance-drawer-head">
+              <h3 id="vd-title">Item detail</h3>
+              <button class="icon-btn" id="vd-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="variance-drawer-body" id="vd-body"></div>
+          </div>
+        </aside>
+      </section>
+
     </main>
 
     <!-- Modal: add/edit location -->
@@ -1185,6 +1257,50 @@
         <div class="modal-actions">
           <button class="ghost-btn" id="w-cancel">Cancel</button>
           <button class="btn" id="w-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: new inventory count -->
+    <div class="modal" id="count-modal" hidden>
+      <div class="modal-card" style="max-width:720px">
+        <h3 id="count-modal-title">New inventory count</h3>
+        <input type="hidden" id="cnt-id" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Location <select id="cnt-loc"></select></label>
+          <label>Label <input id="cnt-label" type="text" placeholder="Week 18 close" /></label>
+        </div>
+        <label>Notes <input id="cnt-notes" type="text" placeholder="Optional" /></label>
+        <hr style="border:none;border-top:1px solid var(--border,#e8dcc0);margin:12px 0" />
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h4 style="margin:0">Counted quantities</h4>
+          <button class="ghost-btn" id="cnt-prefill" type="button">Pre-fill from on-hand</button>
+        </div>
+        <div style="max-height:340px;overflow:auto;border:1px solid var(--border,#e8dcc0);border-radius:8px">
+          <table class="data-table" style="width:100%;font-size:13px">
+            <thead style="position:sticky;top:0;background:var(--surface,#fff)"><tr><th>Item</th><th style="width:90px;text-align:right">On hand</th><th style="width:120px">Counted</th><th style="width:60px">Unit</th><th style="width:90px;text-align:right">Ext $</th></tr></thead>
+            <tbody id="cnt-lines-body"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions" style="margin-top:16px">
+          <button class="ghost-btn" id="cnt-cancel">Close</button>
+          <button class="ghost-btn" id="cnt-save-draft">Save draft</button>
+          <button class="btn" id="cnt-finalize">Save &amp; finalize</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: edit a single count line (rarely used — quick edits happen inline) -->
+    <div class="modal" id="count-line-edit-modal" hidden>
+      <div class="modal-card" style="max-width:380px">
+        <h3>Edit count line</h3>
+        <input type="hidden" id="cle-line-id" />
+        <label>Item <input id="cle-item" type="text" disabled /></label>
+        <label>Counted qty <input id="cle-qty" type="number" step="0.01" /></label>
+        <label>Notes <input id="cle-notes" type="text" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="cle-cancel">Cancel</button>
+          <button class="btn" id="cle-save">Save</button>
         </div>
       </div>
     </div>
