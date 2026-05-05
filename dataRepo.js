@@ -392,7 +392,7 @@ export async function seedMenuFromSample(sampleMenu) {
 export async function fetchInventory({ locationId = null } = {}) {
   let q = supabase
     .from('inventory_items')
-    .select('id, name, unit, on_hand, par, unit_cost, supplier, location_id')
+    .select('id, name, unit, on_hand, par, unit_cost, supplier, location_id, category, bottle_size_ml, bottle_size_oz, unit_yield_oz, vendor_sku, upc, abv, bin_location')
     .order('name', { ascending: true });
   if (locationId) {
     // Show items at the selected location plus tenant-wide (NULL location_id) rows.
@@ -410,6 +410,14 @@ export async function fetchInventory({ locationId = null } = {}) {
     cost: Number(i.unit_cost) || 0,
     vendor: i.supplier || '',
     locationId: i.location_id || null,
+    category: i.category || 'food',
+    bottleSizeMl: i.bottle_size_ml != null ? Number(i.bottle_size_ml) : null,
+    bottleSizeOz: i.bottle_size_oz != null ? Number(i.bottle_size_oz) : null,
+    unitYieldOz: i.unit_yield_oz != null ? Number(i.unit_yield_oz) : null,
+    vendorSku: i.vendor_sku || null,
+    upc: i.upc || null,
+    abv: i.abv != null ? Number(i.abv) : null,
+    binLocation: i.bin_location || null,
   }));
 }
 
@@ -425,6 +433,17 @@ export async function updateInventoryItem(id, patch) {
   if (patch.unit_cost !== undefined) dbPatch.unit_cost = patch.unit_cost;
   if (patch.vendor !== undefined) dbPatch.supplier = patch.vendor;
   if (patch.supplier !== undefined) dbPatch.supplier = patch.supplier;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.bottleSizeMl !== undefined) dbPatch.bottle_size_ml = patch.bottleSizeMl;
+  if (patch.bottle_size_ml !== undefined) dbPatch.bottle_size_ml = patch.bottle_size_ml;
+  if (patch.unitYieldOz !== undefined) dbPatch.unit_yield_oz = patch.unitYieldOz;
+  if (patch.unit_yield_oz !== undefined) dbPatch.unit_yield_oz = patch.unit_yield_oz;
+  if (patch.vendorSku !== undefined) dbPatch.vendor_sku = patch.vendorSku;
+  if (patch.vendor_sku !== undefined) dbPatch.vendor_sku = patch.vendor_sku;
+  if (patch.upc !== undefined) dbPatch.upc = patch.upc;
+  if (patch.abv !== undefined) dbPatch.abv = patch.abv;
+  if (patch.binLocation !== undefined) dbPatch.bin_location = patch.binLocation;
+  if (patch.bin_location !== undefined) dbPatch.bin_location = patch.bin_location;
   if (Object.keys(dbPatch).length === 0) return;
   const tenantId = tenantOrNull();
   return offline.withOffline(
@@ -1084,9 +1103,16 @@ export async function addInventoryItem(input = {}) {
   const on_hand = (input.onHand !== undefined ? input.onHand : (input.on_hand !== undefined ? input.on_hand : 0));
   const unit_cost = (input.cost !== undefined ? input.cost : (input.unit_cost !== undefined ? input.unit_cost : 0));
   const supplier = (input.vendor !== undefined ? input.vendor : (input.supplier !== undefined ? input.supplier : null));
+  const category = input.category || 'food';
+  const bottle_size_ml = input.bottleSizeMl != null ? input.bottleSizeMl : (input.bottle_size_ml != null ? input.bottle_size_ml : null);
+  const unit_yield_oz = input.unitYieldOz != null ? input.unitYieldOz : (input.unit_yield_oz != null ? input.unit_yield_oz : null);
+  const vendor_sku = input.vendorSku || input.vendor_sku || null;
+  const upc = input.upc || null;
+  const abv = input.abv != null ? input.abv : null;
+  const bin_location = input.binLocation || input.bin_location || null;
   const tenantId = tenantOrNull();
   const id = offline.newId();
-  const row = { id, tenant_id: tenantId, name, unit, par, on_hand, unit_cost, supplier };
+  const row = { id, tenant_id: tenantId, name, unit, par, on_hand, unit_cost, supplier, category, bottle_size_ml, unit_yield_oz, vendor_sku, upc, abv, bin_location };
   return offline.withOffline(
     async () => {
       const { data, error } = await supabase.from('inventory_items').insert(row).select().single();
@@ -1176,6 +1202,7 @@ export async function addRecipeIngredient(recipeId, input = {}) {
   const unit = input.unit || '';
   const unitCost = (input.unitCost !== undefined ? input.unitCost : (input.cost !== undefined ? input.cost : 0));
   const sortOrder = input.sortOrder !== undefined ? input.sortOrder : 0;
+  const pourOz = input.pourOz != null ? input.pourOz : (input.pour_oz != null ? input.pour_oz : null);
   const tenantId = tenantOrNull();
   const id = offline.newId();
   const row = {
@@ -1187,6 +1214,7 @@ export async function addRecipeIngredient(recipeId, input = {}) {
     unit,
     unit_cost: unitCost,
     sort_order: sortOrder,
+    pour_oz: pourOz,
   };
   return offline.withOffline(
     async () => {

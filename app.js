@@ -17,6 +17,11 @@ import * as locationsRepo from './locationsRepo.js';
 import * as transfersRepo from './transfersRepo.js';
 import * as countsRepo from './countsRepo.js';
 import * as varianceRepo from './varianceRepo.js';
+import * as payrollRepo from './payrollRepo.js';
+import * as tipPoolRepo from './tipPoolRepo.js';
+import * as vendorsRepo from './vendorsRepo.js';
+import * as billsRepo from './billsRepo.js';
+import * as barPoursRepo from './barPoursRepo.js';
 import { getCurrentLocationId, setCurrentLocationId } from './tenantContext.js';
 import { supabase } from './supabaseClient.js';
 
@@ -192,6 +197,21 @@ function seed() {
     transfers: [],
     transferTab: 'outgoing',
     transferDraft: null, // { fromLocationId, toLocationId, lines: [...] }
+    // Triple Release state
+    invCat: 'all',
+    invSub: 'items',
+    barPours: [],
+    barStatus: [],
+    bills: [],
+    billsAging: [],
+    vendors: [],
+    billsFilter: '',
+    billsSub: 'bills',
+    payPeriods: [],
+    selectedPayPeriod: null,
+    payRunLines: [],
+    tipEntries: [],
+    payrollSub: 'periods',
   };
 }
 
@@ -617,17 +637,28 @@ function renderMenu() {
 
 function renderInventory() {
   const tbody = document.getElementById("inv-body");
+  if (!tbody) return;
   tbody.innerHTML = "";
-  state.inv.forEach((i, idx) => {
+  const cat = state.invCat || 'all';
+  const filtered = state.inv.filter((i) => {
+    if (cat === 'all') return true;
+    return (i.category || 'food') === cat;
+  });
+  filtered.forEach((i, idx) => {
     const value = i.onHand * i.cost;
     const belowPar = i.onHand < i.par;
     const critical = i.onHand <= i.reorder;
     const status = critical ? `<span class="pill err">Reorder now</span>` : belowPar ? `<span class="pill warn">Below par</span>` : `<span class="pill ok">OK</span>`;
+    const catSlug = (i.category || 'food');
+    const catBadge = `<span class="cat-badge cat-${catSlug.replace('/','-')}">${escapeHtml(catLabel(catSlug))}</span>`;
+    // Use the index in state.inv (not the filtered list) so data-inv stays stable.
+    const realIdx = state.inv.indexOf(i);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(i.item)}</td>
+      <td>${catBadge}</td>
       <td>${escapeHtml(i.unit)}</td>
-      <td><input type="number" step="0.1" value="${i.onHand}" data-inv="${idx}" data-field="onHand"/></td>
+      <td><input type="number" step="0.1" value="${i.onHand}" data-inv="${realIdx}" data-field="onHand"/></td>
       <td>${i.par}</td>
       <td>${i.reorder}</td>
       <td>${fmtUSD2(i.cost)}</td>
@@ -638,6 +669,11 @@ function renderInventory() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function catLabel(c) {
+  const map = { food: 'Food', beer: 'Beer', wine: 'Wine', spirits: 'Spirits', 'n/a_beverage': 'N/A', dry_goods: 'Dry', smallwares: 'Wares', other: 'Other' };
+  return map[c] || c;
 }
 
 function renderWaste() {
@@ -1695,6 +1731,8 @@ function bindEvents() {
         locations: ["Locations", "Manage your physical locations and the commissary kitchen"],
         commissary: ["Commissary", "Move prepped batches and inventory between locations"],
         variance: ["Variance", "Theoretical-vs-actual usage from counts, recipes, and POS — drill into every item"],
+        bills: ["Bill Pay", "Approve, schedule, and record vendor payments — workflow + audit trail"],
+        payroll: ["Payroll", "Pay periods, OT, and CSV export to Gusto / ADP / Paychex"],
       };
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
@@ -1703,6 +1741,12 @@ function bindEvents() {
       if (view === 'team') refreshTeamView().catch(err => console.error('Team view load failed:', err));
       if (view === 'clock') resetClockToPinPad();
       if (view === 'variance') renderVariance().catch(err => console.error('Variance load failed:', err));
+      if (view === 'bills') renderBills().catch(err => console.error('Bills load failed:', err));
+      if (view === 'payroll') renderPayroll().catch(err => console.error('Payroll load failed:', err));
+      if (view === 'inventory') {
+        const isBarPane = document.querySelector('.inv-pane[data-inv-pane="bar"]:not([hidden])');
+        if (isBarPane) renderBarDashboard().catch(err => console.error('Bar dashboard load failed:', err));
+      }
       // redraw charts on visibility change
       setTimeout(renderCharts, 50);
     });
@@ -1892,10 +1936,25 @@ function bindEvents() {
   if (addInvBtn) addInvBtn.addEventListener("click", () => _show("inv-modal"));
   const iiCancel = document.getElementById("ii-cancel");
   if (iiCancel) iiCancel.addEventListener("click", () => _hide("inv-modal"));
+  // Toggle bar fields visibility based on category select
+  const iiCat = document.getElementById("ii-category");
+  if (iiCat) {
+    const updateBarFields = () => {
+      const cat = iiCat.value;
+      const isBar = ['beer','wine','spirits','n/a_beverage'].includes(cat);
+      const wrap = document.getElementById('ii-bar-fields');
+      if (wrap) wrap.hidden = !isBar;
+    };
+    iiCat.addEventListener('change', updateBarFields);
+    // Initialize on first open
+    if (addInvBtn) addInvBtn.addEventListener('click', updateBarFields);
+  }
   const iiSave = document.getElementById("ii-save");
   if (iiSave) iiSave.addEventListener("click", async () => {
     const name = _val("ii-name").trim();
     if (!name) { alert("Name required"); return; }
+    const category = _val("ii-category") || 'food';
+    const isBar = ['beer','wine','spirits','n/a_beverage'].includes(category);
     const payload = {
       name,
       unit: _val("ii-unit").trim() || "unit",
@@ -1903,14 +1962,29 @@ function bindEvents() {
       par: _num("ii-par") || 0,
       cost: _num("ii-cost") || 0,
       vendor: _val("ii-vendor").trim() || null,
+      category,
     };
+    if (isBar) {
+      const ml = _num("ii-bottle-ml");
+      const yieldOz = _num("ii-yield-oz");
+      const abv = _num("ii-abv");
+      payload.bottleSizeMl = ml || null;
+      payload.unitYieldOz = yieldOz || null;
+      payload.abv = abv || null;
+      payload.vendorSku = _val("ii-vendor-sku").trim() || null;
+      payload.upc = _val("ii-upc").trim() || null;
+      payload.binLocation = _val("ii-bin").trim() || null;
+    }
     iiSave.disabled = true; const o = iiSave.textContent; iiSave.textContent = "Saving…";
     try {
       await dataRepo.addInventoryItem(payload);
       state.inv = await dataRepo.fetchInventory();
       renderInventory();
+      // If bar pane is active, refresh bar dashboard too
+      const isBarPane = document.querySelector('.inv-pane[data-inv-pane="bar"]:not([hidden])');
+      if (isBarPane) renderBarDashboard().catch(() => {});
       _hide("inv-modal");
-      _clear(["ii-name","ii-unit","ii-onhand","ii-par","ii-cost","ii-vendor"]);
+      _clear(["ii-name","ii-unit","ii-onhand","ii-par","ii-cost","ii-vendor","ii-bottle-ml","ii-yield-oz","ii-abv","ii-vendor-sku","ii-upc","ii-bin"]);
     } catch (err) { console.error(err); alert("Could not save inventory item: " + err.message); }
     finally { iiSave.disabled = false; iiSave.textContent = o; }
   });
@@ -1998,11 +2072,13 @@ function bindEvents() {
     if (!recipeId) { alert("Select a recipe first"); return; }
     const name = _val("ig-name").trim();
     if (!name) { alert("Ingredient name required"); return; }
+    const pourOzVal = _num("ig-pour-oz");
     const payload = {
       name,
       qty: _num("ig-qty") || 0,
       unit: _val("ig-unit").trim() || "unit",
       cost: _num("ig-cost") || 0,
+      pourOz: pourOzVal > 0 ? pourOzVal : null,
     };
     igSave.disabled = true; const o = igSave.textContent; igSave.textContent = "Saving…";
     try {
@@ -2010,7 +2086,7 @@ function bindEvents() {
       state.recipes = await dataRepo.fetchRecipes();
       renderRecipes();
       _hide("ing-modal");
-      _clear(["ig-pick","ig-name","ig-qty","ig-unit","ig-cost"]);
+      _clear(["ig-pick","ig-name","ig-qty","ig-unit","ig-cost","ig-pour-oz"]);
     } catch (err) { console.error(err); alert("Could not add ingredient: " + err.message); }
     finally { igSave.disabled = false; igSave.textContent = o; }
   });
@@ -3523,11 +3599,12 @@ async function bootApp() {
   bindPublishEvents();
   bindCommissaryEvents();
   bindVarianceEvents();
+  wireTripleReleaseEvents();
   renderAll();
   window.__restopsBooted = true;
   // Dev-only debug hook so Playwright QA can inspect state.
   window.__restopsState = state;
-  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo, countsRepo, varianceRepo };
+  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo, countsRepo, varianceRepo, payrollRepo, tipPoolRepo, vendorsRepo, billsRepo, barPoursRepo };
   initLocationSwitcher();
   renderLocations();
   renderCommissaryNavVisibility();
@@ -4519,4 +4596,754 @@ if (window.__RESTOPS_CTX__) {
   bootApp();
 } else {
   window.addEventListener('restops:ready', bootApp, { once: true });
+}
+
+// =====================================================================
+// TRIPLE RELEASE: Payroll, Bill Pay, Bar Inventory
+// =====================================================================
+
+// ---------- Bar Inventory ----------
+async function renderBarDashboard() {
+  try {
+    const [pours, status] = await Promise.all([
+      barPoursRepo.listPours({ limit: 100 }),
+      barPoursRepo.listBarStatus(),
+    ]);
+    state.barPours = pours || [];
+    state.barStatus = status || [];
+  } catch (e) {
+    console.error('Bar dashboard load failed:', e);
+    state.barPours = state.barPours || [];
+    state.barStatus = state.barStatus || [];
+  }
+  // KPIs
+  const barItems = state.inv.filter(i => ['beer','wine','spirits','n/a_beverage'].includes(i.category || ''));
+  const totalBottles = barItems.reduce((s, i) => s + (Number(i.onHand) || 0), 0);
+  const totalValue = barItems.reduce((s, i) => s + (Number(i.onHand) || 0) * (Number(i.cost) || 0), 0);
+  const belowPar = barItems.filter(i => (Number(i.onHand) || 0) < (Number(i.par) || 0)).length;
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+  const pours7 = (state.barPours || []).filter(p => new Date(p.poured_at || p.pouredAt) >= sevenDaysAgo).length;
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('bar-kpi-bottles', totalBottles.toFixed(1));
+  setText('bar-kpi-value', fmtUSD(totalValue));
+  setText('bar-kpi-reorder', String(belowPar));
+  setText('bar-kpi-pours', String(pours7));
+
+  // Status table
+  const sb = document.getElementById('bar-status-body');
+  if (sb) {
+    if (!state.barStatus.length) {
+      sb.innerHTML = '<tr><td colspan="8" style="padding:14px;text-align:center;color:#7a715f">No bar items yet. Add a beer/wine/spirits item from "All inventory" to get started.</td></tr>';
+    } else {
+      sb.innerHTML = state.barStatus.map(r => {
+        const days = r.days_of_supply == null ? '—' : Number(r.days_of_supply).toFixed(1);
+        const flag = r.reorder_flag
+          ? '<span class="pill err">Reorder</span>'
+          : '<span class="pill ok">OK</span>';
+        const cat = (r.category || '').replace('/','-');
+        return `<tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td><span class="cat-badge cat-${cat}">${escapeHtml(catLabel(r.category))}</span></td>
+          <td>${r.bottle_size_ml ? r.bottle_size_ml + ' mL' : '—'}</td>
+          <td style="text-align:right">${Number(r.on_hand_bottles || 0).toFixed(1)}</td>
+          <td style="text-align:right">${Number(r.on_hand_oz || 0).toFixed(1)}</td>
+          <td style="text-align:right">${Number(r.par_bottles || 0).toFixed(1)}</td>
+          <td style="text-align:right">${days}</td>
+          <td>${flag}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  renderPourLog();
+}
+
+function renderPourLog() {
+  const tbody = document.getElementById('bar-pours-body');
+  if (!tbody) return;
+  if (!state.barPours || !state.barPours.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#7a715f">No pours logged yet. Tap “+ Log pour” when you spill, comp, or train.</td></tr>';
+    return;
+  }
+  // Build name lookup for bar items
+  const nameById = Object.fromEntries((state.inv || []).map(i => [i.id, i.item]));
+  tbody.innerHTML = state.barPours.map(p => {
+    const when = p.poured_at ? new Date(p.poured_at).toLocaleString() : '';
+    const item = nameById[p.inventory_item_id] || p.inventory_item_id || '';
+    return `<tr>
+      <td>${escapeHtml(when)}</td>
+      <td>${escapeHtml(item)}</td>
+      <td>${Number(p.poured_oz || 0).toFixed(2)}</td>
+      <td>${escapeHtml(p.reason || '')}</td>
+      <td>${escapeHtml(p.notes || '')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- Bill Pay ----------
+async function renderBills() {
+  await Promise.all([
+    refreshVendors(),
+    refreshBills(),
+  ]);
+  renderBillsTable();
+  renderVendorsTable();
+  renderBillsAging();
+}
+
+async function refreshVendors() {
+  try { state.vendors = await vendorsRepo.listVendors({ activeOnly: true }) || []; }
+  catch (e) { console.error('Load vendors failed:', e); state.vendors = state.vendors || []; }
+}
+
+async function refreshBills() {
+  try {
+    const status = state.billsFilter || null;
+    state.bills = await billsRepo.listBills({ status, limit: 200 }) || [];
+    state.billsAging = await billsRepo.listBillsAging() || [];
+  } catch (e) {
+    console.error('Load bills failed:', e);
+    state.bills = state.bills || [];
+    state.billsAging = state.billsAging || [];
+  }
+}
+
+function renderBillsTable() {
+  const tbody = document.getElementById('bills-body');
+  if (!tbody) return;
+  const vendorById = Object.fromEntries((state.vendors || []).map(v => [v.id, v]));
+  if (!state.bills || !state.bills.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:14px;text-align:center;color:#7a715f">No bills yet. Click <strong>+ New bill</strong> to add one, or generate from a received invoice.</td></tr>';
+    return;
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  tbody.innerHTML = state.bills.map(b => {
+    const vendor = vendorById[b.vendor_id]?.name || b.vendor_name || '—';
+    const balance = (Number(b.amount) || 0) - (Number(b.amount_paid) || 0);
+    let statusPill;
+    const due = b.due_date ? new Date(b.due_date) : null;
+    const overdue = due && due < today && b.status !== 'paid' && b.status !== 'void';
+    const stat = overdue ? 'overdue' : b.status;
+    const cls = stat === 'paid' ? 'ok' : stat === 'overdue' ? 'err' : stat === 'partial' || stat === 'scheduled' ? 'warn' : '';
+    statusPill = `<span class="pill ${cls}">${stat}</span>`;
+    let approvalPill = '';
+    if (b.approval_status === 'approved') approvalPill = '<span class="pill ok">approved</span>';
+    else if (b.approval_status === 'rejected') approvalPill = '<span class="pill err">rejected</span>';
+    else approvalPill = '<span class="pill warn">pending</span>';
+    const actions = [];
+    if (b.approval_status === 'pending') actions.push(`<button class="btn small" data-bill-approve="${b.id}">Approve</button>`);
+    if (b.approval_status !== 'rejected' && stat !== 'paid' && stat !== 'void') actions.push(`<button class="btn small" data-bill-pay="${b.id}">Pay</button>`);
+    return `<tr>
+      <td>${escapeHtml(vendor)}</td>
+      <td>${escapeHtml(b.bill_number || '—')}</td>
+      <td>${escapeHtml(b.bill_date || '')}</td>
+      <td>${escapeHtml(b.due_date || '')}</td>
+      <td style="text-align:right">${fmtUSD2(b.amount)}</td>
+      <td style="text-align:right">${fmtUSD2(balance)}</td>
+      <td>${statusPill}</td>
+      <td>${approvalPill}</td>
+      <td>${actions.join(' ')}</td>
+    </tr>`;
+  }).join('');
+
+  // Wire approve / pay buttons
+  tbody.querySelectorAll('[data-bill-approve]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-bill-approve');
+      btn.disabled = true;
+      try {
+        await billsRepo.approveBill(id);
+        await refreshBills();
+        renderBillsTable();
+        renderBillsAging();
+      } catch (e) { console.error(e); alert('Approve failed: ' + e.message); }
+      finally { btn.disabled = false; }
+    });
+  });
+  tbody.querySelectorAll('[data-bill-pay]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-bill-pay');
+      const bill = (state.bills || []).find(b => b.id === id);
+      if (!bill) return;
+      document.getElementById('pay-bill-id').value = id;
+      const balance = (Number(bill.amount) || 0) - (Number(bill.amount_paid) || 0);
+      document.getElementById('pay-amount').value = balance.toFixed(2);
+      document.getElementById('pay-date').value = todayISO();
+      const vendor = (state.vendors || []).find(v => v.id === bill.vendor_id);
+      document.getElementById('pay-bill-summary').textContent =
+        `${vendor?.name || 'Vendor'} · ${bill.bill_number || ''} · Balance ${fmtUSD2(balance)}`;
+      _show('payment-modal');
+    });
+  });
+}
+
+function renderVendorsTable() {
+  const tbody = document.getElementById('vendors-body');
+  if (!tbody) return;
+  if (!state.vendors || !state.vendors.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:14px;text-align:center;color:#7a715f">No vendors yet. Click <strong>+ New vendor</strong> to add one.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.vendors.map(v => `
+    <tr>
+      <td>${escapeHtml(v.name)}</td>
+      <td>${escapeHtml(v.email || '')}</td>
+      <td>${escapeHtml(v.phone || '')}</td>
+      <td>${escapeHtml(v.default_payment_method || 'check')}</td>
+      <td>${v.default_terms_days || 30} days</td>
+      <td></td>
+    </tr>`).join('');
+}
+
+function renderBillsAging() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const aging = state.billsAging || [];
+  const buckets = {
+    current: { label: 'Not yet due', total: 0, count: 0, cls: 'aging-current' },
+    d1_30:   { label: '1–30 days',   total: 0, count: 0, cls: 'aging-1-30' },
+    d31_60:  { label: '31–60 days',  total: 0, count: 0, cls: 'aging-31-60' },
+    d61_90:  { label: '61–90 days',  total: 0, count: 0, cls: 'aging-61-90' },
+    d90_plus:{ label: '90+ days',    total: 0, count: 0, cls: 'aging-90' },
+  };
+  let openAp = 0, overdue = 0, dueWeek = 0, paidThisMonth = 0;
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+
+  aging.forEach(r => {
+    const bal = Number(r.balance) || 0;
+    const bucket = r.aging_bucket || 'current';
+    if (buckets[bucket]) { buckets[bucket].total += bal; buckets[bucket].count += 1; }
+    if (r.status !== 'paid' && r.status !== 'void') openAp += bal;
+    const due = r.due_date ? new Date(r.due_date) : null;
+    if (due && due < today && r.status !== 'paid' && r.status !== 'void') overdue += bal;
+    if (due && due >= today && due <= weekEnd && r.status !== 'paid' && r.status !== 'void') dueWeek += bal;
+  });
+  // MTD payments — sum amount_paid on bills where last update is in this month is tricky; approx
+  (state.bills || []).forEach(b => {
+    paidThisMonth += Number(b.amount_paid) || 0;
+  });
+
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('ap-kpi-open', fmtUSD(openAp));
+  setText('ap-kpi-overdue', fmtUSD(overdue));
+  setText('ap-kpi-week', fmtUSD(dueWeek));
+  setText('ap-kpi-paid', fmtUSD(paidThisMonth));
+
+  const wrap = document.getElementById('ap-aging-bars');
+  if (wrap) {
+    const max = Math.max(1, ...Object.values(buckets).map(b => b.total));
+    wrap.innerHTML = Object.entries(buckets).map(([k, b]) => {
+      const w = Math.round((b.total / max) * 100);
+      return `
+        <div class="aging-row">
+          <div class="aging-label">${b.label}<span class="muted"> · ${b.count}</span></div>
+          <div class="aging-track"><div class="aging-fill ${b.cls}" style="width:${w}%"></div></div>
+          <div class="aging-amount">${fmtUSD(b.total)}</div>
+        </div>`;
+    }).join('');
+  }
+}
+
+// ---------- Payroll ----------
+async function renderPayroll() {
+  try {
+    state.payPeriods = await payrollRepo.listPayPeriods({ limit: 60 }) || [];
+  } catch (e) {
+    console.error('Load pay periods failed:', e);
+    state.payPeriods = state.payPeriods || [];
+  }
+  renderPayrollPeriods();
+  populatePayrollPeriodSelects();
+  // Render run detail / tips for selected period
+  if (state.selectedPayPeriod) {
+    await loadPayRunDetail(state.selectedPayPeriod);
+    await loadTipEntries(state.selectedPayPeriod);
+  }
+}
+
+function renderPayrollPeriods() {
+  const tbody = document.getElementById('payroll-periods-body');
+  if (!tbody) return;
+  if (!state.payPeriods.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:14px;text-align:center;color:#7a715f">No pay periods yet. Click <strong>+ New pay period</strong> to start.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.payPeriods.map(p => {
+    const cls = p.status === 'paid' ? 'ok' : p.status === 'locked' ? 'warn' : '';
+    return `<tr>
+      <td>${escapeHtml(p.period_start)}</td>
+      <td>${escapeHtml(p.period_end)}</td>
+      <td>${escapeHtml(p.pay_date || '—')}</td>
+      <td><span class="pill ${cls}">${p.status}</span></td>
+      <td>${escapeHtml(p.provider || '—')}</td>
+      <td style="text-align:right">${fmtUSD(p.total_gross || 0)}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn small" data-pp-generate="${p.id}">Generate run</button>
+        <button class="btn small ghost" data-pp-detail="${p.id}">View</button>
+        ${p.status === 'locked' ? `<button class="btn small ghost" data-pp-unlock="${p.id}">Unlock</button>` : ''}
+        ${p.status === 'locked' || p.status === 'paid' ? '' : `<button class="btn small ghost" data-pp-paid="${p.id}">Mark paid</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('[data-pp-generate]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.getAttribute('data-pp-generate');
+    btn.disabled = true;
+    try {
+      await payrollRepo.generatePayRun(id);
+      state.selectedPayPeriod = id;
+      await renderPayroll();
+      // Switch to run detail pane
+      switchPayrollSub('run');
+    } catch (e) { console.error(e); alert('Generate failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  }));
+  tbody.querySelectorAll('[data-pp-detail]').forEach(btn => btn.addEventListener('click', async () => {
+    state.selectedPayPeriod = btn.getAttribute('data-pp-detail');
+    await loadPayRunDetail(state.selectedPayPeriod);
+    switchPayrollSub('run');
+  }));
+  tbody.querySelectorAll('[data-pp-unlock]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.getAttribute('data-pp-unlock');
+    try { await payrollRepo.unlockPayPeriod(id); await renderPayroll(); }
+    catch (e) { alert('Unlock failed: ' + e.message); }
+  }));
+  tbody.querySelectorAll('[data-pp-paid]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.getAttribute('data-pp-paid');
+    try { await payrollRepo.markPayPeriodPaid(id); await renderPayroll(); }
+    catch (e) { alert('Mark paid failed: ' + e.message); }
+  }));
+}
+
+async function loadPayRunDetail(periodId) {
+  const empty = document.getElementById('payroll-run-empty');
+  const detail = document.getElementById('payroll-run-detail');
+  try {
+    const run = await payrollRepo.getRunForPeriod(periodId);
+    if (!run) {
+      if (empty) empty.hidden = false;
+      if (detail) detail.hidden = true;
+      return;
+    }
+    const lines = await payrollRepo.listRunLines(run.id) || [];
+    state.payRunLines = lines;
+    renderPayRunDetail(run, lines);
+    if (empty) empty.hidden = true;
+    if (detail) detail.hidden = false;
+  } catch (e) {
+    console.error('Run detail failed:', e);
+    if (empty) empty.hidden = false;
+    if (detail) detail.hidden = true;
+  }
+}
+
+function renderPayRunDetail(run, lines) {
+  const period = (state.payPeriods || []).find(p => p.id === run.pay_period_id);
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  let totalHours = 0, regPay = 0, otPay = 0, gross = 0;
+  lines.forEach(l => {
+    totalHours += (Number(l.regular_hours) || 0) + (Number(l.overtime_hours) || 0);
+    regPay += Number(l.regular_pay) || 0;
+    otPay += Number(l.overtime_pay) || 0;
+    gross += Number(l.gross_pay) || 0;
+  });
+  setText('pr-kpi-hours', totalHours.toFixed(2));
+  setText('pr-kpi-reg', fmtUSD(regPay));
+  setText('pr-kpi-ot', fmtUSD(otPay));
+  setText('pr-kpi-gross', fmtUSD(gross));
+  setText('pr-title', `Pay run · ${period?.period_start || ''} → ${period?.period_end || ''}`);
+  setText('pr-sub', `${lines.length} staff · ${run.status || ''}`);
+
+  const staffById = Object.fromEntries((state.staff || []).map(s => [s.id, s]));
+  const tbody = document.getElementById('payroll-run-body');
+  if (!tbody) return;
+  if (!lines.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="padding:14px;text-align:center;color:#7a715f">No staff in this run.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = lines.map(l => {
+    const sName = staffById[l.staff_id]?.name || l.staff_name || l.staff_id || '';
+    const otCls = (Number(l.overtime_hours) || 0) > 0 ? 'ot-row' : '';
+    return `<tr class="${otCls}">
+      <td>${escapeHtml(sName)}</td>
+      <td style="text-align:right">${Number(l.regular_hours || 0).toFixed(2)}</td>
+      <td style="text-align:right">${Number(l.overtime_hours || 0).toFixed(2)}</td>
+      <td style="text-align:right">${fmtUSD2(l.hourly_rate)}</td>
+      <td style="text-align:right">${fmtUSD2(l.regular_pay)}</td>
+      <td style="text-align:right">${fmtUSD2(l.overtime_pay)}</td>
+      <td style="text-align:right">${fmtUSD2(l.tips)}</td>
+      <td style="text-align:right"><strong>${fmtUSD2(l.gross_pay)}</strong></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadTipEntries(periodId) {
+  try {
+    state.tipEntries = await tipPoolRepo.listForPeriod(periodId) || [];
+  } catch (e) {
+    state.tipEntries = state.tipEntries || [];
+  }
+  renderTipEntries();
+}
+
+function renderTipEntries() {
+  const tbody = document.getElementById('tip-entries-body');
+  if (!tbody) return;
+  const staffById = Object.fromEntries((state.staff || []).map(s => [s.id, s]));
+  if (!state.tipEntries.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;text-align:center;color:#7a715f">No tip entries yet for this period.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.tipEntries.map(t => `
+    <tr>
+      <td>${escapeHtml(t.created_at ? new Date(t.created_at).toLocaleDateString() : '')}</td>
+      <td>${escapeHtml(staffById[t.staff_id]?.name || t.staff_id || '')}</td>
+      <td>${escapeHtml(t.tip_type || 'declared')}</td>
+      <td style="text-align:right">${fmtUSD2(t.tip_amount)}</td>
+      <td><button class="row-del" data-tip-del="${t.id}">×</button></td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('[data-tip-del]').forEach(btn => btn.addEventListener('click', async () => {
+    const id = btn.getAttribute('data-tip-del');
+    try { await tipPoolRepo.removeEntry(id); await loadTipEntries(state.selectedPayPeriod); }
+    catch (e) { alert('Remove failed: ' + e.message); }
+  }));
+}
+
+function populatePayrollPeriodSelects() {
+  const fillSel = (id) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Pick period —</option>' +
+      (state.payPeriods || []).map(p => `<option value="${p.id}">${p.period_start} → ${p.period_end}</option>`).join('');
+    if (cur) sel.value = cur;
+    else if (state.selectedPayPeriod) sel.value = state.selectedPayPeriod;
+  };
+  fillSel('tip-period');
+  fillSel('export-period');
+  // Staff select for tips
+  const tipStaff = document.getElementById('tip-staff');
+  if (tipStaff) {
+    tipStaff.innerHTML = '<option value="">— Staff —</option>' +
+      (state.staff || []).filter(s => s.active !== false).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  }
+}
+
+function switchPayrollSub(sub) {
+  state.payrollSub = sub;
+  document.querySelectorAll('#payroll-sub-seg .sub-seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.payrollSub === sub);
+  });
+  document.querySelectorAll('.payroll-pane').forEach(p => {
+    p.hidden = p.dataset.payrollPane !== sub;
+  });
+}
+
+// CSV export — client-side
+function escapeCsv(v) {
+  if (v == null) return '';
+  const s = String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+function buildPayrollCsv(provider, lines) {
+  const staffById = Object.fromEntries((state.staff || []).map(s => [s.id, s]));
+  const splitName = (full) => {
+    const [first, ...rest] = (full || '').split(' ');
+    return { first: first || '', last: rest.join(' ') || '' };
+  };
+  let headers = [];
+  let rows = [];
+  if (provider === 'gusto') {
+    headers = ['Employee Name', 'Hours', 'Overtime Hours', 'Tips', 'Other Earnings', 'Pay Type'];
+    rows = lines.map(l => {
+      const name = staffById[l.staff_id]?.name || l.staff_name || '';
+      return [name, Number(l.regular_hours || 0).toFixed(2), Number(l.overtime_hours || 0).toFixed(2), Number(l.tips || 0).toFixed(2), '0.00', 'Hourly'];
+    });
+  } else if (provider === 'adp') {
+    headers = ['Employee ID', 'First Name', 'Last Name', 'Reg Hours', 'O/T Hours', 'Tips'];
+    rows = lines.map(l => {
+      const fullName = staffById[l.staff_id]?.name || l.staff_name || '';
+      const { first, last } = splitName(fullName);
+      return [l.staff_id || '', first, last, Number(l.regular_hours || 0).toFixed(2), Number(l.overtime_hours || 0).toFixed(2), Number(l.tips || 0).toFixed(2)];
+    });
+  } else if (provider === 'paychex') {
+    headers = ['Employee Number', 'Name', 'Regular Hours', 'Overtime Hours', 'Tip Income'];
+    rows = lines.map(l => {
+      const fullName = staffById[l.staff_id]?.name || l.staff_name || '';
+      return [l.staff_id || '', fullName, Number(l.regular_hours || 0).toFixed(2), Number(l.overtime_hours || 0).toFixed(2), Number(l.tips || 0).toFixed(2)];
+    });
+  } else {
+    // generic_csv — all internal columns
+    headers = ['staff_id', 'staff_name', 'regular_hours', 'overtime_hours', 'hourly_rate', 'regular_pay', 'overtime_pay', 'tips', 'gross_pay'];
+    rows = lines.map(l => {
+      const name = staffById[l.staff_id]?.name || l.staff_name || '';
+      return [l.staff_id || '', name,
+        Number(l.regular_hours || 0).toFixed(2),
+        Number(l.overtime_hours || 0).toFixed(2),
+        Number(l.hourly_rate || 0).toFixed(2),
+        Number(l.regular_pay || 0).toFixed(2),
+        Number(l.overtime_pay || 0).toFixed(2),
+        Number(l.tips || 0).toFixed(2),
+        Number(l.gross_pay || 0).toFixed(2)];
+    });
+  }
+  const csv = [headers.map(escapeCsv).join(','), ...rows.map(r => r.map(escapeCsv).join(','))].join('\n');
+  return csv;
+}
+
+// =========== Wire all triple-release events ===========
+function wireTripleReleaseEvents() {
+  // ----- Inventory sub-seg + category filter -----
+  document.querySelectorAll('#inv-sub-seg .sub-seg-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const sub = btn.dataset.invSub;
+      state.invSub = sub;
+      document.querySelectorAll('#inv-sub-seg .sub-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.inv-pane').forEach(p => p.hidden = p.dataset.invPane !== sub);
+      if (sub === 'bar') {
+        await renderBarDashboard();
+      }
+    });
+  });
+  document.querySelectorAll('#inv-cat-filter .cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.invCat = btn.dataset.cat;
+      document.querySelectorAll('#inv-cat-filter .cat-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderInventory();
+    });
+  });
+
+  // ----- Bar pour modal -----
+  document.getElementById('add-bar-pour')?.addEventListener('click', () => {
+    const sel = document.getElementById('bp-item');
+    if (sel) {
+      const barItems = (state.inv || []).filter(i => ['beer','wine','spirits','n/a_beverage'].includes(i.category || ''));
+      sel.innerHTML = barItems.length
+        ? barItems.map(i => `<option value="${i.id}">${escapeHtml(i.item)}</option>`).join('')
+        : '<option value="">No bar items yet</option>';
+    }
+    _show('bar-pour-modal');
+  });
+  document.getElementById('bp-cancel')?.addEventListener('click', () => _hide('bar-pour-modal'));
+  document.getElementById('bp-save')?.addEventListener('click', async () => {
+    const itemId = _val('bp-item');
+    const oz = _num('bp-oz');
+    if (!itemId || !oz || oz <= 0) { alert('Pick a bottle and enter ounces.'); return; }
+    const btn = document.getElementById('bp-save');
+    btn.disabled = true;
+    try {
+      await barPoursRepo.logPour({
+        inventoryItemId: itemId,
+        pouredOz: oz,
+        reason: _val('bp-reason') || 'spill',
+        notes: _val('bp-notes').trim() || null,
+      });
+      await renderBarDashboard();
+      _hide('bar-pour-modal');
+      _clear(['bp-oz', 'bp-notes']);
+    } catch (e) { console.error(e); alert('Log pour failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  // ----- Bills sub-seg -----
+  document.querySelectorAll('#bills-sub-seg .sub-seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.billsSub;
+      state.billsSub = sub;
+      document.querySelectorAll('#bills-sub-seg .sub-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.bills-pane').forEach(p => p.hidden = p.dataset.billsPane !== sub);
+    });
+  });
+  // Bills filter status
+  document.getElementById('bills-filter-status')?.addEventListener('change', async (e) => {
+    state.billsFilter = e.target.value || '';
+    await refreshBills();
+    renderBillsTable();
+  });
+
+  // ----- Vendor modal -----
+  document.getElementById('add-vendor')?.addEventListener('click', () => _show('vendor-modal'));
+  document.getElementById('v-cancel')?.addEventListener('click', () => _hide('vendor-modal'));
+  document.getElementById('v-save')?.addEventListener('click', async () => {
+    const name = _val('v-name').trim();
+    if (!name) { alert('Vendor name required'); return; }
+    const btn = document.getElementById('v-save'); btn.disabled = true;
+    try {
+      await vendorsRepo.createVendor({
+        name,
+        email: _val('v-email').trim() || null,
+        phone: _val('v-phone').trim() || null,
+        address: _val('v-address').trim() || null,
+        defaultPaymentMethod: _val('v-method') || 'check',
+        defaultTermsDays: _num('v-terms') || 30,
+        accountNumber: _val('v-account').trim() || null,
+        notes: _val('v-notes').trim() || null,
+      });
+      await refreshVendors();
+      renderVendorsTable();
+      _hide('vendor-modal');
+      _clear(['v-name','v-email','v-phone','v-address','v-account','v-notes']);
+    } catch (e) { console.error(e); alert('Save vendor failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  // ----- Bill modal -----
+  document.getElementById('add-bill')?.addEventListener('click', async () => {
+    // Populate vendor select + invoice select
+    const vSel = document.getElementById('b-vendor');
+    if (vSel) {
+      vSel.innerHTML = (state.vendors || []).length
+        ? state.vendors.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join('')
+        : '<option value="">No vendors yet — add one first</option>';
+    }
+    const iSel = document.getElementById('b-invoice');
+    if (iSel) {
+      iSel.innerHTML = '<option value="">— None —</option>' +
+        ((state.invoices || []).map(inv => `<option value="${inv.id}">${escapeHtml(inv.vendor || '')} · ${escapeHtml(inv.bill_number || '')}</option>`).join(''));
+    }
+    document.getElementById('b-date').value = todayISO();
+    document.getElementById('b-due').value = addDays(todayISO(), 30);
+    _show('bill-modal');
+  });
+  document.getElementById('b-cancel')?.addEventListener('click', () => _hide('bill-modal'));
+  document.getElementById('b-save')?.addEventListener('click', async () => {
+    const vendorId = _val('b-vendor');
+    if (!vendorId) { alert('Pick a vendor.'); return; }
+    const amount = _num('b-amount');
+    if (!amount || amount <= 0) { alert('Enter an amount.'); return; }
+    const btn = document.getElementById('b-save'); btn.disabled = true;
+    try {
+      await billsRepo.createBill({
+        vendorId,
+        invoiceId: _val('b-invoice') || null,
+        billNumber: _val('b-number').trim() || null,
+        billDate: _val('b-date') || todayISO(),
+        dueDate: _val('b-due') || addDays(todayISO(), 30),
+        amount,
+        notes: _val('b-notes').trim() || null,
+      });
+      await refreshBills();
+      renderBillsTable();
+      renderBillsAging();
+      _hide('bill-modal');
+      _clear(['b-number','b-amount','b-notes']);
+    } catch (e) { console.error(e); alert('Save bill failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  // ----- Payment modal -----
+  document.getElementById('pay-cancel')?.addEventListener('click', () => _hide('payment-modal'));
+  document.getElementById('pay-save')?.addEventListener('click', async () => {
+    const billId = document.getElementById('pay-bill-id').value;
+    const amount = _num('pay-amount');
+    const method = _val('pay-method');
+    const date = _val('pay-date') || todayISO();
+    const ref = _val('pay-ref').trim() || null;
+    if (!billId || !amount || amount <= 0) { alert('Enter an amount.'); return; }
+    const btn = document.getElementById('pay-save'); btn.disabled = true;
+    try {
+      await billsRepo.recordPayment(billId, { amount, method, paymentDate: date, reference: ref });
+      await refreshBills();
+      renderBillsTable();
+      renderBillsAging();
+      _hide('payment-modal');
+      _clear(['pay-amount','pay-ref']);
+    } catch (e) { console.error(e); alert('Record payment failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  // ----- Payroll sub-seg -----
+  document.querySelectorAll('#payroll-sub-seg .sub-seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchPayrollSub(btn.dataset.payrollSub));
+  });
+
+  // ----- Pay period modal -----
+  document.getElementById('add-pay-period')?.addEventListener('click', () => {
+    const today = todayISO();
+    document.getElementById('pp-start').value = addDays(today, -14);
+    document.getElementById('pp-end').value = addDays(today, -1);
+    document.getElementById('pp-paydate').value = addDays(today, 5);
+    _show('pay-period-modal');
+  });
+  document.getElementById('pp-cancel')?.addEventListener('click', () => _hide('pay-period-modal'));
+  document.getElementById('pp-save')?.addEventListener('click', async () => {
+    const start = _val('pp-start');
+    const end = _val('pp-end');
+    if (!start || !end) { alert('Pick start and end dates.'); return; }
+    const btn = document.getElementById('pp-save'); btn.disabled = true;
+    try {
+      await payrollRepo.createPayPeriod({
+        periodStart: start,
+        periodEnd: end,
+        payDate: _val('pp-paydate') || null,
+        notes: _val('pp-notes').trim() || null,
+      });
+      await renderPayroll();
+      _hide('pay-period-modal');
+      _clear(['pp-notes']);
+    } catch (e) { console.error(e); alert('Create period failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  // ----- Tips entry add -----
+  document.getElementById('tip-period')?.addEventListener('change', async (e) => {
+    state.selectedPayPeriod = e.target.value || state.selectedPayPeriod;
+    if (e.target.value) await loadTipEntries(e.target.value);
+  });
+  document.getElementById('add-tip-entry')?.addEventListener('click', async () => {
+    const periodId = _val('tip-period') || state.selectedPayPeriod;
+    const staffId = _val('tip-staff');
+    const amount = _num('tip-amount');
+    if (!periodId) { alert('Pick a pay period.'); return; }
+    if (!staffId) { alert('Pick a staff member.'); return; }
+    if (!amount || amount <= 0) { alert('Enter a tip amount.'); return; }
+    const btn = document.getElementById('add-tip-entry'); btn.disabled = true;
+    try {
+      await tipPoolRepo.addEntry({
+        payPeriodId: periodId,
+        staffId,
+        tipAmount: amount,
+        tipType: _val('tip-type') || 'declared',
+      });
+      await loadTipEntries(periodId);
+      _clear(['tip-amount']);
+    } catch (e) { console.error(e); alert('Add tip failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
+
+  // ----- Export CSV -----
+  document.getElementById('export-period')?.addEventListener('change', (e) => {
+    state.selectedPayPeriod = e.target.value || state.selectedPayPeriod;
+  });
+  document.getElementById('export-payroll-csv')?.addEventListener('click', async () => {
+    const periodId = _val('export-period') || state.selectedPayPeriod;
+    const provider = _val('export-provider') || 'gusto';
+    if (!periodId) { alert('Pick a pay period.'); return; }
+    const btn = document.getElementById('export-payroll-csv'); btn.disabled = true;
+    try {
+      const run = await payrollRepo.getRunForPeriod(periodId);
+      if (!run) { alert('Generate the run for this period first.'); return; }
+      const lines = await payrollRepo.listRunLines(run.id);
+      if (!lines || !lines.length) { alert('No lines on this run.'); return; }
+      const csv = buildPayrollCsv(provider, lines);
+      // Preview
+      const pre = document.getElementById('export-preview');
+      if (pre) { pre.hidden = false; pre.textContent = csv; }
+      // Download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payroll-${provider}-${periodId.slice(0,8)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // Mark exported on the period
+      try { await payrollRepo.markExported(periodId, provider); await renderPayroll(); } catch (e) { /* non-fatal */ }
+    } catch (e) { console.error(e); alert('Export failed: ' + e.message); }
+    finally { btn.disabled = false; }
+  });
 }

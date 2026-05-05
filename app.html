@@ -50,11 +50,13 @@
         <button class="nav-item" data-view="sales"><span class="dot"></span>Sales &amp; Menu</button>
         <button class="nav-item" data-view="inventory"><span class="dot"></span>Inventory</button>
         <button class="nav-item" data-view="invoices"><span class="dot"></span>Invoices &amp; AP <span class="nav-badge" id="invoices-badge"></span></button>
+        <button class="nav-item" data-view="bills"><span class="dot"></span>Bill Pay <span class="nav-badge">AP</span></button>
 
         <div class="nav-section">People</div>
         <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
         <button class="nav-item" data-view="scheduler"><span class="dot"></span>Shift Scheduler</button>
         <button class="nav-item" data-view="clock"><span class="dot"></span>Time Clock <span class="nav-badge">Tablet</span></button>
+        <button class="nav-item" data-view="payroll"><span class="dot"></span>Payroll <span class="nav-badge">CSV</span></button>
 
         <div class="nav-section">Compliance</div>
         <button class="nav-item" data-view="tasks"><span class="dot"></span>Task Assignments <span class="nav-badge" id="tasks-badge"></span></button>
@@ -282,28 +284,76 @@
 
       <!-- INVENTORY -->
       <section class="view" data-view="inventory">
-        <div class="card">
-          <div class="card-head">
-            <h3>Inventory &amp; Par Levels</h3>
-            <span class="muted">Red = below par</span>
-          </div>
-          <button class="btn" id="add-inv-item" data-write-action>+ Add inventory item</button>
-          <table class="tbl">
-            <thead><tr><th>Item</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th><th></th></tr></thead>
-            <tbody id="inv-body"></tbody>
-          </table>
+        <div class="sub-seg" id="inv-sub-seg" role="tablist" aria-label="Inventory section">
+          <button class="sub-seg-btn active" data-inv-sub="items" role="tab">All inventory</button>
+          <button class="sub-seg-btn" data-inv-sub="bar" role="tab">Bar &amp; liquor</button>
         </div>
 
-        <div class="row-2">
+        <div class="inv-pane" data-inv-pane="items">
           <div class="card">
-            <div class="card-head"><h3>Waste Log</h3><span class="muted">Click to add</span></div>
-            <button class="btn" id="add-waste">+ Log waste</button>
-            <table class="tbl compact"><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Reason</th><th>$ Loss</th></tr></thead><tbody id="waste-body"></tbody></table>
-            <div class="kpi-foot">Waste (30D): <strong id="waste-total">$0</strong> · Target &lt; 2% of food cost</div>
+            <div class="card-head">
+              <h3>Inventory &amp; Par Levels</h3>
+              <span class="muted">Red = below par</span>
+            </div>
+            <div class="inv-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+              <button class="btn" id="add-inv-item" data-write-action>+ Add inventory item</button>
+              <div class="inv-cat-filter" id="inv-cat-filter" role="tablist" aria-label="Category filter">
+                <button class="cat-btn active" data-cat="all">All</button>
+                <button class="cat-btn" data-cat="food">Food</button>
+                <button class="cat-btn" data-cat="beer">Beer</button>
+                <button class="cat-btn" data-cat="wine">Wine</button>
+                <button class="cat-btn" data-cat="spirits">Spirits</button>
+                <button class="cat-btn" data-cat="n/a_beverage">N/A</button>
+                <button class="cat-btn" data-cat="other">Other</button>
+              </div>
+            </div>
+            <table class="tbl">
+              <thead><tr><th>Item</th><th>Cat</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th><th></th></tr></thead>
+              <tbody id="inv-body"></tbody>
+            </table>
+          </div>
+
+          <div class="row-2">
+            <div class="card">
+              <div class="card-head"><h3>Waste Log</h3><span class="muted">Click to add</span></div>
+              <button class="btn" id="add-waste">+ Log waste</button>
+              <table class="tbl compact"><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Reason</th><th>$ Loss</th></tr></thead><tbody id="waste-body"></tbody></table>
+              <div class="kpi-foot">Waste (30D): <strong id="waste-total">$0</strong> · Target &lt; 2% of food cost</div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Vendor Spend (30D)</h3></div>
+              <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="inv-pane" data-inv-pane="bar" hidden>
+          <div class="kpi-row" id="bar-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
+            <div class="kpi"><div class="kpi-label">Bottles on hand</div><div class="kpi-value" id="bar-kpi-bottles">0</div><div class="kpi-foot">Across beer/wine/spirits</div></div>
+            <div class="kpi"><div class="kpi-label">Inventory value</div><div class="kpi-value" id="bar-kpi-value">$0</div><div class="kpi-foot">Bar items only</div></div>
+            <div class="kpi"><div class="kpi-label">Below par</div><div class="kpi-value" id="bar-kpi-reorder">0</div><div class="kpi-foot">Reorder soon</div></div>
+            <div class="kpi"><div class="kpi-label">Pours (7D)</div><div class="kpi-value" id="bar-kpi-pours">0</div><div class="kpi-foot">Spill/comp/training</div></div>
           </div>
           <div class="card">
-            <div class="card-head"><h3>Vendor Spend (30D)</h3></div>
-            <div class="chart-wrap"><canvas id="chart-vendor"></canvas></div>
+            <div class="card-head">
+              <h3>Bar inventory by category</h3>
+              <span class="muted">Bottles &middot; oz on hand &middot; days of supply</span>
+            </div>
+            <table class="tbl">
+              <thead><tr><th>Item</th><th>Cat</th><th>Bottle</th><th>On hand (btl)</th><th>On hand (oz)</th><th>Par</th><th>Days supply</th><th>Status</th></tr></thead>
+              <tbody id="bar-status-body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h3>Pour log</h3>
+              <span class="muted">Off-menu liquid (spill, comp, training, tasting)</span>
+            </div>
+            <button class="btn" id="add-bar-pour" data-write-action>+ Log pour</button>
+            <table class="tbl compact">
+              <thead><tr><th>When</th><th>Item</th><th>Oz</th><th>Reason</th><th>Notes</th></tr></thead>
+              <tbody id="bar-pours-body"></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -1085,6 +1135,151 @@
         </aside>
       </section>
 
+      <!-- BILLS / AP -->
+      <section class="view" data-view="bills">
+        <div class="sub-seg" id="bills-sub-seg" role="tablist" aria-label="Bill Pay sub-section">
+          <button class="sub-seg-btn active" data-bills-sub="bills" role="tab">Bills</button>
+          <button class="sub-seg-btn" data-bills-sub="vendors" role="tab">Vendors</button>
+          <button class="sub-seg-btn" data-bills-sub="aging" role="tab">Aging dashboard</button>
+        </div>
+
+        <div class="bills-pane" data-bills-pane="bills">
+          <div class="card" style="padding:0">
+            <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;flex-wrap:wrap;gap:8px">
+              <div>
+                <h3 style="margin:0">Open bills</h3>
+                <p class="sub" style="margin:4px 0 0">Approve, schedule, and record payments. ACH/Plaid integration deferred — workflow + audit trail only this release.</p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select id="bills-filter-status">
+                  <option value="">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="partial">Partial</option>
+                  <option value="paid">Paid</option>
+                  <option value="void">Void</option>
+                </select>
+                <button class="btn" id="add-bill" data-write-action>+ New bill</button>
+              </div>
+            </div>
+            <table class="data-table" style="width:100%">
+              <thead><tr><th>Vendor</th><th>Bill #</th><th>Bill date</th><th>Due</th><th style="text-align:right">Amount</th><th style="text-align:right">Balance</th><th>Status</th><th>Approval</th><th></th></tr></thead>
+              <tbody id="bills-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bills-pane" data-bills-pane="vendors" hidden>
+          <div class="card">
+            <div class="card-head" style="display:flex;justify-content:space-between">
+              <h3 style="margin:0">Vendors</h3>
+              <button class="btn" id="add-vendor" data-write-action>+ New vendor</button>
+            </div>
+            <table class="tbl">
+              <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Default method</th><th>Terms</th><th></th></tr></thead>
+              <tbody id="vendors-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bills-pane" data-bills-pane="aging" hidden>
+          <div class="kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
+            <div class="kpi"><div class="kpi-label">Total open AP</div><div class="kpi-value" id="ap-kpi-open">$0</div><div class="kpi-foot">Unpaid balances</div></div>
+            <div class="kpi"><div class="kpi-label">Overdue</div><div class="kpi-value" id="ap-kpi-overdue">$0</div><div class="kpi-foot">Past due date</div></div>
+            <div class="kpi"><div class="kpi-label">Due this week</div><div class="kpi-value" id="ap-kpi-week">$0</div><div class="kpi-foot">Next 7 days</div></div>
+            <div class="kpi"><div class="kpi-label">Paid this month</div><div class="kpi-value" id="ap-kpi-paid">$0</div><div class="kpi-foot">MTD payments</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Aging buckets</h3><span class="muted">By days overdue</span></div>
+            <div class="aging-bars" id="ap-aging-bars"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAYROLL -->
+      <section class="view" data-view="payroll">
+        <div class="sub-seg" id="payroll-sub-seg" role="tablist" aria-label="Payroll sub-section">
+          <button class="sub-seg-btn active" data-payroll-sub="periods" role="tab">Pay periods</button>
+          <button class="sub-seg-btn" data-payroll-sub="run" role="tab">Run detail</button>
+          <button class="sub-seg-btn" data-payroll-sub="tips" role="tab">Tips</button>
+          <button class="sub-seg-btn" data-payroll-sub="export" role="tab">Export CSV</button>
+        </div>
+
+        <div class="payroll-pane" data-payroll-pane="periods">
+          <div class="card" style="padding:0">
+            <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+              <div>
+                <h3 style="margin:0">Pay periods</h3>
+                <p class="sub" style="margin:4px 0 0">Create a period, generate the run from time clock + tips, then export to Gusto / ADP / Paychex.</p>
+              </div>
+              <button class="btn" id="add-pay-period" data-write-action>+ New pay period</button>
+            </div>
+            <table class="data-table" style="width:100%">
+              <thead><tr><th>Start</th><th>End</th><th>Pay date</th><th>Status</th><th>Provider</th><th style="text-align:right">Total gross</th><th></th></tr></thead>
+              <tbody id="payroll-periods-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="payroll-pane" data-payroll-pane="run" hidden>
+          <div id="payroll-run-empty" class="muted" style="padding:18px">Pick a pay period and click <strong>Generate run</strong> to compute hours, OT, and gross pay.</div>
+          <div id="payroll-run-detail" hidden>
+            <div class="kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
+              <div class="kpi"><div class="kpi-label">Total hours</div><div class="kpi-value" id="pr-kpi-hours">0</div></div>
+              <div class="kpi"><div class="kpi-label">Regular pay</div><div class="kpi-value" id="pr-kpi-reg">$0</div></div>
+              <div class="kpi"><div class="kpi-label">OT pay</div><div class="kpi-value" id="pr-kpi-ot">$0</div></div>
+              <div class="kpi"><div class="kpi-label">Total gross</div><div class="kpi-value" id="pr-kpi-gross">$0</div></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3 id="pr-title">Run detail</h3><span class="muted" id="pr-sub"></span></div>
+              <table class="tbl">
+                <thead><tr><th>Staff</th><th style="text-align:right">Reg hrs</th><th style="text-align:right">OT hrs</th><th style="text-align:right">Rate</th><th style="text-align:right">Reg $</th><th style="text-align:right">OT $</th><th style="text-align:right">Tips</th><th style="text-align:right">Gross $</th></tr></thead>
+                <tbody id="payroll-run-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="payroll-pane" data-payroll-pane="tips" hidden>
+          <div class="card">
+            <div class="card-head"><h3>Tip entries</h3><span class="muted">Pick a pay period above</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+              <select id="tip-period"></select>
+              <select id="tip-staff"></select>
+              <input id="tip-amount" type="number" step="0.01" placeholder="Tip $" />
+              <select id="tip-type"><option value="declared">Declared</option><option value="pooled">Pooled</option><option value="credit_card_auto">CC auto</option></select>
+              <button class="btn" id="add-tip-entry" data-write-action>+ Add tip</button>
+            </div>
+            <table class="tbl compact">
+              <thead><tr><th>When</th><th>Staff</th><th>Type</th><th style="text-align:right">Amount</th><th></th></tr></thead>
+              <tbody id="tip-entries-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="payroll-pane" data-payroll-pane="export" hidden>
+          <div class="card">
+            <div class="card-head"><h3>Export pay run as CSV</h3><span class="muted">Pick a generated run + provider</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+              <select id="export-period"></select>
+              <select id="export-provider">
+                <option value="gusto">Gusto</option>
+                <option value="adp">ADP RUN</option>
+                <option value="paychex">Paychex Flex</option>
+                <option value="generic_csv">Generic CSV (all columns)</option>
+              </select>
+              <button class="btn" id="export-payroll-csv" data-write-action>Download CSV</button>
+            </div>
+            <p class="muted" style="font-size:12px;line-height:1.5">
+              <strong>Note:</strong> CSV export is a best-effort handoff for review before importing.
+              Provider APIs (Gusto / ADP RUN / Paychex Flex) are deferred to a future release — we don’t push directly to your provider.
+              State-specific overtime rules (e.g. CA daily OT) are not applied; we use US FLSA defaults (&gt;40 hrs/wk = 1.5x).
+            </p>
+            <pre id="export-preview" class="export-preview" hidden></pre>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <!-- Modal: add/edit location -->
@@ -1151,14 +1346,46 @@
 
     <!-- Modal: add inventory item -->
     <div class="modal" id="inv-modal" hidden>
-      <div class="modal-card">
+      <div class="modal-card" style="max-width:560px">
         <h3 id="inv-modal-title">Add inventory item</h3>
         <label>Name <input id="ii-name" type="text" placeholder="Mozzarella (block)" /></label>
-        <label>Unit <input id="ii-unit" type="text" placeholder="lb" /></label>
-        <label>On hand <input id="ii-onhand" type="number" step="0.1" placeholder="40" /></label>
-        <label>Par <input id="ii-par" type="number" step="0.1" placeholder="60" /></label>
-        <label>Cost / unit ($) <input id="ii-cost" type="number" step="0.01" placeholder="3.95" /></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Category
+            <select id="ii-category">
+              <option value="food">Food</option>
+              <option value="beer">Beer</option>
+              <option value="wine">Wine</option>
+              <option value="spirits">Spirits</option>
+              <option value="n/a_beverage">N/A beverage</option>
+              <option value="dry_goods">Dry goods</option>
+              <option value="smallwares">Smallwares</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Unit <input id="ii-unit" type="text" placeholder="lb" /></label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <label>On hand <input id="ii-onhand" type="number" step="0.1" placeholder="40" /></label>
+          <label>Par <input id="ii-par" type="number" step="0.1" placeholder="60" /></label>
+          <label>Cost / unit ($) <input id="ii-cost" type="number" step="0.01" placeholder="3.95" /></label>
+        </div>
         <label>Vendor <input id="ii-vendor" type="text" placeholder="Sysco" /></label>
+
+        <div id="ii-bar-fields" hidden>
+          <hr style="border:none;border-top:1px solid var(--border,#e8dcc0);margin:14px 0 10px" />
+          <div class="muted" style="font-size:12px;margin-bottom:8px">Bar / liquor fields</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <label>Bottle size (mL) <input id="ii-bottle-ml" type="number" step="1" placeholder="750" /></label>
+            <label>Usable oz / bottle <input id="ii-yield-oz" type="number" step="0.1" placeholder="25.4" /></label>
+            <label>ABV % <input id="ii-abv" type="number" step="0.1" placeholder="40" /></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <label>Vendor SKU <input id="ii-vendor-sku" type="text" placeholder="SY-12345" /></label>
+            <label>UPC <input id="ii-upc" type="text" placeholder="0 12345 67890 1" /></label>
+          </div>
+          <label>Bin location <input id="ii-bin" type="text" placeholder="Back bar shelf 3" /></label>
+        </div>
+
         <div class="modal-actions">
           <button class="ghost-btn" id="ii-cancel">Cancel</button>
           <button class="btn" id="ii-save">Save</button>
@@ -1193,6 +1420,9 @@
         <label>Name <input id="ig-name" type="text" placeholder="Mozzarella" /></label>
         <label>Quantity <input id="ig-qty" type="number" step="0.001" placeholder="0.25" /></label>
         <label>Unit <input id="ig-unit" type="text" placeholder="lb" /></label>
+        <label>Pour (fl oz) <input id="ig-pour-oz" type="number" step="0.1" placeholder="1.5 (bar items)" />
+          <span class="muted" style="font-size:11px;display:block;margin-top:2px">Optional. If set, takes precedence over qty/unit when computing depletion against bottle inventory.</span>
+        </label>
         <label>Unit cost ($) <input id="ig-cost" type="number" step="0.01" placeholder="3.95" /></label>
         <div class="modal-actions">
           <button class="ghost-btn" id="ig-cancel">Cancel</button>
@@ -1301,6 +1531,133 @@
         <div class="modal-actions">
           <button class="ghost-btn" id="cle-cancel">Cancel</button>
           <button class="btn" id="cle-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: add vendor -->
+    <div class="modal" id="vendor-modal" hidden>
+      <div class="modal-card" style="max-width:560px">
+        <h3 id="vendor-modal-title">Add vendor</h3>
+        <input type="hidden" id="v-id" />
+        <label>Name <input id="v-name" type="text" placeholder="Sysco" /></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Email <input id="v-email" type="email" /></label>
+          <label>Phone <input id="v-phone" type="text" /></label>
+        </div>
+        <label>Address <input id="v-address" type="text" /></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Default payment method
+            <select id="v-method">
+              <option value="check">Check</option>
+              <option value="ach">ACH</option>
+              <option value="wire">Wire</option>
+              <option value="card">Card</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Net terms (days) <input id="v-terms" type="number" step="1" value="30" /></label>
+        </div>
+        <label>Account # <input id="v-account" type="text" placeholder="Their account # for us" /></label>
+        <label>Notes <input id="v-notes" type="text" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="v-cancel">Cancel</button>
+          <button class="btn" id="v-save">Save vendor</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: new bill -->
+    <div class="modal" id="bill-modal" hidden>
+      <div class="modal-card" style="max-width:580px">
+        <h3 id="bill-modal-title">New bill</h3>
+        <label>Vendor <select id="b-vendor"></select></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Bill # <input id="b-number" type="text" placeholder="INV-1024" /></label>
+          <label>Amount <input id="b-amount" type="number" step="0.01" placeholder="1500.00" /></label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Bill date <input id="b-date" type="date" /></label>
+          <label>Due date <input id="b-due" type="date" /></label>
+        </div>
+        <label>Link to invoice (optional)
+          <select id="b-invoice"><option value="">— None —</option></select>
+        </label>
+        <label>Notes <input id="b-notes" type="text" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="b-cancel">Cancel</button>
+          <button class="btn" id="b-save">Save bill</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: record payment -->
+    <div class="modal" id="payment-modal" hidden>
+      <div class="modal-card" style="max-width:480px">
+        <h3>Record payment</h3>
+        <input type="hidden" id="pay-bill-id" />
+        <div class="muted" id="pay-bill-summary" style="font-size:12px;margin-bottom:8px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Amount <input id="pay-amount" type="number" step="0.01" /></label>
+          <label>Date <input id="pay-date" type="date" /></label>
+        </div>
+        <label>Method
+          <select id="pay-method">
+            <option value="check">Check</option>
+            <option value="ach">ACH</option>
+            <option value="wire">Wire</option>
+            <option value="card">Card</option>
+            <option value="cash">Cash</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Reference (check #, ACH trace) <input id="pay-ref" type="text" /></label>
+        <p class="muted" style="font-size:11px;line-height:1.4">This logs the payment in your audit trail. ACH/wire money movement is deferred to a future release — nothing is sent automatically.</p>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="pay-cancel">Cancel</button>
+          <button class="btn" id="pay-save">Record</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: new pay period -->
+    <div class="modal" id="pay-period-modal" hidden>
+      <div class="modal-card" style="max-width:480px">
+        <h3>New pay period</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Period start <input id="pp-start" type="date" /></label>
+          <label>Period end <input id="pp-end" type="date" /></label>
+        </div>
+        <label>Pay date <input id="pp-paydate" type="date" /></label>
+        <label>Notes <input id="pp-notes" type="text" placeholder="Optional" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="pp-cancel">Cancel</button>
+          <button class="btn" id="pp-save">Create period</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: log bar pour -->
+    <div class="modal" id="bar-pour-modal" hidden>
+      <div class="modal-card" style="max-width:460px">
+        <h3>Log bar pour</h3>
+        <label>Bottle <select id="bp-item"></select></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Pour (fl oz) <input id="bp-oz" type="number" step="0.1" placeholder="1.5" /></label>
+          <label>Reason
+            <select id="bp-reason">
+              <option value="spill">Spill</option>
+              <option value="comp">Comp</option>
+              <option value="training">Training</option>
+              <option value="tasting">Tasting</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+        <label>Notes <input id="bp-notes" type="text" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="bp-cancel">Cancel</button>
+          <button class="btn" id="bp-save">Log pour</button>
         </div>
       </div>
     </div>

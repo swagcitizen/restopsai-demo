@@ -8,7 +8,7 @@
 //
 // On every release, bump CACHE_VERSION below.
 
-const CACHE_VERSION = 'stationly-v5';
+const CACHE_VERSION = 'stationly-v6';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -34,6 +34,11 @@ const PRECACHE_URLS = [
   '/transfersRepo.js',
   '/countsRepo.js',
   '/varianceRepo.js',
+  '/payrollRepo.js',
+  '/tipPoolRepo.js',
+  '/vendorsRepo.js',
+  '/billsRepo.js',
+  '/barPoursRepo.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',

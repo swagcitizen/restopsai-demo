@@ -2323,3 +2323,145 @@ body.app-readonly .readonly-overlay-msg {
   font-size: 22px; cursor: pointer; color: var(--text-muted, #78716c);
 }
 .icon-btn:hover { color: var(--text, #1c1a15); border-color: var(--border, #e8dcc0); }
+
+/* =========================================================
+   TRIPLE RELEASE: Payroll, Bill Pay, Bar Inventory
+   ========================================================= */
+
+/* Sub-segmented control (used by Inventory, Bills, Payroll) */
+.sub-seg {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: 14px;
+}
+.sub-seg-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font: 500 12px var(--font-body);
+  padding: 7px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.sub-seg-btn:hover { color: var(--text); }
+.sub-seg-btn.active {
+  background: var(--accent);
+  color: #1a120a;
+}
+
+/* Inventory category filter — outline buttons */
+.inv-cat-filter {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cat-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--text-muted);
+  font: 500 12px var(--font-body);
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.cat-btn:hover { color: var(--text); border-color: var(--accent); }
+.cat-btn.active {
+  background: rgba(232,163,61,.12);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Category badges (per inventory row) */
+.cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--line-2);
+  color: var(--text-muted);
+}
+.cat-badge.cat-food     { background: rgba(111,191,115,.12); color: var(--success, #6fbf73); border-color: rgba(111,191,115,.3); }
+.cat-badge.cat-beer     { background: rgba(240,180,41,.12);  color: var(--warn);    border-color: rgba(240,180,41,.3); }
+.cat-badge.cat-wine     { background: rgba(201,48,44,.14);   color: var(--accent-2); border-color: rgba(201,48,44,.3); }
+.cat-badge.cat-spirits  { background: rgba(232,163,61,.14);  color: var(--accent);  border-color: rgba(232,163,61,.35); }
+.cat-badge.cat-n-a_beverage { background: rgba(122,113,95,.18); color: var(--text-muted); border-color: var(--line-2); }
+.cat-badge.cat-dry_goods, .cat-badge.cat-smallwares, .cat-badge.cat-other { background: rgba(255,255,255,.05); }
+
+/* AP aging buckets */
+.aging-bars { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.aging-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 110px;
+  align-items: center;
+  gap: 12px;
+}
+.aging-label { font-size: 13px; color: var(--text-muted); }
+.aging-track {
+  height: 14px;
+  background: var(--bg-2);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+}
+.aging-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width .25s ease;
+}
+.aging-fill.aging-current { background: var(--success, #6fbf73); }
+.aging-fill.aging-1-30    { background: var(--warn); }
+.aging-fill.aging-31-60   { background: #f08c2e; }
+.aging-fill.aging-61-90   { background: var(--accent-2); }
+.aging-fill.aging-90      { background: var(--error); }
+.aging-amount {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Payroll OT highlighting */
+tr.ot-row {
+  background: rgba(232,163,61,.06);
+}
+tr.ot-row td {
+  border-top: 1px solid rgba(232,163,61,.18);
+  border-bottom: 1px solid rgba(232,163,61,.18);
+}
+
+/* Export preview */
+.export-preview {
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  white-space: pre;
+  overflow: auto;
+  max-height: 320px;
+  margin-top: 12px;
+}
+
+/* Small button variants for table actions */
+.btn.small {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--text-muted);
+}
+.btn.ghost:hover { color: var(--text); border-color: var(--accent); }
