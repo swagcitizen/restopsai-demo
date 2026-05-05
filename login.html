@@ -69,10 +69,17 @@
     import { supabase, getSession } from './supabaseClient.js';
     import { disableDemoForSession } from './demoMode.js';
 
-    // Visiting /login.html means the user wants to sign in with real creds —
-    // do NOT auto-sign them in as the demo user. Mark demo as disabled for
-    // this browser session so app.html doesn't auto-promote them either.
-    disableDemoForSession();
+    // ATTACH FORM HANDLER FIRST — synchronously, before any async work — so
+    // a fast click on Sign-in (e.g. in tests) doesn't fall through to the
+    // browser's default GET submit (which would clear the form and reload).
+    const form = document.getElementById('login-form');
+    const errBox = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+
+    function showError(msg) {
+      errBox.textContent = msg;
+      errBox.hidden = false;
+    }
 
     // Decide where to send a signed-in user: platform owners go to /platform.html,
     // everyone else goes to /app.html.
@@ -85,45 +92,59 @@
           .maybeSingle();
         if (data?.is_platform_owner) return './platform.html';
       } catch (_) {}
+      // Check tenant membership: no tenant => onboarding
+      try {
+        const { data: m } = await supabase.from('memberships').select('tenant_id').limit(1);
+        if (!m || m.length === 0) return './onboarding.html';
+      } catch (_) {}
       return './app.html';
     }
-
-    // If a stale demo session is sitting in localStorage, sign it out so the
-    // user can actually see the login form and enter their real credentials.
-    // ?force=1 also forces sign-out for any session.
-    const params = new URLSearchParams(window.location.search);
-    const forceLogin = params.get('force') === '1';
-    const existing = await getSession();
-    if (existing?.user?.email === 'demo@bellavita.app' || forceLogin) {
-      await supabase.auth.signOut();
-    } else if (existing?.user?.id) {
-      // Real signed-in session — forward to the right place.
-      window.location.href = await destinationFor(existing.user.id);
-    }
-
-    const form = document.getElementById('login-form');
-    const errBox = document.getElementById('login-error');
-    const btn = document.getElementById('login-btn');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       errBox.hidden = true;
+      errBox.textContent = '';
       btn.disabled = true;
       btn.textContent = 'Signing in…';
       const fd = new FormData(form);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: fd.get('email'),
-        password: fd.get('password'),
-      });
-      if (error) {
-        errBox.textContent = error.message;
-        errBox.hidden = false;
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: fd.get('email'),
+          password: fd.get('password'),
+        });
+        if (error) {
+          showError(error.message || 'Could not sign in. Check your email and password.');
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+          return;
+        }
+        window.location.href = await destinationFor(data.user.id);
+      } catch (err) {
+        showError(err?.message || 'Network error. Try again.');
         btn.disabled = false;
         btn.textContent = 'Sign in';
-        return;
       }
-      window.location.href = await destinationFor(data.user.id);
     });
+
+    // Visiting /login.html means the user wants to sign in with real creds —
+    // do NOT auto-sign them in as the demo user. Mark demo as disabled for
+    // this browser session so app.html doesn't auto-promote them either.
+    disableDemoForSession();
+
+    // If a stale demo session is sitting in localStorage, sign it out so the
+    // user can actually see the login form and enter their real credentials.
+    // ?force=1 also forces sign-out for any session.
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const forceLogin = params.get('force') === '1';
+      const existing = await getSession();
+      if (existing?.user?.email === 'demo@bellavita.app' || forceLogin) {
+        await supabase.auth.signOut();
+      } else if (existing?.user?.id) {
+        // Real signed-in session — forward to the right place.
+        window.location.href = await destinationFor(existing.user.id);
+      }
+    })();
   </script>
 </body>
 </html>

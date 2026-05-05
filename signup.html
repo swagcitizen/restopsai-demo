@@ -78,12 +78,16 @@
   <script type="module">
     import { supabase, getSession } from './supabaseClient.js';
 
-    const existing = await getSession();
-    if (existing) window.location.href = './app.html';
-
     const form = document.getElementById('signup-form');
     const errBox = document.getElementById('signup-error');
     const btn = document.getElementById('signup-btn');
+
+    // Redirect away if already signed in — but do this AFTER the form handler
+    // is attached so a fast click in tests doesn't trigger the default GET submit.
+    (async () => {
+      const existing = await getSession();
+      if (existing) window.location.href = './onboarding.html';
+    })();
 
     // ---- Real-time field validation ---------------------------------
     const emailInput = document.getElementById('signup-email');
