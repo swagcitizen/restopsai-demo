@@ -205,12 +205,12 @@ async function staleWhileRevalidate(req) {
 }
 
 async function passThroughOrQueue(req) {
-  try {
-    return await fetch(req);
-  } catch (err) {
-    // Network down — the page-level offlineQueue.js already enqueued.
-    return queuedResponse();
-  }
+  // Pass-through. We intentionally do NOT swallow the network error here:
+  // the page-level offlineQueue.js wraps writes in withOffline(), and it
+  // needs the underlying fetch() to reject so it can enqueue the write to
+  // IndexedDB. If we returned a synthetic 202 here, the page would treat
+  // the write as successful and never persist it for later sync.
+  return fetch(req);
 }
 
 // ─── Allow page to ask SW to skip waiting (used by update prompt) ──────────

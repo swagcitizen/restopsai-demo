@@ -1923,13 +1923,14 @@ function bindEvents() {
       name,
       yield: _num("rc-yield") || 1,
       menuPrice: _num("rc-price") || 0,
-      menuItemId: _val("rc-menu-link") || null,
+      linkedMenuItemId: _val("rc-menu-link") || null,
     };
     rcSave.disabled = true; const o = rcSave.textContent; rcSave.textContent = "Saving…";
     try {
-      const created = await dataRepo.addRecipe(payload);
+      const createdId = await dataRepo.addRecipe(payload);
       state.recipes = await dataRepo.fetchRecipes();
-      if (created?.id) state.selectedRecipe = created.id;
+      if (typeof createdId === 'string' && createdId) state.selectedRecipe = createdId;
+      else if (createdId && createdId.id) state.selectedRecipe = createdId.id;
       else if (state.recipes.length) state.selectedRecipe = state.recipes[state.recipes.length - 1].id;
       renderRecipes();
       _hide("recipe-modal");

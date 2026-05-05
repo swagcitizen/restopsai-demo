@@ -340,7 +340,12 @@ export async function updateMenuItem(id, patch) {
   );
 }
 
-export async function addMenuItem({ name, price = 0, cost = 0, category = null }) {
+export async function addMenuItem(input = {}) {
+  // Accept both DB-style and UI-style key names.
+  const name = input.name || '';
+  const price = (input.menuPrice !== undefined ? input.menuPrice : (input.price !== undefined ? input.price : 0));
+  const cost = (input.foodCost !== undefined ? input.foodCost : (input.cost !== undefined ? input.cost : 0));
+  const category = input.category || null;
   const { tenantId } = ctx();
   const id = offline.newId();
   const row = { id, tenant_id: tenantId, name, price, food_cost: cost, category, active: true, sort_order: 999 };
@@ -1060,7 +1065,14 @@ export async function addMenuItemSafe({ name, price = 0, cost = 0, category = nu
 }
 
 // ---- Inventory --------------------------------------------------------------
-export async function addInventoryItem({ name, unit = 'ea', par = 0, on_hand = 0, unit_cost = 0, supplier = null }) {
+export async function addInventoryItem(input = {}) {
+  // Accept both DB-style (snake_case) and UI-style (camelCase) keys.
+  const name = input.name || input.item || '';
+  const unit = input.unit || 'ea';
+  const par = input.par !== undefined ? input.par : 0;
+  const on_hand = (input.onHand !== undefined ? input.onHand : (input.on_hand !== undefined ? input.on_hand : 0));
+  const unit_cost = (input.cost !== undefined ? input.cost : (input.unit_cost !== undefined ? input.unit_cost : 0));
+  const supplier = (input.vendor !== undefined ? input.vendor : (input.supplier !== undefined ? input.supplier : null));
   const tenantId = tenantOrNull();
   const id = offline.newId();
   const row = { id, tenant_id: tenantId, name, unit, par, on_hand, unit_cost, supplier };
@@ -1146,7 +1158,13 @@ export async function deleteRecipe(id) {
   );
 }
 
-export async function addRecipeIngredient(recipeId, { name, qty = 0, unit = '', unitCost = 0, sortOrder = 0 } = {}) {
+export async function addRecipeIngredient(recipeId, input = {}) {
+  // Accept both unitCost (DB-style) and cost (UI-style).
+  const name = input.name || '';
+  const qty = input.qty !== undefined ? input.qty : 0;
+  const unit = input.unit || '';
+  const unitCost = (input.unitCost !== undefined ? input.unitCost : (input.cost !== undefined ? input.cost : 0));
+  const sortOrder = input.sortOrder !== undefined ? input.sortOrder : 0;
   const tenantId = tenantOrNull();
   const id = offline.newId();
   const row = {
