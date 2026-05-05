@@ -600,6 +600,7 @@ function renderMenu() {
       <td><input type="number" value="${m.units}" data-menu="${idx}" data-field="units"/></td>
       <td>${fmtUSD(rev)}</td>
       <td><span class="cls-${cls.key}">${cls.cls}</span></td>
+      <td>${m.id ? `<button class="row-del" data-menu-del="${m.id}" title="Delete">×</button>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -624,6 +625,7 @@ function renderInventory() {
       <td>${fmtUSD2(value)}</td>
       <td>${escapeHtml(i.vendor)}</td>
       <td>${status}</td>
+      <td>${i.id ? `<button class="row-del" data-inv-del="${i.id}" title="Delete">×</button>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1366,31 +1368,42 @@ function renderRecipes() {
 
 function renderRecipeDetail() {
   const r = state.recipes.find(x => x.id === state.selectedRecipe) || state.recipes[0];
-  if (!r) return;
+  if (!r) {
+    const body = document.getElementById("recipe-body");
+    if (body) body.innerHTML = `<p class="muted">No recipes yet — click <strong>+ Add recipe</strong> to create your first plate cost.</p>`;
+    return;
+  }
   document.getElementById("recipe-title").textContent = r.name;
   document.getElementById("recipe-yield").textContent = `${fmtUSD2(r.menuPrice)} menu · yield ${r.yield}`;
   const cost = recipeCost(r);
   const margin = recipeMarginPct(r);
   const fp = recipeFoodPct(r);
+  // Color code per brief: <30% green, 30-35% yellow, >35% red.
+  const fpClass = fp < 30 ? 'good' : fp <= 35 ? 'mid' : 'bad';
   const body = document.getElementById("recipe-body");
   body.innerHTML = `
     <div class="rec-stats">
       <div><span class="muted">Plate cost</span><strong>${fmtUSD2(cost/r.yield)}</strong></div>
       <div><span class="muted">Menu price</span><strong>${fmtUSD2(r.menuPrice)}</strong></div>
-      <div><span class="muted">Food cost %</span><strong class="${fp <= 32 ? 'good' : fp <= 38 ? 'mid' : 'bad'}">${fp.toFixed(1)}%</strong></div>
+      <div><span class="muted">Food cost %</span><strong class="${fpClass}">${fp.toFixed(1)}%</strong></div>
       <div><span class="muted">Gross margin</span><strong>${margin.toFixed(1)}%</strong></div>
     </div>
+    <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap">
+      <button class="btn" id="add-ingredient" data-recipe-id="${r.id}" data-write-action>+ Add ingredient</button>
+      <button class="ghost-btn" id="delete-recipe" data-recipe-id="${r.id}" data-write-action style="color:#c9302c;border-color:#c9302c">Delete recipe</button>
+    </div>
     <table class="tbl compact rec-ing">
-      <thead><tr><th>Ingredient</th><th>Qty</th><th>Unit</th><th>Unit cost</th><th>Ext. cost</th></tr></thead>
+      <thead><tr><th>Ingredient</th><th>Qty</th><th>Unit</th><th>Unit cost</th><th>Ext. cost</th><th></th></tr></thead>
       <tbody>${r.ingredients.map((i, idx) => `
         <tr>
-          <td>${i.item}</td>
+          <td>${escapeHtml(i.item)}</td>
           <td><input type="number" step="0.01" data-rec="${r.id}" data-rec-idx="${idx}" data-rec-field="qty" value="${i.qty}" /></td>
-          <td>${i.unit}</td>
+          <td>${escapeHtml(i.unit)}</td>
           <td><input type="number" step="0.01" data-rec="${r.id}" data-rec-idx="${idx}" data-rec-field="cost" value="${i.cost}" /></td>
           <td class="mono">${fmtUSD2(i.qty * i.cost)}</td>
+          <td>${i.id ? `<button class="row-del" data-ing-del="${i.id}" data-recipe-id="${r.id}" title="Remove">×</button>` : ''}</td>
         </tr>`).join("")}</tbody>
-      <tfoot><tr><td colspan="4" style="text-align:right"><strong>Total batch cost</strong></td><td class="mono"><strong>${fmtUSD2(cost)}</strong></td></tr></tfoot>
+      <tfoot><tr><td colspan="4" style="text-align:right"><strong>Total batch cost</strong></td><td class="mono"><strong>${fmtUSD2(cost)}</strong></td><td></td></tr></tfoot>
     </table>
     <label class="rec-price">Menu price <input type="number" step="0.01" data-rec="${r.id}" data-rec-field="menuPrice" value="${r.menuPrice}" /></label>
   `;
@@ -1823,6 +1836,253 @@ function bindEvents() {
   document.getElementById("reset-data").addEventListener("click", () => {
     if (confirm("Reset all dashboard data to sample values? This will clear your edits.")) {
       state = seed(); renderAll();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Tenant CRUD modals (menu / inventory / recipes / custom tasks)
+  // ---------------------------------------------------------------------------
+  function _show(id) { const el = document.getElementById(id); if (el) el.hidden = false; }
+  function _hide(id) { const el = document.getElementById(id); if (el) el.hidden = true; }
+  function _val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+  function _num(id) { const v = _val(id); return v === '' ? null : (+v || 0); }
+  function _clear(ids) { ids.forEach(id => { const el = document.getElementById(id); if (el) { if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = ''; } }); }
+
+  // Menu item add
+  const addMenuBtn = document.getElementById("add-menu-item");
+  if (addMenuBtn) addMenuBtn.addEventListener("click", () => _show("menu-modal"));
+  const miCancel = document.getElementById("mi-cancel");
+  if (miCancel) miCancel.addEventListener("click", () => _hide("menu-modal"));
+  const miSave = document.getElementById("mi-save");
+  if (miSave) miSave.addEventListener("click", async () => {
+    const name = _val("mi-name").trim();
+    if (!name) { alert("Name required"); return; }
+    const payload = {
+      name,
+      category: _val("mi-cat").trim() || "Other",
+      menuPrice: _num("mi-price") || 0,
+      foodCost: _num("mi-cost") || 0,
+    };
+    miSave.disabled = true; const o = miSave.textContent; miSave.textContent = "Saving…";
+    try {
+      await dataRepo.addMenuItem(payload);
+      state.menu = await dataRepo.fetchMenu();
+      renderMenu();
+      _hide("menu-modal");
+      _clear(["mi-name","mi-cat","mi-price","mi-cost"]);
+    } catch (err) { console.error(err); alert("Could not save menu item: " + err.message); }
+    finally { miSave.disabled = false; miSave.textContent = o; }
+  });
+
+  // Inventory item add
+  const addInvBtn = document.getElementById("add-inv-item");
+  if (addInvBtn) addInvBtn.addEventListener("click", () => _show("inv-modal"));
+  const iiCancel = document.getElementById("ii-cancel");
+  if (iiCancel) iiCancel.addEventListener("click", () => _hide("inv-modal"));
+  const iiSave = document.getElementById("ii-save");
+  if (iiSave) iiSave.addEventListener("click", async () => {
+    const name = _val("ii-name").trim();
+    if (!name) { alert("Name required"); return; }
+    const payload = {
+      name,
+      unit: _val("ii-unit").trim() || "unit",
+      onHand: _num("ii-onhand") || 0,
+      par: _num("ii-par") || 0,
+      cost: _num("ii-cost") || 0,
+      vendor: _val("ii-vendor").trim() || null,
+    };
+    iiSave.disabled = true; const o = iiSave.textContent; iiSave.textContent = "Saving…";
+    try {
+      await dataRepo.addInventoryItem(payload);
+      state.inv = await dataRepo.fetchInventory();
+      renderInventory();
+      _hide("inv-modal");
+      _clear(["ii-name","ii-unit","ii-onhand","ii-par","ii-cost","ii-vendor"]);
+    } catch (err) { console.error(err); alert("Could not save inventory item: " + err.message); }
+    finally { iiSave.disabled = false; iiSave.textContent = o; }
+  });
+
+  // Recipe add
+  const addRecBtn = document.getElementById("add-recipe");
+  if (addRecBtn) addRecBtn.addEventListener("click", () => {
+    // Populate menu link select
+    const sel = document.getElementById("rc-menu-link");
+    if (sel) {
+      sel.innerHTML = '<option value="">— None —</option>' +
+        (state.menu || []).map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+    }
+    _show("recipe-modal");
+  });
+  const rcCancel = document.getElementById("rc-cancel");
+  if (rcCancel) rcCancel.addEventListener("click", () => _hide("recipe-modal"));
+  const rcSave = document.getElementById("rc-save");
+  if (rcSave) rcSave.addEventListener("click", async () => {
+    const name = _val("rc-name").trim();
+    if (!name) { alert("Recipe name required"); return; }
+    const payload = {
+      name,
+      yield: _num("rc-yield") || 1,
+      menuPrice: _num("rc-price") || 0,
+      menuItemId: _val("rc-menu-link") || null,
+    };
+    rcSave.disabled = true; const o = rcSave.textContent; rcSave.textContent = "Saving…";
+    try {
+      const created = await dataRepo.addRecipe(payload);
+      state.recipes = await dataRepo.fetchRecipes();
+      if (created?.id) state.selectedRecipe = created.id;
+      else if (state.recipes.length) state.selectedRecipe = state.recipes[state.recipes.length - 1].id;
+      renderRecipes();
+      _hide("recipe-modal");
+      _clear(["rc-name","rc-price"]);
+      const yEl = document.getElementById("rc-yield"); if (yEl) yEl.value = "1";
+    } catch (err) { console.error(err); alert("Could not save recipe: " + err.message); }
+    finally { rcSave.disabled = false; rcSave.textContent = o; }
+  });
+
+  // Recipe ingredient add — handler delegated since #add-ingredient is rendered dynamically
+  document.addEventListener("click", (e) => {
+    const addIngBtn = e.target.closest("#add-ingredient");
+    if (addIngBtn) {
+      const sel = document.getElementById("ig-pick");
+      if (sel) {
+        sel.innerHTML = '<option value="">— Free text below —</option>' +
+          (state.inv || []).map(i => `<option value="${i.id}" data-name="${(i.name||'').replace(/"/g,'&quot;')}" data-unit="${i.unit||''}" data-cost="${i.cost||0}">${i.name}</option>`).join('');
+      }
+      _clear(["ig-name","ig-qty","ig-unit","ig-cost"]);
+      _show("ing-modal");
+    }
+    const delRecBtn = e.target.closest("#delete-recipe");
+    if (delRecBtn) {
+      const rid = delRecBtn.dataset.recipeId || state.selectedRecipe;
+      if (rid && confirm("Delete this recipe?")) {
+        delRecBtn.disabled = true;
+        dataRepo.deleteRecipe(rid)
+          .then(async () => {
+            state.recipes = await dataRepo.fetchRecipes();
+            state.selectedRecipe = state.recipes[0]?.id || null;
+            renderRecipes();
+          })
+          .catch(err => { console.error(err); alert("Could not delete recipe: " + err.message); delRecBtn.disabled = false; });
+      }
+    }
+  });
+  // Auto-populate ingredient fields when picking from inventory
+  const igPick = document.getElementById("ig-pick");
+  if (igPick) igPick.addEventListener("change", () => {
+    const opt = igPick.selectedOptions[0];
+    if (opt && opt.value) {
+      document.getElementById("ig-name").value = opt.dataset.name || "";
+      document.getElementById("ig-unit").value = opt.dataset.unit || "";
+      document.getElementById("ig-cost").value = opt.dataset.cost || "";
+    }
+  });
+  const igCancel = document.getElementById("ig-cancel");
+  if (igCancel) igCancel.addEventListener("click", () => _hide("ing-modal"));
+  const igSave = document.getElementById("ig-save");
+  if (igSave) igSave.addEventListener("click", async () => {
+    const recipeId = state.selectedRecipe;
+    if (!recipeId) { alert("Select a recipe first"); return; }
+    const name = _val("ig-name").trim();
+    if (!name) { alert("Ingredient name required"); return; }
+    const payload = {
+      name,
+      qty: _num("ig-qty") || 0,
+      unit: _val("ig-unit").trim() || "unit",
+      cost: _num("ig-cost") || 0,
+    };
+    igSave.disabled = true; const o = igSave.textContent; igSave.textContent = "Saving…";
+    try {
+      await dataRepo.addRecipeIngredient(recipeId, payload);
+      state.recipes = await dataRepo.fetchRecipes();
+      renderRecipes();
+      _hide("ing-modal");
+      _clear(["ig-pick","ig-name","ig-qty","ig-unit","ig-cost"]);
+    } catch (err) { console.error(err); alert("Could not add ingredient: " + err.message); }
+    finally { igSave.disabled = false; igSave.textContent = o; }
+  });
+
+  // Custom task add
+  const addTaskBtn = document.getElementById("add-custom-task");
+  if (addTaskBtn) addTaskBtn.addEventListener("click", () => {
+    const sel = document.getElementById("ct-assignee");
+    if (sel) {
+      sel.innerHTML = '<option value="">— Unassigned —</option>' +
+        (state.staff || []).filter(s => s.active !== false).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+    _show("task-modal");
+  });
+  const ctCancel = document.getElementById("ct-cancel");
+  if (ctCancel) ctCancel.addEventListener("click", () => _hide("task-modal"));
+  const ctSave = document.getElementById("ct-save");
+  if (ctSave) ctSave.addEventListener("click", async () => {
+    const title = _val("ct-title").trim();
+    if (!title) { alert("Title required"); return; }
+    const payload = {
+      title,
+      detail: _val("ct-detail").trim() || null,
+      frequency: _val("ct-freq") || "daily",
+      category: _val("ct-cat") || "Operations",
+      severity: _val("ct-sev") || "routine",
+      estimatedMinutes: _num("ct-est") || 5,
+      assignedStaffId: _val("ct-assignee") || null,
+    };
+    ctSave.disabled = true; const o = ctSave.textContent; ctSave.textContent = "Saving…";
+    try {
+      await tasksRepo.addCustomTask(payload);
+      // Refresh tasks render — renderTasks fetches via tasksRepo internally if so designed,
+      // otherwise just re-render from state. Trigger renderAll to be safe.
+      if (typeof renderTasks === 'function') renderTasks();
+      _hide("task-modal");
+      _clear(["ct-title","ct-detail"]);
+    } catch (err) { console.error(err); alert("Could not save task: " + err.message); }
+    finally { ctSave.disabled = false; ctSave.textContent = o; }
+  });
+
+  // Delete-row delegation: menu / inventory / ingredient / task
+  document.addEventListener("click", (e) => {
+    const mDel = e.target.closest("[data-menu-del]");
+    if (mDel) {
+      const id = mDel.dataset.menuDel;
+      if (!id) return;
+      if (!confirm("Delete this menu item?")) return;
+      mDel.disabled = true;
+      dataRepo.deleteMenuItem(id)
+        .then(async () => { state.menu = await dataRepo.fetchMenu(); renderMenu(); })
+        .catch(err => { console.error(err); alert("Could not delete: " + err.message); mDel.disabled = false; });
+      return;
+    }
+    const iDel = e.target.closest("[data-inv-del]");
+    if (iDel) {
+      const id = iDel.dataset.invDel;
+      if (!id) return;
+      if (!confirm("Delete this inventory item?")) return;
+      iDel.disabled = true;
+      dataRepo.deleteInventoryItem(id)
+        .then(async () => { state.inv = await dataRepo.fetchInventory(); renderInventory(); })
+        .catch(err => { console.error(err); alert("Could not delete: " + err.message); iDel.disabled = false; });
+      return;
+    }
+    const gDel = e.target.closest("[data-ing-del]");
+    if (gDel) {
+      const id = gDel.dataset.ingDel;
+      if (!id) return;
+      if (!confirm("Remove this ingredient?")) return;
+      gDel.disabled = true;
+      dataRepo.deleteRecipeIngredient(id)
+        .then(async () => { state.recipes = await dataRepo.fetchRecipes(); renderRecipes(); })
+        .catch(err => { console.error(err); alert("Could not delete: " + err.message); gDel.disabled = false; });
+      return;
+    }
+    const tDel = e.target.closest("[data-task-del]");
+    if (tDel) {
+      const id = tDel.dataset.taskDel;
+      if (!id) return;
+      if (!confirm("Delete this custom task?")) return;
+      tDel.disabled = true;
+      tasksRepo.deleteCustomTask(id)
+        .then(() => { if (typeof renderTasks === 'function') renderTasks(); })
+        .catch(err => { console.error(err); alert("Could not delete: " + err.message); tDel.disabled = false; });
+      return;
     }
   });
 
@@ -2675,7 +2935,10 @@ async function renderTasks() {
         const statusClass = st === "done-today" ? "done" : st === "overdue" ? "overdue" : "due";
         const lastDoneTxt = rec.lastDone ? `Last: ${new Date(rec.lastDone).toLocaleDateString("en-US", {month: "short", day: "numeric"})}` : "Never logged";
         const vendorBadge = t.vendor ? `<span class="vendor-pill">VENDOR</span>` : "";
+        const isCustom = t.id === t._uuid; // library_id IS NULL means uiId equals db uuid
+        const customBadge = isCustom ? `<span class="vendor-pill" style="background:rgba(232,163,61,0.18);color:#e8a33d">CUSTOM</span>` : "";
         const estTxt = t.est > 0 ? `${t.est}m` : "—";
+        const customActions = isCustom ? `<button class="row-del" data-task-del="${t._uuid}" title="Delete" data-write-action style="margin-left:auto">×</button>` : "";
         html += `<div class="task-row ${statusClass}" data-task-id="${t.id}">
           <button class="task-check ${st === "done-today" ? "checked" : ""}" data-task-toggle="${t.id}" aria-label="Mark done">${st === "done-today" ? "✓" : ""}</button>
           <div class="task-body">
@@ -2684,6 +2947,8 @@ async function renderTasks() {
               <span class="sev-pill sev-${t.sev}">${t.sev}</span>
               <span class="cat-pill">${t.category}</span>
               ${vendorBadge}
+              ${customBadge}
+              ${customActions}
             </div>
             <p class="task-detail muted">${t.detail}</p>
             <div class="task-meta">
@@ -2909,6 +3174,12 @@ async function bootApp() {
   // Dev-only debug hook so Playwright QA can inspect state.
   window.__restopsState = state;
   window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo };
+
+  // Connection status pill + offline sync queue indicator.
+  // Mounts a pill in the topbar and shows toasts when offline writes are queued / flushed.
+  import('./connectionStatus.js')
+    .then(m => m.initConnectionStatus && m.initConnectionStatus())
+    .catch(e => console.warn('connection status init failed', e));
 }
 
 // -----------------------------------------------------------------------------

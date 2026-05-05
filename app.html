@@ -263,8 +263,9 @@
             <h3>Menu Engineering</h3>
             <span class="muted">Stars, Plowhorses, Puzzles &amp; Dogs — edit costs and prices inline</span>
           </div>
+          <button class="btn" id="add-menu-item" data-write-action>+ Add menu item</button>
           <table class="tbl">
-            <thead><tr><th>Item</th><th>Price</th><th>Food cost</th><th>Margin</th><th>Margin %</th><th>Units (30D)</th><th>Revenue</th><th>Class</th></tr></thead>
+            <thead><tr><th>Item</th><th>Price</th><th>Food cost</th><th>Margin</th><th>Margin %</th><th>Units (30D)</th><th>Revenue</th><th>Class</th><th></th></tr></thead>
             <tbody id="menu-body"></tbody>
           </table>
         </div>
@@ -277,8 +278,9 @@
             <h3>Inventory &amp; Par Levels</h3>
             <span class="muted">Red = below par</span>
           </div>
+          <button class="btn" id="add-inv-item" data-write-action>+ Add inventory item</button>
           <table class="tbl">
-            <thead><tr><th>Item</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th></tr></thead>
+            <thead><tr><th>Item</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th><th></th></tr></thead>
             <tbody id="inv-body"></tbody>
           </table>
         </div>
@@ -564,6 +566,7 @@
         <div class="row-2">
           <div class="card">
             <div class="card-head"><h3>Recipes</h3><span class="muted">Click to edit ingredients</span></div>
+            <button class="btn" id="add-recipe" data-write-action>+ Add recipe</button>
             <ul class="recipe-list" id="recipe-list"></ul>
           </div>
           <div class="card recipe-detail" id="recipe-detail">
@@ -956,6 +959,7 @@
             <select id="task-assignee" class="task-select">
               <option value="all">All assignees</option>
             </select>
+            <button class="btn" id="add-custom-task" data-write-action style="margin-left:auto">+ Add custom task</button>
           </div>
         </div>
 
@@ -963,6 +967,116 @@
       </section>
 
     </main>
+
+    <!-- Modal: add menu item -->
+    <div class="modal" id="menu-modal" hidden>
+      <div class="modal-card">
+        <h3 id="menu-modal-title">Add menu item</h3>
+        <label>Name <input id="mi-name" type="text" placeholder="Margherita Pizza" /></label>
+        <label>Category <input id="mi-cat" type="text" placeholder="Pizza" /></label>
+        <label>Menu price ($) <input id="mi-price" type="number" step="0.01" placeholder="16.99" /></label>
+        <label>Food cost ($) <input id="mi-cost" type="number" step="0.01" placeholder="4.20" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="mi-cancel">Cancel</button>
+          <button class="btn" id="mi-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: add inventory item -->
+    <div class="modal" id="inv-modal" hidden>
+      <div class="modal-card">
+        <h3 id="inv-modal-title">Add inventory item</h3>
+        <label>Name <input id="ii-name" type="text" placeholder="Mozzarella (block)" /></label>
+        <label>Unit <input id="ii-unit" type="text" placeholder="lb" /></label>
+        <label>On hand <input id="ii-onhand" type="number" step="0.1" placeholder="40" /></label>
+        <label>Par <input id="ii-par" type="number" step="0.1" placeholder="60" /></label>
+        <label>Cost / unit ($) <input id="ii-cost" type="number" step="0.01" placeholder="3.95" /></label>
+        <label>Vendor <input id="ii-vendor" type="text" placeholder="Sysco" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="ii-cancel">Cancel</button>
+          <button class="btn" id="ii-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: add recipe -->
+    <div class="modal" id="recipe-modal" hidden>
+      <div class="modal-card">
+        <h3 id="recipe-modal-title">Add recipe</h3>
+        <label>Name <input id="rc-name" type="text" placeholder="Margherita Pizza" /></label>
+        <label>Yield (servings) <input id="rc-yield" type="number" step="1" min="1" value="1" /></label>
+        <label>Menu price ($) <input id="rc-price" type="number" step="0.01" placeholder="16.99" /></label>
+        <label>Linked menu item
+          <select id="rc-menu-link"><option value="">— None —</option></select>
+        </label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="rc-cancel">Cancel</button>
+          <button class="btn" id="rc-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: add recipe ingredient -->
+    <div class="modal" id="ing-modal" hidden>
+      <div class="modal-card">
+        <h3>Add ingredient</h3>
+        <label>Pick from inventory
+          <select id="ig-pick"><option value="">— Free text below —</option></select>
+        </label>
+        <label>Name <input id="ig-name" type="text" placeholder="Mozzarella" /></label>
+        <label>Quantity <input id="ig-qty" type="number" step="0.001" placeholder="0.25" /></label>
+        <label>Unit <input id="ig-unit" type="text" placeholder="lb" /></label>
+        <label>Unit cost ($) <input id="ig-cost" type="number" step="0.01" placeholder="3.95" /></label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="ig-cancel">Cancel</button>
+          <button class="btn" id="ig-save">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: add custom prep task -->
+    <div class="modal" id="task-modal" hidden>
+      <div class="modal-card">
+        <h3 id="task-modal-title">Add custom prep task</h3>
+        <label>Title <input id="ct-title" type="text" placeholder="Stock paper goods" /></label>
+        <label>Detail <input id="ct-detail" type="text" placeholder="Verify printer paper, napkins" /></label>
+        <label>Frequency
+          <select id="ct-freq">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="annual">Annual</option>
+          </select>
+        </label>
+        <label>Category
+          <select id="ct-cat">
+            <option value="Operations">Operations</option>
+            <option value="Fire Safety">Fire Safety</option>
+            <option value="Food Safety">Food Safety</option>
+            <option value="Facility">Facility</option>
+            <option value="Compliance">Compliance</option>
+            <option value="People">People</option>
+          </select>
+        </label>
+        <label>Severity
+          <select id="ct-sev">
+            <option value="routine">Routine</option>
+            <option value="important">Important</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+        <label>Estimated minutes <input id="ct-est" type="number" step="1" min="0" value="5" /></label>
+        <label>Assigned to
+          <select id="ct-assignee"><option value="">— Unassigned —</option></select>
+        </label>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="ct-cancel">Cancel</button>
+          <button class="btn" id="ct-save">Save</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal for adding waste -->
     <div class="modal" id="waste-modal" hidden>

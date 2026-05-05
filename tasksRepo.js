@@ -8,6 +8,7 @@
 // RLS takes care of tenant isolation — we only have to query.
 
 import { supabase } from './supabaseClient.js';
+import * as offline from './offlineQueue.js';
 
 // In-memory cache — rebuilt on each refreshTasks() call so we always read fresh
 // data after mutations. We keep a module-level copy so renderTasks() stays
@@ -105,28 +106,33 @@ export async function toggleTaskCompletion(uiId) {
     // Uncheck: delete today's completion(s) for this task
     const startOfDay = `${todayISO}T00:00:00Z`;
     const endOfDay = `${todayISO}T23:59:59.999Z`;
-    const { error } = await supabase
-      .from('task_completions')
-      .delete()
-      .eq('task_id', dbTaskId)
-      .gte('completed_at', startOfDay)
-      .lte('completed_at', endOfDay);
-    if (error) throw error;
+    await offline.withOffline(
+      async () => {
+        const { error } = await supabase
+          .from('task_completions')
+          .delete()
+          .eq('task_id', dbTaskId)
+          .gte('completed_at', startOfDay)
+          .lte('completed_at', endOfDay);
+        if (error) throw error;
+      },
+      // Best-effort offline encode (range queries collapse to task_id eq)
+      { table: 'task_completions', op: 'delete', payload: { match: { task_id: dbTaskId } }, optimisticValue: null }
+    );
     rec.lastDone = null;
     rec.overdue = true;
   } else {
-    // Check: insert a new completion. tenant_id is required (NOT NULL, no default).
-    // Get it from the current session's membership (RLS will reject any other tenant_id).
     const ctx = window.__RESTOPS_CTX__;
     if (!ctx) throw new Error('Tenant context not loaded');
-    const { error } = await supabase
-      .from('task_completions')
-      .insert({
-        tenant_id: ctx.tenantId,
-        task_id: dbTaskId,
-        completed_by: ctx.user.id,
-      });
-    if (error) throw error;
+    const id = offline.newId();
+    const row = { id, tenant_id: ctx.tenantId, task_id: dbTaskId, completed_by: ctx.user.id };
+    await offline.withOffline(
+      async () => {
+        const { error } = await supabase.from('task_completions').insert(row);
+        if (error) throw error;
+      },
+      { table: 'task_completions', op: 'insert', payload: row, tenantId: ctx.tenantId, optimisticValue: row }
+    );
     rec.lastDone = todayISO;
     rec.overdue = false;
   }
@@ -155,12 +161,92 @@ export async function cycleTaskAssignee(uiId, staffPool) {
     staffId = match?.id || null;
   }
 
-  const { error } = await supabase
-    .from('tasks')
-    .update({ assigned_staff_id: staffId })
-    .eq('id', task._uuid);
-  if (error) throw error;
+  const tenantId = window.__RESTOPS_CTX__?.tenantId || null;
+  await offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('tasks').update({ assigned_staff_id: staffId }).eq('id', task._uuid);
+      if (error) throw error;
+    },
+    { table: 'tasks', op: 'update', payload: { match: { id: task._uuid }, patch: { assigned_staff_id: staffId } }, tenantId, optimisticValue: null }
+  );
 
   rec.assignee = next;
   return rec;
+}
+
+// ---------------------------------------------------------------------------
+// Custom prep tasks CRUD (library_id IS NULL)
+// ---------------------------------------------------------------------------
+export async function addCustomTask({ title, detail = '', frequency = 'daily', category = 'Operations', severity = 'routine', estimatedMinutes = 0, assignedStaffId = null } = {}) {
+  const ctx = window.__RESTOPS_CTX__;
+  if (!ctx) throw new Error('Tenant context not loaded');
+  const id = offline.newId();
+  const row = {
+    id,
+    tenant_id: ctx.tenantId,
+    library_id: null,
+    title,
+    detail,
+    frequency,
+    category,
+    severity,
+    estimated_minutes: estimatedMinutes || 0,
+    is_vendor: false,
+    assigned_staff_id: assignedStaffId,
+    active: true,
+  };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('tasks').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    { table: 'tasks', op: 'insert', payload: row, tenantId: ctx.tenantId, optimisticValue: row }
+  );
+}
+
+export async function deleteCustomTask(id) {
+  // Safety: this should only be invoked for custom tasks (library_id IS NULL).
+  // We enforce that by including the filter on the request.
+  const tenantId = window.__RESTOPS_CTX__?.tenantId || null;
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('tasks').delete().eq('id', id).is('library_id', null);
+      if (error) throw error;
+    },
+    { table: 'tasks', op: 'delete', payload: { match: { id } }, tenantId, optimisticValue: { id, queued: true } }
+  );
+}
+
+export async function updateCustomTask(id, patch) {
+  const dbPatch = {};
+  if (patch.title !== undefined) dbPatch.title = patch.title;
+  if (patch.detail !== undefined) dbPatch.detail = patch.detail;
+  if (patch.frequency !== undefined) dbPatch.frequency = patch.frequency;
+  if (patch.category !== undefined) dbPatch.category = patch.category;
+  if (patch.severity !== undefined) dbPatch.severity = patch.severity;
+  if (patch.estimatedMinutes !== undefined) dbPatch.estimated_minutes = patch.estimatedMinutes;
+  if (patch.assignedStaffId !== undefined) dbPatch.assigned_staff_id = patch.assignedStaffId;
+  if (patch.active !== undefined) dbPatch.active = patch.active;
+  if (Object.keys(dbPatch).length === 0) return;
+  const tenantId = window.__RESTOPS_CTX__?.tenantId || null;
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('tasks').update(dbPatch).eq('id', id);
+      if (error) throw error;
+    },
+    { table: 'tasks', op: 'update', payload: { match: { id }, patch: dbPatch }, tenantId, optimisticValue: { id, queued: true } }
+  );
+}
+
+// Toggle a task's `active` flag (used for library tasks the tenant wants to mute).
+export async function setTaskActive(id, active) {
+  const tenantId = window.__RESTOPS_CTX__?.tenantId || null;
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('tasks').update({ active }).eq('id', id);
+      if (error) throw error;
+    },
+    { table: 'tasks', op: 'update', payload: { match: { id }, patch: { active } }, tenantId, optimisticValue: { id, queued: true } }
+  );
 }

@@ -8,6 +8,7 @@
 // clock-out. A partial unique index enforces one open shift per staff member.
 
 import { supabase } from './supabaseClient.js';
+import * as offline from './offlineQueue.js';
 
 function ctx() {
   const c = window.__RESTOPS_CTX__;
@@ -49,35 +50,38 @@ export async function verifyPin(pin) {
  */
 export async function clockIn(staffId, hourlyRate) {
   const { tenantId } = ctx();
-  const { data, error } = await supabase
-    .from('time_entries')
-    .insert({
-      tenant_id: tenantId,
-      staff_id: staffId,
-      clock_in_at: new Date().toISOString(),
-      hourly_rate_snapshot: hourlyRate || 0,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const id = offline.newId();
+  const row = {
+    id,
+    tenant_id: tenantId,
+    staff_id: staffId,
+    clock_in_at: new Date().toISOString(),
+    hourly_rate_snapshot: hourlyRate || 0,
+  };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('time_entries').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    { table: 'time_entries', op: 'insert', payload: row, tenantId, optimisticValue: row }
+  );
 }
 
 /**
  * Close an open time_entries row.
  */
 export async function clockOut(entryId, breakMinutes = 0) {
-  const { data, error } = await supabase
-    .from('time_entries')
-    .update({
-      clock_out_at: new Date().toISOString(),
-      break_minutes: breakMinutes || 0,
-    })
-    .eq('id', entryId)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const tenantId = window.__RESTOPS_CTX__?.tenantId || null;
+  const patch = { clock_out_at: new Date().toISOString(), break_minutes: breakMinutes || 0 };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('time_entries').update(patch).eq('id', entryId).select().single();
+      if (error) throw error;
+      return data;
+    },
+    { table: 'time_entries', op: 'update', payload: { match: { id: entryId }, patch }, tenantId, optimisticValue: { id: entryId, ...patch } }
+  );
 }
 
 /**

@@ -9,12 +9,17 @@
 // Tenant isolation is enforced by RLS on the server — we just query and mutate.
 
 import { supabase } from './supabaseClient.js';
+import * as offline from './offlineQueue.js';
 
 function ctx() {
   const c = window.__RESTOPS_CTX__;
   if (!c) throw new Error('Tenant context not loaded');
   return c;
 }
+
+// Helpers reused across mutations.
+function tenantOrNull() { return window.__RESTOPS_CTX__?.tenantId || null; }
+
 
 // -----------------------------------------------------------------------------
 // STAFF
@@ -62,19 +67,25 @@ export async function addStaff({ name, role, wage = 0, phone = null, email = nul
 }
 
 export async function updateStaffWage(staffId, wage) {
-  const { error } = await supabase
-    .from('staff')
-    .update({ hourly_rate: wage })
-    .eq('id', staffId);
-  if (error) throw error;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('staff').update({ hourly_rate: wage }).eq('id', staffId);
+      if (error) throw error;
+    },
+    { table: 'staff', op: 'update', payload: { match: { id: staffId }, patch: { hourly_rate: wage } }, tenantId, optimisticValue: { id: staffId, queued: true } }
+  );
 }
 
 export async function deactivateStaff(staffId) {
-  const { error } = await supabase
-    .from('staff')
-    .update({ active: false })
-    .eq('id', staffId);
-  if (error) throw error;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('staff').update({ active: false }).eq('id', staffId);
+      if (error) throw error;
+    },
+    { table: 'staff', op: 'update', payload: { match: { id: staffId }, patch: { active: false } }, tenantId, optimisticValue: { id: staffId, queued: true } }
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -150,18 +161,14 @@ export async function fetchTempLogs() {
 
 export async function logTemperature(equipment, tempF, notes = null) {
   const { tenantId, user } = ctx();
-  const within = null; // compute server-side later; for now let range be UI-only
-  const { error } = await supabase
-    .from('temp_logs')
-    .insert({
-      tenant_id: tenantId,
-      equipment,
-      temp_f: tempF,
-      within_range: within,
-      logged_by: user.id,
-      notes,
-    });
-  if (error) throw error;
+  const row = { tenant_id: tenantId, equipment, temp_f: tempF, within_range: null, logged_by: user.id, notes };
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('temp_logs').insert(row);
+      if (error) throw error;
+    },
+    { table: 'temp_logs', op: 'insert', payload: row, tenantId, optimisticValue: { queued: true } }
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -190,17 +197,14 @@ export async function fetchWasteLogs() {
 
 export async function logWaste({ item, qty, reason, loss }) {
   const { tenantId, user } = ctx();
-  const { error } = await supabase
-    .from('waste_logs')
-    .insert({
-      tenant_id: tenantId,
-      item,
-      qty: qty || 0,
-      reason: reason || null,
-      dollar_loss: loss || 0,
-      logged_by: user.id,
-    });
-  if (error) throw error;
+  const row = { tenant_id: tenantId, item, qty: qty || 0, reason: reason || null, dollar_loss: loss || 0, logged_by: user.id };
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('waste_logs').insert(row);
+      if (error) throw error;
+    },
+    { table: 'waste_logs', op: 'insert', payload: row, tenantId, optimisticValue: { queued: true } }
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -221,16 +225,15 @@ export async function fetchInspectionChecks() {
 }
 
 export async function setInspectionCheck(code, passed) {
-  const { user } = ctx();
-  const { error } = await supabase
-    .from('inspection_checks')
-    .update({
-      passed,
-      last_checked_at: new Date().toISOString(),
-      checked_by: user.id,
-    })
-    .eq('code', code);
-  if (error) throw error;
+  const { tenantId, user } = ctx();
+  const patch = { passed, last_checked_at: new Date().toISOString(), checked_by: user.id };
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('inspection_checks').update(patch).eq('code', code);
+      if (error) throw error;
+    },
+    { table: 'inspection_checks', op: 'update', payload: { match: { code }, patch }, tenantId, optimisticValue: { code, queued: true } }
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -327,19 +330,28 @@ export async function updateMenuItem(id, patch) {
   if (patch.category !== undefined) dbPatch.category = patch.category;
   if (patch.active !== undefined) dbPatch.active = patch.active;
   if (Object.keys(dbPatch).length === 0) return;
-  const { error } = await supabase.from('menu_items').update(dbPatch).eq('id', id);
-  if (error) throw error;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('menu_items').update(dbPatch).eq('id', id);
+      if (error) throw error;
+    },
+    { table: 'menu_items', op: 'update', payload: { match: { id }, patch: dbPatch }, tenantId, optimisticValue: { id, queued: true } }
+  );
 }
 
 export async function addMenuItem({ name, price = 0, cost = 0, category = null }) {
   const { tenantId } = ctx();
-  const { data, error } = await supabase
-    .from('menu_items')
-    .insert({ tenant_id: tenantId, name, price, food_cost: cost, category, active: true, sort_order: 999 })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const id = offline.newId();
+  const row = { id, tenant_id: tenantId, name, price, food_cost: cost, category, active: true, sort_order: 999 };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('menu_items').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    { table: 'menu_items', op: 'insert', payload: row, tenantId, optimisticValue: row }
+  );
 }
 
 export async function seedMenuFromSample(sampleMenu) {
@@ -389,14 +401,24 @@ export async function fetchInventory() {
 export async function updateInventoryItem(id, patch) {
   const dbPatch = {};
   if (patch.item !== undefined) dbPatch.name = patch.item;
+  if (patch.name !== undefined) dbPatch.name = patch.name;
   if (patch.unit !== undefined) dbPatch.unit = patch.unit;
   if (patch.onHand !== undefined) dbPatch.on_hand = patch.onHand;
+  if (patch.on_hand !== undefined) dbPatch.on_hand = patch.on_hand;
   if (patch.par !== undefined) dbPatch.par = patch.par;
   if (patch.cost !== undefined) dbPatch.unit_cost = patch.cost;
+  if (patch.unit_cost !== undefined) dbPatch.unit_cost = patch.unit_cost;
   if (patch.vendor !== undefined) dbPatch.supplier = patch.vendor;
+  if (patch.supplier !== undefined) dbPatch.supplier = patch.supplier;
   if (Object.keys(dbPatch).length === 0) return;
-  const { error } = await supabase.from('inventory_items').update(dbPatch).eq('id', id);
-  if (error) throw error;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('inventory_items').update(dbPatch).eq('id', id);
+      if (error) throw error;
+    },
+    { table: 'inventory_items', op: 'update', payload: { match: { id }, patch: dbPatch }, tenantId, optimisticValue: { id, queued: true } }
+  );
 }
 
 export async function seedInventoryFromSample(sampleInv) {
@@ -459,25 +481,32 @@ export async function fetchRecipes() {
 }
 
 export async function updateRecipeMenuPrice(id, menuPrice) {
-  const { error } = await supabase
-    .from('recipes')
-    .update({ menu_price: menuPrice })
-    .eq('id', id);
-  if (error) throw error;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('recipes').update({ menu_price: menuPrice }).eq('id', id);
+      if (error) throw error;
+    },
+    { table: 'recipes', op: 'update', payload: { match: { id }, patch: { menu_price: menuPrice } }, tenantId, optimisticValue: { id, queued: true } }
+  );
 }
 
 export async function updateRecipeIngredient(ingId, patch) {
   const dbPatch = {};
   if (patch.qty !== undefined) dbPatch.qty = patch.qty;
   if (patch.cost !== undefined) dbPatch.unit_cost = patch.cost;
+  if (patch.unit_cost !== undefined) dbPatch.unit_cost = patch.unit_cost;
   if (patch.name !== undefined) dbPatch.name = patch.name;
   if (patch.unit !== undefined) dbPatch.unit = patch.unit;
   if (Object.keys(dbPatch).length === 0) return;
-  const { error } = await supabase
-    .from('recipe_ingredients')
-    .update(dbPatch)
-    .eq('id', ingId);
-  if (error) throw error;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('recipe_ingredients').update(dbPatch).eq('id', ingId);
+      if (error) throw error;
+    },
+    { table: 'recipe_ingredients', op: 'update', payload: { match: { id: ingId }, patch: dbPatch }, tenantId, optimisticValue: { id: ingId, queued: true } }
+  );
 }
 
 export async function seedRecipesFromSample(sampleRecipes) {
@@ -979,3 +1008,246 @@ export async function ocrInvoice(imageBase64, mediaType) {
   return { ok: true, invoice: data.invoice, model: data.model };
 }
 
+
+// =============================================================================
+// CRUD additions (gap-close release) + offline-aware variants
+// =============================================================================
+
+// ---- Menu ------------------------------------------------------------------
+export async function deleteMenuItem(id) {
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('menu_items').delete().eq('id', id);
+      if (error) throw error;
+    },
+    {
+      table: 'menu_items',
+      op: 'delete',
+      payload: { match: { id } },
+      tenantId,
+      optimisticValue: { id, queued: true },
+    }
+  );
+}
+
+// Wrap addMenuItem with offline-friendly behavior. If the network call throws
+// a TypeError ("Failed to fetch"), enqueue an insert and return a synthetic
+// row (with client-generated UUID) so the UI can update optimistically.
+const _origAddMenuItem = addMenuItem;
+export async function addMenuItemSafe({ name, price = 0, cost = 0, category = null }) {
+  const tenantId = tenantOrNull();
+  const id = offline.newId();
+  return offline.withOffline(
+    async () => {
+      // Try the live insert first (server will generate id, but we'll fall back to ours on offline).
+      try {
+        return await _origAddMenuItem({ name, price, cost, category });
+      } catch (err) {
+        if (offline.isNetworkError(err)) throw err;
+        // Real DB error — surface it.
+        throw err;
+      }
+    },
+    {
+      table: 'menu_items',
+      op: 'insert',
+      payload: { id, tenant_id: tenantId, name, price, food_cost: cost, category, active: true, sort_order: 999 },
+      tenantId,
+      optimisticValue: { id, name, price, food_cost: cost, category, active: true, sort_order: 999 },
+    }
+  );
+}
+
+// ---- Inventory --------------------------------------------------------------
+export async function addInventoryItem({ name, unit = 'ea', par = 0, on_hand = 0, unit_cost = 0, supplier = null }) {
+  const tenantId = tenantOrNull();
+  const id = offline.newId();
+  const row = { id, tenant_id: tenantId, name, unit, par, on_hand, unit_cost, supplier };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('inventory_items').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    {
+      table: 'inventory_items',
+      op: 'insert',
+      payload: row,
+      tenantId,
+      optimisticValue: row,
+    }
+  );
+}
+
+export async function deleteInventoryItem(id) {
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+      if (error) throw error;
+    },
+    {
+      table: 'inventory_items',
+      op: 'delete',
+      payload: { match: { id } },
+      tenantId,
+      optimisticValue: { id, queued: true },
+    }
+  );
+}
+
+// ---- Recipes ---------------------------------------------------------------
+export async function addRecipe({ name, yield: yld = 1, menuPrice = 0, linkedMenuItemId = null, notes = null }) {
+  const tenantId = tenantOrNull();
+  const id = offline.newId();
+  const row = {
+    id,
+    tenant_id: tenantId,
+    name,
+    yield: yld || 1,
+    menu_price: menuPrice || 0,
+    linked_menu_item_id: linkedMenuItemId || null,
+    notes,
+  };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('recipes').insert(row).select().single();
+      if (error) throw error;
+      return data.id;
+    },
+    {
+      table: 'recipes',
+      op: 'insert',
+      payload: row,
+      tenantId,
+      optimisticValue: id,
+    }
+  );
+}
+
+export async function deleteRecipe(id) {
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      // Delete ingredients first (FK), then recipe.
+      const { error: e1 } = await supabase.from('recipe_ingredients').delete().eq('recipe_id', id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from('recipes').delete().eq('id', id);
+      if (e2) throw e2;
+    },
+    {
+      table: 'recipes',
+      op: 'delete',
+      payload: { match: { id } },
+      tenantId,
+      optimisticValue: { id, queued: true },
+    }
+  );
+}
+
+export async function addRecipeIngredient(recipeId, { name, qty = 0, unit = '', unitCost = 0, sortOrder = 0 } = {}) {
+  const tenantId = tenantOrNull();
+  const id = offline.newId();
+  const row = {
+    id,
+    recipe_id: recipeId,
+    tenant_id: tenantId,
+    name,
+    qty,
+    unit,
+    unit_cost: unitCost,
+    sort_order: sortOrder,
+  };
+  return offline.withOffline(
+    async () => {
+      const { data, error } = await supabase.from('recipe_ingredients').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    {
+      table: 'recipe_ingredients',
+      op: 'insert',
+      payload: row,
+      tenantId,
+      optimisticValue: row,
+    }
+  );
+}
+
+export async function deleteRecipeIngredient(ingId) {
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('recipe_ingredients').delete().eq('id', ingId);
+      if (error) throw error;
+    },
+    {
+      table: 'recipe_ingredients',
+      op: 'delete',
+      payload: { match: { id: ingId } },
+      tenantId,
+      optimisticValue: { id: ingId, queued: true },
+    }
+  );
+}
+
+export async function recalcRecipeCost(recipeId) {
+  // Pull current recipe + ingredients and compute plate cost / food cost %.
+  const { data: recipe, error: rErr } = await supabase
+    .from('recipes')
+    .select('id, yield, menu_price')
+    .eq('id', recipeId)
+    .maybeSingle();
+  if (rErr) throw rErr;
+  const { data: ings, error: iErr } = await supabase
+    .from('recipe_ingredients')
+    .select('qty, unit_cost')
+    .eq('recipe_id', recipeId);
+  if (iErr) throw iErr;
+  const batchCost = (ings || []).reduce((s, x) => s + (Number(x.qty) || 0) * (Number(x.unit_cost) || 0), 0);
+  const yld = Math.max(1, Number(recipe?.yield) || 1);
+  const plateCost = batchCost / yld;
+  const menuPrice = Number(recipe?.menu_price) || 0;
+  const foodCostPct = menuPrice > 0 ? (plateCost / menuPrice) * 100 : 0;
+  return { plateCost, foodCostPct, batchCost, yield: yld, menuPrice };
+}
+
+// Synchronous helper for the UI — same calculation but from in-memory shape.
+export function recalcRecipeCostLocal(recipe) {
+  if (!recipe) return { plateCost: 0, foodCostPct: 0, batchCost: 0 };
+  const batch = (recipe.ingredients || []).reduce(
+    (s, i) => s + (Number(i.qty) || 0) * (Number(i.cost) || 0),
+    0
+  );
+  const yld = Math.max(1, Number(recipe.yield) || 1);
+  const plate = batch / yld;
+  const menu = Number(recipe.menuPrice) || 0;
+  const pct = menu > 0 ? (plate / menu) * 100 : 0;
+  return { plateCost: plate, foodCostPct: pct, batchCost: batch, yield: yld, menuPrice: menu };
+}
+
+// Update recipe metadata (name, yield, menu_price, notes, linked_menu_item_id).
+export async function updateRecipe(id, patch) {
+  const dbPatch = {};
+  if (patch.name !== undefined) dbPatch.name = patch.name;
+  if (patch.yield !== undefined) dbPatch.yield = patch.yield;
+  if (patch.menuPrice !== undefined) dbPatch.menu_price = patch.menuPrice;
+  if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+  if (patch.linkedMenuItemId !== undefined) dbPatch.linked_menu_item_id = patch.linkedMenuItemId;
+  if (Object.keys(dbPatch).length === 0) return;
+  const tenantId = tenantOrNull();
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('recipes').update(dbPatch).eq('id', id);
+      if (error) throw error;
+    },
+    {
+      table: 'recipes',
+      op: 'update',
+      payload: { match: { id }, patch: dbPatch },
+      tenantId,
+      optimisticValue: { id, queued: true },
+    }
+  );
+}

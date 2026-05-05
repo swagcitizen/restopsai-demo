@@ -3,6 +3,7 @@
 // SECURITY DEFINER RPC so anyone signed in can redeem a token.
 
 import { supabase } from './supabaseClient.js';
+import * as offline from './offlineQueue.js';
 
 function ctx() {
   return window.__RESTOPS_CTX__;
@@ -54,11 +55,14 @@ export async function createInvite({ email, role = 'staff' }) {
 
 // Revoke (delete) a pending invite.
 export async function revokeInvite(inviteId) {
-  const { error } = await supabase
-    .from('invites')
-    .delete()
-    .eq('id', inviteId);
-  if (error) throw error;
+  const tenantId = window.__RESTOPS_CTX__?.tenantId || null;
+  return offline.withOffline(
+    async () => {
+      const { error } = await supabase.from('invites').delete().eq('id', inviteId);
+      if (error) throw error;
+    },
+    { table: 'invites', op: 'delete', payload: { match: { id: inviteId } }, tenantId, optimisticValue: { id: inviteId, queued: true } }
+  );
 }
 
 // Public peek at an invite — used on the accept page before the user signs in.
