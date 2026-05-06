@@ -37,8 +37,8 @@
 
       <form id="signup-form" class="auth-form" autocomplete="on">
         <label>
-          <span>Your name</span>
-          <input type="text" name="fullName" required autocomplete="name" placeholder="Anthony Rossi">
+          <span>Your name <span class="field-hint" style="opacity:.6">(optional)</span></span>
+          <input type="text" name="fullName" autocomplete="name" placeholder="Anthony Rossi">
         </label>
         <label>
           <span>Email</span>
@@ -54,7 +54,7 @@
           </div>
         </label>
         <label class="auth-check">
-          <input type="checkbox" name="agree" required>
+          <input type="checkbox" name="agree" checked>
           <span>I agree to the <a href="./legal/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="./legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
         </label>
         <div id="signup-error" class="auth-error" hidden></div>
