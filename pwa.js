@@ -88,10 +88,16 @@
       .catch((err) => console.warn('[PWA] SW registration failed', err));
   });
 
-  // Reload once the new SW takes control
+  // Reload once the new SW takes control — BUT only when this is an UPDATE
+  // (i.e. there was already a controller). On first install, controller goes
+  // from null → SW; reloading then would interrupt the user's first session
+  // (and breaks any in-flight forms). The Update banner handles user-driven
+  // refresh on subsequent visits.
   let _refreshing = false;
+  const _hadControllerAtLoad = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (_refreshing) return;
+    if (!_hadControllerAtLoad) return; // first install — don't reload
     _refreshing = true;
     window.location.reload();
   });
