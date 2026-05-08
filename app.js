@@ -3654,6 +3654,14 @@ async function bootApp() {
     console.warn('Tenant context load failed:', e);
   }
 
+  // Wire Sentry user/tenant context once auth resolves. No-op if Sentry not loaded.
+  try {
+    if (typeof window.__setSentryUser === 'function' && ctx?.user) {
+      window.__setSentryUser(ctx.user, ctx?.tenant?.id || null);
+      if (ctx?.role && window.Sentry?.setTag) window.Sentry.setTag('role', ctx.role);
+    }
+  } catch (e) { /* noop */ }
+
   // Show demo banner if the current session was created via the demo auto-signin.
   try {
     const isDemo = ctx?.user?.email === 'demo@bellavita.app';
