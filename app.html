@@ -24,6 +24,30 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
+    <!-- MOBILE TOPBAR (visible only ≤1100px via CSS) -->
+    <header class="mobile-topbar" id="mobile-topbar" role="banner">
+      <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu" aria-controls="mobile-nav-drawer" aria-expanded="false">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="mobile-topbar-title" id="mobile-topbar-title">Overview</span>
+      <button class="mobile-alerts-btn" id="mobile-alerts-btn" data-view="alerts" aria-label="Alerts">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+        <span class="mobile-alerts-count" id="mobile-alerts-count" hidden>0</span>
+      </button>
+    </header>
+    <div class="mobile-nav-backdrop" id="mobile-nav-backdrop" hidden></div>
+    <aside id="mobile-nav-drawer" class="mobile-nav-drawer" aria-hidden="true" aria-label="Mobile navigation">
+      <div class="mobile-nav-head">
+        <span class="mobile-nav-brand">Stationly</span>
+        <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Close menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+        </button>
+      </div>
+      <nav class="mobile-nav" id="mobile-nav-list" aria-label="App sections">
+        <!-- Populated by app.js cloneNavToDrawer() -->
+      </nav>
+    </aside>
+
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="brand">
         <svg class="logo" viewBox="0 0 40 40" fill="none" aria-label="Anthony's Pizza logo">
@@ -200,51 +224,51 @@
           <div class="pl-grid">
             <div class="pl-col">
               <h4>Revenue</h4>
-              <label>Dine-in <input type="number" data-pl="rev_dinein" /></label>
-              <label>Take-out <input type="number" data-pl="rev_takeout" /></label>
-              <label>Delivery (3rd party) <input type="number" data-pl="rev_delivery" /></label>
-              <label>Catering <input type="number" data-pl="rev_catering" /></label>
+              <label>Dine-in <input type="number" inputmode="numeric" data-pl="rev_dinein" /></label>
+              <label>Take-out <input type="number" inputmode="numeric" data-pl="rev_takeout" /></label>
+              <label>Delivery (3rd party) <input type="number" inputmode="numeric" data-pl="rev_delivery" /></label>
+              <label>Catering <input type="number" inputmode="numeric" data-pl="rev_catering" /></label>
               <div class="pl-total">Total Revenue <span id="pl-revenue">$0</span></div>
             </div>
 
             <div class="pl-col">
               <h4>Cost of Goods (Food)</h4>
-              <label>Flour / dough <input type="number" data-pl="cog_flour" /></label>
-              <label>Cheese (mozzarella) <input type="number" data-pl="cog_cheese" /></label>
-              <label>Sauce / tomatoes <input type="number" data-pl="cog_sauce" /></label>
-              <label>Meats (pepperoni, sausage) <input type="number" data-pl="cog_meats" /></label>
-              <label>Produce / veg <input type="number" data-pl="cog_produce" /></label>
-              <label>Beverages <input type="number" data-pl="cog_bev" /></label>
-              <label>Paper / packaging <input type="number" data-pl="cog_paper" /></label>
+              <label>Flour / dough <input type="number" inputmode="numeric" data-pl="cog_flour" /></label>
+              <label>Cheese (mozzarella) <input type="number" inputmode="numeric" data-pl="cog_cheese" /></label>
+              <label>Sauce / tomatoes <input type="number" inputmode="numeric" data-pl="cog_sauce" /></label>
+              <label>Meats (pepperoni, sausage) <input type="number" inputmode="numeric" data-pl="cog_meats" /></label>
+              <label>Produce / veg <input type="number" inputmode="numeric" data-pl="cog_produce" /></label>
+              <label>Beverages <input type="number" inputmode="numeric" data-pl="cog_bev" /></label>
+              <label>Paper / packaging <input type="number" inputmode="numeric" data-pl="cog_paper" /></label>
               <div class="pl-total">Total COGS <span id="pl-cogs">$0</span></div>
             </div>
 
             <div class="pl-col">
               <h4>Labor</h4>
-              <label>Kitchen / pizzaiolo <input type="number" data-pl="lab_kitchen" /></label>
-              <label>Front of house <input type="number" data-pl="lab_foh" /></label>
-              <label>Drivers <input type="number" data-pl="lab_drivers" /></label>
-              <label>Manager salary <input type="number" data-pl="lab_mgr" /></label>
-              <label>Payroll taxes &amp; WC <input type="number" data-pl="lab_tax" /></label>
-              <label>Health / benefits <input type="number" data-pl="lab_bene" /></label>
+              <label>Kitchen / pizzaiolo <input type="number" inputmode="numeric" data-pl="lab_kitchen" /></label>
+              <label>Front of house <input type="number" inputmode="numeric" data-pl="lab_foh" /></label>
+              <label>Drivers <input type="number" inputmode="numeric" data-pl="lab_drivers" /></label>
+              <label>Manager salary <input type="number" inputmode="numeric" data-pl="lab_mgr" /></label>
+              <label>Payroll taxes &amp; WC <input type="number" inputmode="numeric" data-pl="lab_tax" /></label>
+              <label>Health / benefits <input type="number" inputmode="numeric" data-pl="lab_bene" /></label>
               <div class="pl-total">Total Labor <span id="pl-labor">$0</span></div>
             </div>
 
             <div class="pl-col">
               <h4>Occupancy &amp; Operating</h4>
-              <label>Rent / CAM <input type="number" data-pl="op_rent" /></label>
-              <label>Utilities (power, gas, water) <input type="number" data-pl="op_util" /></label>
-              <label>Internet / phone <input type="number" data-pl="op_net" /></label>
-              <label>POS / software (SaaS) <input type="number" data-pl="op_pos" /></label>
-              <label>Payment processing fees <input type="number" data-pl="op_proc" /></label>
-              <label>3rd-party delivery fees <input type="number" data-pl="op_3p" /></label>
-              <label>Marketing / ads <input type="number" data-pl="op_mkt" /></label>
-              <label>Insurance (GL + property) <input type="number" data-pl="op_ins" /></label>
-              <label>Repairs / maintenance <input type="number" data-pl="op_rep" /></label>
-              <label>Cleaning / pest / trash <input type="number" data-pl="op_clean" /></label>
-              <label>Licenses &amp; permits <input type="number" data-pl="op_lic" /></label>
-              <label>Accounting / legal <input type="number" data-pl="op_acct" /></label>
-              <label>Uniforms / smallwares <input type="number" data-pl="op_small" /></label>
+              <label>Rent / CAM <input type="number" inputmode="numeric" data-pl="op_rent" /></label>
+              <label>Utilities (power, gas, water) <input type="number" inputmode="numeric" data-pl="op_util" /></label>
+              <label>Internet / phone <input type="number" inputmode="numeric" data-pl="op_net" /></label>
+              <label>POS / software (SaaS) <input type="number" inputmode="numeric" data-pl="op_pos" /></label>
+              <label>Payment processing fees <input type="number" inputmode="numeric" data-pl="op_proc" /></label>
+              <label>3rd-party delivery fees <input type="number" inputmode="numeric" data-pl="op_3p" /></label>
+              <label>Marketing / ads <input type="number" inputmode="numeric" data-pl="op_mkt" /></label>
+              <label>Insurance (GL + property) <input type="number" inputmode="numeric" data-pl="op_ins" /></label>
+              <label>Repairs / maintenance <input type="number" inputmode="numeric" data-pl="op_rep" /></label>
+              <label>Cleaning / pest / trash <input type="number" inputmode="numeric" data-pl="op_clean" /></label>
+              <label>Licenses &amp; permits <input type="number" inputmode="numeric" data-pl="op_lic" /></label>
+              <label>Accounting / legal <input type="number" inputmode="numeric" data-pl="op_acct" /></label>
+              <label>Uniforms / smallwares <input type="number" inputmode="numeric" data-pl="op_small" /></label>
               <div class="pl-total">Total Operating <span id="pl-ops">$0</span></div>
             </div>
           </div>
@@ -265,7 +289,7 @@
               <div class="be-stat"><div class="be-label">Variable cost ratio</div><div class="be-value" id="be-var">0%</div></div>
               <div class="be-stat big"><div class="be-label">Break-even revenue / mo</div><div class="be-value" id="be-rev">$0</div></div>
               <div class="be-stat"><div class="be-label">Break-even / day</div><div class="be-value" id="be-day">$0</div></div>
-              <div class="be-stat"><div class="be-label">Avg ticket</div><div class="be-value"><input type="number" id="be-ticket" value="22" /></div></div>
+              <div class="be-stat"><div class="be-label">Avg ticket</div><div class="be-value"><input type="number" inputmode="decimal" id="be-ticket" value="22" /></div></div>
               <div class="be-stat"><div class="be-label">Orders needed / day</div><div class="be-value" id="be-orders">0</div></div>
             </div>
           </div>
@@ -328,7 +352,7 @@
                 <button class="cat-btn" data-cat="other">Other</button>
               </div>
             </div>
-            <table class="tbl">
+            <table class="tbl inventory-table">
               <thead><tr><th>Item</th><th>Cat</th><th>Unit</th><th>On hand</th><th>Par</th><th>Reorder</th><th>Cost/unit</th><th>Value</th><th>Vendor</th><th>Status</th><th></th></tr></thead>
               <tbody id="inv-body"></tbody>
             </table>
@@ -507,7 +531,7 @@
                 </label>
                 <label class="field">
                   <span>Shelf life (hours)</span>
-                  <input type="number" id="lf-hours" min="1" max="168" step="1" placeholder="Auto" />
+                  <input type="number" inputmode="numeric" id="lf-hours" min="1" max="168" step="1" placeholder="Auto" />
                 </label>
                 <label class="field">
                   <span>Prepped by</span>
@@ -676,7 +700,7 @@
             <h3>✨ Smart suggestion</h3>
             <div class="smart-sched-controls">
               <label class="smart-sched-target">Target labor%
-                <input type="number" id="smart-sched-target" value="28" min="15" max="45" step="1" />
+                <input type="number" inputmode="numeric" id="smart-sched-target" value="28" min="15" max="45" step="1" />
               </label>
               <button class="btn btn-secondary" id="smart-sched-forecast-btn" data-write-action>Forecast next week</button>
               <button class="btn btn-primary" id="smart-sched-apply-btn" data-write-action disabled>Apply suggestion</button>
@@ -959,7 +983,7 @@
             </label>
           </div>
           <div class="billing-locations">
-            <label>Locations <input type="number" id="billing-quantity" value="1" min="1" max="50"></label>
+            <label>Locations <input type="number" inputmode="numeric" id="billing-quantity" value="1" min="1" max="50"></label>
             <span class="muted" id="billing-total">Total: $89/month</span>
           </div>
           <button class="btn btn-primary btn-large" id="billing-start-btn">Start 14-day free trial</button>
@@ -1127,7 +1151,7 @@
               <button class="ghost-btn" id="export-variance" disabled>Export CSV</button>
             </div>
           </div>
-          <table class="data-table" style="width:100%" id="variance-table">
+          <table class="data-table variance-table" style="width:100%" id="variance-table">
             <thead>
               <tr>
                 <th data-sort="item_name">Item</th>
@@ -1183,7 +1207,7 @@
                 <button class="btn" id="add-bill" data-write-action>+ New bill</button>
               </div>
             </div>
-            <table class="data-table" style="width:100%">
+            <table class="data-table bills-table" style="width:100%">
               <thead><tr><th>Vendor</th><th>Bill #</th><th>Bill date</th><th>Due</th><th style="text-align:right">Amount</th><th style="text-align:right">Balance</th><th>Status</th><th>Approval</th><th></th></tr></thead>
               <tbody id="bills-body"></tbody>
             </table>
@@ -1235,7 +1259,7 @@
               </div>
               <button class="btn" id="add-pay-period" data-write-action>+ New pay period</button>
             </div>
-            <table class="data-table" style="width:100%">
+            <table class="data-table payroll-periods-table" style="width:100%">
               <thead><tr><th>Start</th><th>End</th><th>Pay date</th><th>Status</th><th>Provider</th><th style="text-align:right">Total gross</th><th></th></tr></thead>
               <tbody id="payroll-periods-body"></tbody>
             </table>
@@ -1267,7 +1291,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
               <select id="tip-period"></select>
               <select id="tip-staff"></select>
-              <input id="tip-amount" type="number" step="0.01" placeholder="Tip $" />
+              <input id="tip-amount" type="number" inputmode="decimal" step="0.01" placeholder="Tip $" />
               <select id="tip-type"><option value="declared">Declared</option><option value="pooled">Pooled</option><option value="credit_card_auto">CC auto</option></select>
               <button class="btn" id="add-tip-entry" data-write-action>+ Add tip</button>
             </div>
@@ -1340,7 +1364,7 @@
           <label style="flex:1;min-width:140px">Inventory item
             <select id="tr-line-item"><option value="">—</option></select>
           </label>
-          <label style="width:80px">Qty <input id="tr-line-qty" type="number" step="0.1" min="0" /></label>
+          <label style="width:80px">Qty <input id="tr-line-qty" type="number" inputmode="decimal" step="0.1" min="0" /></label>
           <button class="ghost-btn" id="tr-add-line" type="button">Add</button>
         </div>
         <div class="modal-actions" style="margin-top:16px">
@@ -1356,8 +1380,8 @@
         <h3 id="menu-modal-title">Add menu item</h3>
         <label>Name <input id="mi-name" type="text" placeholder="Margherita Pizza" /></label>
         <label>Category <input id="mi-cat" type="text" placeholder="Pizza" /></label>
-        <label>Menu price ($) <input id="mi-price" type="number" step="0.01" placeholder="16.99" /></label>
-        <label>Food cost ($) <input id="mi-cost" type="number" step="0.01" placeholder="4.20" /></label>
+        <label>Menu price ($) <input id="mi-price" type="number" inputmode="decimal" step="0.01" placeholder="16.99" /></label>
+        <label>Food cost ($) <input id="mi-cost" type="number" inputmode="decimal" step="0.01" placeholder="4.20" /></label>
         <div class="modal-actions">
           <button class="ghost-btn" id="mi-cancel">Cancel</button>
           <button class="btn" id="mi-save">Save</button>
@@ -1386,9 +1410,9 @@
           <label>Unit <input id="ii-unit" type="text" placeholder="lb" /></label>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-          <label>On hand <input id="ii-onhand" type="number" step="0.1" placeholder="40" /></label>
-          <label>Par <input id="ii-par" type="number" step="0.1" placeholder="60" /></label>
-          <label>Cost / unit ($) <input id="ii-cost" type="number" step="0.01" placeholder="3.95" /></label>
+          <label>On hand <input id="ii-onhand" type="number" inputmode="decimal" step="0.1" placeholder="40" /></label>
+          <label>Par <input id="ii-par" type="number" inputmode="decimal" step="0.1" placeholder="60" /></label>
+          <label>Cost / unit ($) <input id="ii-cost" type="number" inputmode="decimal" step="0.01" placeholder="3.95" /></label>
         </div>
         <label>Vendor <input id="ii-vendor" type="text" placeholder="Sysco" /></label>
 
@@ -1396,9 +1420,9 @@
           <hr style="border:none;border-top:1px solid var(--border,#e8dcc0);margin:14px 0 10px" />
           <div class="muted" style="font-size:12px;margin-bottom:8px">Bar / liquor fields</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-            <label>Bottle size (mL) <input id="ii-bottle-ml" type="number" step="1" placeholder="750" /></label>
-            <label>Usable oz / bottle <input id="ii-yield-oz" type="number" step="0.1" placeholder="25.4" /></label>
-            <label>ABV % <input id="ii-abv" type="number" step="0.1" placeholder="40" /></label>
+            <label>Bottle size (mL) <input id="ii-bottle-ml" type="number" inputmode="numeric" step="1" placeholder="750" /></label>
+            <label>Usable oz / bottle <input id="ii-yield-oz" type="number" inputmode="decimal" step="0.1" placeholder="25.4" /></label>
+            <label>ABV % <input id="ii-abv" type="number" inputmode="decimal" step="0.1" placeholder="40" /></label>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <label>Vendor SKU <input id="ii-vendor-sku" type="text" placeholder="SY-12345" /></label>
@@ -1419,8 +1443,8 @@
       <div class="modal-card">
         <h3 id="recipe-modal-title">Add recipe</h3>
         <label>Name <input id="rc-name" type="text" placeholder="Margherita Pizza" /></label>
-        <label>Yield (servings) <input id="rc-yield" type="number" step="1" min="1" value="1" /></label>
-        <label>Menu price ($) <input id="rc-price" type="number" step="0.01" placeholder="16.99" /></label>
+        <label>Yield (servings) <input id="rc-yield" type="number" inputmode="numeric" step="1" min="1" value="1" /></label>
+        <label>Menu price ($) <input id="rc-price" type="number" inputmode="decimal" step="0.01" placeholder="16.99" /></label>
         <label>Linked menu item
           <select id="rc-menu-link"><option value="">— None —</option></select>
         </label>
@@ -1439,12 +1463,12 @@
           <select id="ig-pick"><option value="">— Free text below —</option></select>
         </label>
         <label>Name <input id="ig-name" type="text" placeholder="Mozzarella" /></label>
-        <label>Quantity <input id="ig-qty" type="number" step="0.001" placeholder="0.25" /></label>
+        <label>Quantity <input id="ig-qty" type="number" inputmode="decimal" step="0.001" placeholder="0.25" /></label>
         <label>Unit <input id="ig-unit" type="text" placeholder="lb" /></label>
-        <label>Pour (fl oz) <input id="ig-pour-oz" type="number" step="0.1" placeholder="1.5 (bar items)" />
+        <label>Pour (fl oz) <input id="ig-pour-oz" type="number" inputmode="decimal" step="0.1" placeholder="1.5 (bar items)" />
           <span class="muted" style="font-size:11px;display:block;margin-top:2px">Optional. If set, takes precedence over qty/unit when computing depletion against bottle inventory.</span>
         </label>
-        <label>Unit cost ($) <input id="ig-cost" type="number" step="0.01" placeholder="3.95" /></label>
+        <label>Unit cost ($) <input id="ig-cost" type="number" inputmode="decimal" step="0.01" placeholder="3.95" /></label>
         <div class="modal-actions">
           <button class="ghost-btn" id="ig-cancel">Cancel</button>
           <button class="btn" id="ig-save">Add</button>
@@ -1484,7 +1508,7 @@
             <option value="critical">Critical</option>
           </select>
         </label>
-        <label>Estimated minutes <input id="ct-est" type="number" step="1" min="0" value="5" /></label>
+        <label>Estimated minutes <input id="ct-est" type="number" inputmode="numeric" step="1" min="0" value="5" /></label>
         <label>Assigned to
           <select id="ct-assignee"><option value="">— Unassigned —</option></select>
         </label>
@@ -1500,11 +1524,11 @@
       <div class="modal-card">
         <h3>Log waste</h3>
         <label>Item <input id="w-item" type="text" placeholder="Mozzarella" /></label>
-        <label>Qty <input id="w-qty" type="number" step="0.1" placeholder="2" /></label>
+        <label>Qty <input id="w-qty" type="number" inputmode="decimal" step="0.1" placeholder="2" /></label>
         <label>Reason
           <select id="w-reason"><option>Spoilage</option><option>Burn / overcook</option><option>Dropped</option><option>Customer return</option><option>Prep error</option></select>
         </label>
-        <label>$ Loss <input id="w-loss" type="number" step="0.01" placeholder="12.50" /></label>
+        <label>$ Loss <input id="w-loss" type="number" inputmode="decimal" step="0.01" placeholder="12.50" /></label>
         <div class="modal-actions">
           <button class="ghost-btn" id="w-cancel">Cancel</button>
           <button class="btn" id="w-save">Save</button>
@@ -1547,7 +1571,7 @@
         <h3>Edit count line</h3>
         <input type="hidden" id="cle-line-id" />
         <label>Item <input id="cle-item" type="text" disabled /></label>
-        <label>Counted qty <input id="cle-qty" type="number" step="0.01" /></label>
+        <label>Counted qty <input id="cle-qty" type="number" inputmode="decimal" step="0.01" /></label>
         <label>Notes <input id="cle-notes" type="text" /></label>
         <div class="modal-actions">
           <button class="ghost-btn" id="cle-cancel">Cancel</button>
@@ -1577,7 +1601,7 @@
               <option value="other">Other</option>
             </select>
           </label>
-          <label>Net terms (days) <input id="v-terms" type="number" step="1" value="30" /></label>
+          <label>Net terms (days) <input id="v-terms" type="number" inputmode="numeric" step="1" value="30" /></label>
         </div>
         <label>Account # <input id="v-account" type="text" placeholder="Their account # for us" /></label>
         <label>Notes <input id="v-notes" type="text" /></label>
@@ -1595,7 +1619,7 @@
         <label>Vendor <select id="b-vendor"></select></label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <label>Bill # <input id="b-number" type="text" placeholder="INV-1024" /></label>
-          <label>Amount <input id="b-amount" type="number" step="0.01" placeholder="1500.00" /></label>
+          <label>Amount <input id="b-amount" type="number" inputmode="decimal" step="0.01" placeholder="1500.00" /></label>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <label>Bill date <input id="b-date" type="date" /></label>
@@ -1619,7 +1643,7 @@
         <input type="hidden" id="pay-bill-id" />
         <div class="muted" id="pay-bill-summary" style="font-size:12px;margin-bottom:8px"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <label>Amount <input id="pay-amount" type="number" step="0.01" /></label>
+          <label>Amount <input id="pay-amount" type="number" inputmode="decimal" step="0.01" /></label>
           <label>Date <input id="pay-date" type="date" /></label>
         </div>
         <label>Method
@@ -1664,7 +1688,7 @@
         <h3>Log bar pour</h3>
         <label>Bottle <select id="bp-item"></select></label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <label>Pour (fl oz) <input id="bp-oz" type="number" step="0.1" placeholder="1.5" /></label>
+          <label>Pour (fl oz) <input id="bp-oz" type="number" inputmode="decimal" step="0.1" placeholder="1.5" /></label>
           <label>Reason
             <select id="bp-reason">
               <option value="spill">Spill</option>

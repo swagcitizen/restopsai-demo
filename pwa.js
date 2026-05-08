@@ -163,6 +163,7 @@
       },
     });
     document.body.appendChild(toast);
+    document.body.classList.add('pwa-toast-visible');
   }
 
   function maybeShowIOSHint() {
@@ -188,6 +189,7 @@
       icon: '⬆️',
     });
     document.body.appendChild(toast);
+    document.body.classList.add('pwa-toast-visible');
   }
 
   function buildToast({ title, body, primaryLabel, onPrimary, onDismiss, icon }) {
@@ -216,6 +218,7 @@
   function hideInstallToast() {
     const t = document.getElementById('pwa-install-toast');
     if (t) t.remove();
+    document.body.classList.remove('pwa-toast-visible');
   }
 
   function logoSvg() {

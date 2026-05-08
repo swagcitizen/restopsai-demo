@@ -401,23 +401,115 @@ body.role-staff #reset-data { display: none; }
 body.role-manager .role-switch,
 body.role-manager #reset-data { display: none; }
 
+/* =============================================================
+   MOBILE TOPBAR + DRAWER (≤1100px) - replaces horizontal scroll nav
+   ============================================================= */
+.mobile-topbar { display: none; }
+.mobile-nav-drawer { display: none; }
+.mobile-nav-backdrop { display: none; }
+
 @media (max-width: 1100px) {
   body { grid-template-columns: 1fr; }
-  .sidebar { position: relative; height: auto; flex-direction: row; align-items: center; overflow-x: auto; }
-  .sidebar .brand { border-bottom: 0; padding: 0 12px 0 0; border-right: 1px solid var(--line); }
-  .nav { flex-direction: row; }
-  .side-footer { flex-direction: row; margin-left: auto; }
+
+  /* Hide the desktop sidebar entirely; replaced by topbar + drawer. */
+  .sidebar { display: none; }
+
+  /* Mobile topbar */
+  .mobile-topbar {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 50;
+    background: linear-gradient(180deg, #15130f 0%, #0e0d0b 100%);
+    border-bottom: 1px solid var(--line);
+    padding: 8px 14px; min-height: 56px;
+    color: var(--text);
+  }
+  .mobile-menu-btn, .mobile-alerts-btn, .mobile-nav-close {
+    appearance: none; background: transparent; border: 0; color: var(--text);
+    width: 44px; height: 44px; display: grid; place-items: center;
+    border-radius: 10px; cursor: pointer; padding: 0;
+  }
+  .mobile-menu-btn:hover, .mobile-alerts-btn:hover, .mobile-nav-close:hover { background: var(--surface); }
+  .mobile-topbar-title {
+    flex: 1; font-family: var(--font-display); font-weight: 600;
+    font-size: 17px; letter-spacing: -0.01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mobile-alerts-btn { position: relative; margin-left: auto; }
+  .mobile-alerts-count {
+    position: absolute; top: 4px; right: 4px;
+    background: var(--error); color: #fff; font-size: 10px; font-weight: 700;
+    min-width: 16px; height: 16px; border-radius: 999px;
+    display: grid; place-items: center; padding: 0 4px;
+  }
+
+  /* Backdrop */
+  .mobile-nav-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 90;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+  .mobile-nav-backdrop[data-open="true"] { opacity: 1; pointer-events: auto; }
+
+  /* Drawer */
+  .mobile-nav-drawer {
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(86vw, 320px); z-index: 100;
+    background: linear-gradient(180deg, #141209 0%, #0e0d0b 100%);
+    border-right: 1px solid var(--line);
+    transform: translateX(-105%);
+    transition: transform 240ms cubic-bezier(.2,.85,.25,1);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  }
+  .mobile-nav-drawer[data-open="true"] { transform: translateX(0); }
+  .mobile-nav-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-bottom: 1px solid var(--line);
+    min-height: 56px;
+  }
+  .mobile-nav-brand { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+  .mobile-nav { flex: 1; overflow-y: auto; padding: 8px 10px 16px; display: flex; flex-direction: column; gap: 2px; }
+  .mobile-nav .nav-section {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint);
+    padding: 14px 12px 6px;
+  }
+  .mobile-nav .nav-item {
+    width: 100%; min-height: 48px; padding: 12px 14px;
+    font-size: 15px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; gap: 12px;
+    background: transparent; border: 0; color: var(--text-muted); text-align: left; cursor: pointer;
+  }
+  .mobile-nav .nav-item:hover { background: var(--surface); color: var(--text); }
+  .mobile-nav .nav-item.active { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
+  .mobile-nav .nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); }
+  .mobile-nav .nav-item.active .dot { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .mobile-nav .nav-item .nav-badge { margin-left: auto; }
+
+  /* Topbar inside main becomes more compact */
+  .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .topbar-actions { width: 100%; flex-wrap: wrap; gap: 10px; }
+  .topbar-actions .alerts-bell { display: none; } /* moved to mobile topbar */
+
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .row-2 { grid-template-columns: 1fr; }
   .pl-grid { grid-template-columns: 1fr 1fr; }
   .pl-summary { grid-template-columns: 1fr 1fr; }
-  .main { padding: 20px; }
+  .main { padding: 16px 14px 80px; }
 }
 @media (max-width: 640px) {
-  .kpi-grid { grid-template-columns: 1fr; }
+  /* KPI grid stays 2-col at 375px so cards aren't too tall */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  /* Inline style="grid-template-columns:repeat(4,1fr)" on #variance-kpis,
+     #bar-kpis etc must be overridden — use !important to beat the inline. */
+  #variance-kpis, #bar-kpis, .kpi-row { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .kpi { padding: 12px; }
+  .kpi-value { font-size: 22px !important; }
   .pl-grid { grid-template-columns: 1fr; }
   .be-body { grid-template-columns: 1fr; }
   .be-stat.big { grid-column: span 1; }
+  /* Hide section labels in topbar to save space at very narrow widths */
+  .topbar-actions .health-pill { font-size: 11px; padding: 4px 10px; }
 }
 
 /* =============================================================
@@ -2617,3 +2709,173 @@ tr.ot-row td {
   color: var(--text-muted);
 }
 .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
+
+/* =============================================================
+   MOBILE POLISH (release: mobile/tablet) - bottom of file so
+   these rules win without !important.
+   ============================================================= */
+
+/* iOS won't autozoom inputs whose font-size is >=16px. Apply universally
+   on touch devices for any input/select/textarea. */
+@media (max-width: 1100px) {
+  input, select, textarea { font-size: 16px; }
+}
+
+/* Tap-target hardening on coarse-pointer devices (phones/tablets). */
+@media (hover: none) and (pointer: coarse) {
+  .btn, .btn-primary, .btn.small, .chip, .seg-btn,
+  .mobile-nav .nav-item, .mobile-menu-btn, .mobile-alerts-btn, .mobile-nav-close,
+  .activation-toggle, .activation-dismiss,
+  .ghost-btn, .icon-btn,
+  .pwa-toast-primary, .pwa-toast-dismiss, .pwa-toast-close {
+    min-height: 44px; padding-block: 10px;
+  }
+  .pin-key { min-height: 64px; font-size: 22px; }
+  /* Time Clock in/out/break button — kitchen-line critical. */
+  .clock-action-btn { min-height: 64px; font-size: 20px; }
+  #log-temp { min-height: 48px; padding: 12px 18px; font-size: 15px; }
+}
+
+/* =============================================================
+   Wide tables -> card layout below 720px
+   Targets: bills, payroll, variance, inventory, invoice review,
+   shift scheduler, role permissions.
+   Each tbody td needs data-label="…" added by JS for the column
+   header text. Plain rows degrade gracefully if missing.
+   ============================================================= */
+@media (max-width: 720px) {
+  .invoice-review-table-wrap table,
+  .ssch-table-wrap table,
+  .rp-table-wrap table,
+  table.bills-table,
+  table.payroll-periods-table,
+  table.variance-table,
+  table.inventory-table {
+    display: block; width: 100%;
+  }
+  .invoice-review-table-wrap thead,
+  .ssch-table-wrap thead,
+  .rp-table-wrap thead,
+  table.bills-table thead,
+  table.payroll-periods-table thead,
+  table.variance-table thead,
+  table.inventory-table thead { display: none; }
+  .invoice-review-table-wrap tbody,
+  .ssch-table-wrap tbody,
+  .rp-table-wrap tbody,
+  table.bills-table tbody,
+  table.payroll-periods-table tbody,
+  table.variance-table tbody,
+  table.inventory-table tbody { display: block; }
+  .invoice-review-table-wrap tbody tr,
+  .ssch-table-wrap tbody tr,
+  .rp-table-wrap tbody tr,
+  table.bills-table tbody tr,
+  table.payroll-periods-table tbody tr,
+  table.variance-table tbody tr,
+  table.inventory-table tbody tr {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 12px; border: 1px solid var(--line);
+    border-radius: var(--radius-sm); background: var(--surface);
+    margin-bottom: 10px;
+  }
+  .invoice-review-table-wrap tbody td,
+  .ssch-table-wrap tbody td,
+  .rp-table-wrap tbody td,
+  table.bills-table tbody td,
+  table.payroll-periods-table tbody td,
+  table.variance-table tbody td,
+  table.inventory-table tbody td {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding: 6px 0; border: 0;
+    text-align: right; word-break: break-word;
+  }
+  .invoice-review-table-wrap tbody td::before,
+  .ssch-table-wrap tbody td::before,
+  .rp-table-wrap tbody td::before,
+  table.bills-table tbody td::before,
+  table.payroll-periods-table tbody td::before,
+  table.variance-table tbody td::before,
+  table.inventory-table tbody td::before {
+    content: attr(data-label);
+    color: var(--text-muted); font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    text-align: left; flex: 0 0 auto;
+  }
+  /* Numeric inputs inside cards stay full-width */
+  table.inventory-table tbody td input[type="number"],
+  table.variance-table tbody td input[type="number"] {
+    width: 110px; max-width: 50%;
+  }
+  /* Empty state row: full-width centered */
+  table.bills-table tbody tr:has(td[colspan]),
+  table.payroll-periods-table tbody tr:has(td[colspan]),
+  table.variance-table tbody tr:has(td[colspan]),
+  table.inventory-table tbody tr:has(td[colspan]) {
+    align-items: center;
+  }
+  table.bills-table tbody td[colspan]::before,
+  table.payroll-periods-table tbody td[colspan]::before,
+  table.variance-table tbody td[colspan]::before,
+  table.inventory-table tbody td[colspan]::before { content: ""; }
+  table.bills-table tbody td[colspan],
+  table.payroll-periods-table tbody td[colspan],
+  table.variance-table tbody td[colspan],
+  table.inventory-table tbody td[colspan] {
+    justify-content: center; text-align: center;
+  }
+}
+
+/* =============================================================
+   FULLSCREEN MOBILE MODALS (<=720px)
+   The app uses .modal > .modal-card pattern. Promote modal-card
+   to a fullscreen flex column with sticky header (h3) and footer
+   (.modal-actions).
+   ============================================================= */
+@media (max-width: 720px) {
+  .modal {
+    display: block; place-items: initial;
+    padding: 0; backdrop-filter: none; background: var(--surface);
+  }
+  .modal[hidden] { display: none; }
+  .modal-card {
+    width: 100% !important; max-width: none !important;
+    height: 100vh; height: 100dvh;
+    border-radius: 0 !important; border: 0;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column;
+    box-shadow: none;
+  }
+  .modal-card > h3 {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--surface); margin: 0 !important;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .modal-card > h3,
+  .modal-card > h3 + * { /* first content block */ }
+  /* Body region = everything except h3 and the trailing modal-actions */
+  .modal-card > *:not(h3):not(.modal-actions) {
+    padding-left: 16px; padding-right: 16px;
+  }
+  .modal-card > label { padding: 6px 16px; margin-bottom: 0; }
+  .modal-card > .modal-actions {
+    margin-top: auto;
+    position: sticky; bottom: 0; z-index: 1;
+    background: var(--surface);
+    padding: 12px 16px; border-top: 1px solid var(--line);
+  }
+  /* Scrollable middle: wrap labels in a flex parent so they grow */
+  .modal-card { overflow-y: auto; }
+}
+
+/* =============================================================
+   PWA INSTALL TOAST - tighter mobile placement
+   ============================================================= */
+@media (max-width: 720px) {
+  #pwa-install-toast {
+    bottom: 8px !important; padding: 10px 10px 10px 12px !important;
+    max-width: 320px !important;
+  }
+  body.pwa-toast-visible { padding-bottom: 96px; }
+  .pwa-toast-close { width: 44px !important; height: 44px !important; }
+}

@@ -658,17 +658,17 @@ function renderInventory() {
     const tr = document.createElement("tr");
     const sampleTag = i.isSample ? `<span class="sample-pill" title="Sample data">SAMPLE</span>` : '';
     tr.innerHTML = `
-      <td>${escapeHtml(i.item)}${sampleTag}</td>
-      <td>${catBadge}</td>
-      <td>${escapeHtml(i.unit)}</td>
-      <td><input type="number" step="0.1" value="${i.onHand}" data-inv="${realIdx}" data-field="onHand"/></td>
-      <td>${i.par}</td>
-      <td>${i.reorder}</td>
-      <td>${fmtUSD2(i.cost)}</td>
-      <td>${fmtUSD2(value)}</td>
-      <td>${escapeHtml(i.vendor)}</td>
-      <td>${status}</td>
-      <td>${i.id ? `<button class="row-del" data-inv-del="${i.id}" title="Delete">×</button>` : ''}</td>
+      <td data-label="Item">${escapeHtml(i.item)}${sampleTag}</td>
+      <td data-label="Cat">${catBadge}</td>
+      <td data-label="Unit">${escapeHtml(i.unit)}</td>
+      <td data-label="On hand"><input type="number" inputmode="decimal" step="0.1" value="${i.onHand}" data-inv="${realIdx}" data-field="onHand"/></td>
+      <td data-label="Par">${i.par}</td>
+      <td data-label="Reorder">${i.reorder}</td>
+      <td data-label="Cost/unit">${fmtUSD2(i.cost)}</td>
+      <td data-label="Value">${fmtUSD2(value)}</td>
+      <td data-label="Vendor">${escapeHtml(i.vendor)}</td>
+      <td data-label="Status">${status}</td>
+      <td data-label="">${i.id ? `<button class="row-del" data-inv-del="${i.id}" title="Delete">×</button>` : ''}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -758,7 +758,7 @@ function renderTemps() {
       <div class="temp-label">${escapeHtml(t.label || t.equipment)}</div>
       <div class="temp-range">${kind === 'hot' ? `Hot-hold: ≥ ${t.min} ${t.unit}` : `Safe: ${t.min}–${t.max} ${t.unit}`} · <span class="muted">${ageLabel}</span></div>
       <div class="temp-input">
-        <input type="number" step="0.5" value="${t.last}" data-temp="${idx}"/>
+        <input type="number" inputmode="decimal" pattern="[0-9.\\-]*" step="0.5" value="${t.last}" data-temp="${idx}"/>
         <span class="unit">${t.unit}</span>
         ${statusPill}
       </div>
@@ -1458,9 +1458,10 @@ function renderRecipeDetail() {
   `;
 }
 
-function renderVariance() {
+function renderVarianceLegacy() {
   // Theoretical food cost: from recipes weighted by menu units sold in SAMPLE.menu
   // Actual food cost: from P&L cogs
+  // (Superseded by async renderVariance below; kept for reference, no longer wired.)
   let theoretical = 0;
   state.menu.forEach(m => {
     // Exact-ish match on item name; fall back to the menu item's declared cost
@@ -1856,17 +1857,87 @@ function wireActivationEvents() {
 }
 
 // -----------------------------------------------------------------------------
+// MOBILE NAV DRAWER
+// -----------------------------------------------------------------------------
+function setupMobileNav() {
+  const drawerList = document.getElementById('mobile-nav-list');
+  if (!drawerList || drawerList.dataset.populated === '1') return;
+  // Clone every .nav-section / .nav-item from the desktop sidebar into the drawer.
+  // Cloned .nav-item buttons keep their data-view, so the existing click
+  // handler bound below will pick them up alongside the originals.
+  const sourceNav = document.querySelector('.sidebar .nav');
+  if (!sourceNav) return;
+  Array.from(sourceNav.children).forEach(child => {
+    const clone = child.cloneNode(true);
+    drawerList.appendChild(clone);
+  });
+  drawerList.dataset.populated = '1';
+
+  // Open / close wiring
+  const drawer = document.getElementById('mobile-nav-drawer');
+  const backdrop = document.getElementById('mobile-nav-backdrop');
+  const openBtn = document.getElementById('mobile-menu-btn');
+  const closeBtn = document.getElementById('mobile-nav-close');
+  if (openBtn) openBtn.addEventListener('click', openMobileDrawer);
+  if (closeBtn) closeBtn.addEventListener('click', closeMobileDrawer);
+  if (backdrop) backdrop.addEventListener('click', closeMobileDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawer?.dataset.open === 'true') closeMobileDrawer();
+  });
+  // Mobile alerts bell button: route to alerts view (existing nav-item handler
+  // listens via .nav-item; this <button> has data-view but isn't .nav-item, so
+  // wire it directly).
+  const alertsBtn = document.getElementById('mobile-alerts-btn');
+  if (alertsBtn) {
+    alertsBtn.addEventListener('click', () => {
+      const target = document.querySelector('.sidebar .nav-item[data-view="alerts"]');
+      if (target) target.click();
+    });
+  }
+}
+function openMobileDrawer() {
+  const drawer = document.getElementById('mobile-nav-drawer');
+  const backdrop = document.getElementById('mobile-nav-backdrop');
+  const btn = document.getElementById('mobile-menu-btn');
+  if (!drawer) return;
+  drawer.dataset.open = 'true';
+  drawer.setAttribute('aria-hidden', 'false');
+  if (backdrop) { backdrop.hidden = false; backdrop.dataset.open = 'true'; }
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+  try { sessionStorage.setItem('mobile-drawer-open', '1'); } catch (_) {}
+}
+function closeMobileDrawer() {
+  const drawer = document.getElementById('mobile-nav-drawer');
+  const backdrop = document.getElementById('mobile-nav-backdrop');
+  const btn = document.getElementById('mobile-menu-btn');
+  if (!drawer || drawer.dataset.open !== 'true') return;
+  drawer.dataset.open = 'false';
+  drawer.setAttribute('aria-hidden', 'true');
+  if (backdrop) { backdrop.dataset.open = 'false'; setTimeout(() => { backdrop.hidden = true; }, 220); }
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  try { sessionStorage.removeItem('mobile-drawer-open'); } catch (_) {}
+}
+
+// -----------------------------------------------------------------------------
 // EVENTS
 // -----------------------------------------------------------------------------
 function bindEvents() {
+  // Mobile drawer: clone the desktop nav into the drawer once on first run.
+  setupMobileNav();
+
   // Nav
   document.querySelectorAll(".nav-item").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
       const view = btn.dataset.view;
+      // Update active state across BOTH desktop sidebar and mobile drawer
+      // copies (matched by data-view) so they stay in sync.
+      document.querySelectorAll(".nav-item").forEach(b => {
+        b.classList.toggle("active", b.dataset.view === view);
+      });
       document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
       document.querySelector(`.view[data-view="${view}"]`).classList.add("active");
+      // Close drawer (if open) when any nav item is tapped.
+      closeMobileDrawer();
       const titles = {
         overview: ["Overview", "Real-time snapshot of the business"],
         briefing: ["Weekly Briefing", "Auto-generated insights, anomalies, and focus areas"],
@@ -1892,6 +1963,9 @@ function bindEvents() {
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
       document.getElementById("view-sub").textContent = s;
+      // Mirror the active tab title into the mobile topbar.
+      const _mobTitle = document.getElementById('mobile-topbar-title');
+      if (_mobTitle) _mobTitle.textContent = t;
       // Lazy-load team data when the team view opens (avoid extra fetches during boot).
       if (view === 'team') refreshTeamView().catch(err => console.error('Team view load failed:', err));
       if (view === 'clock') resetClockToPinPad();
@@ -2770,9 +2844,9 @@ function renderInvoiceReview() {
       <label><span class="lbl">Vendor</span><input type="text" data-review-field="vendor" value="${escapeHtml(inv.vendor || '')}" /></label>
       <label><span class="lbl">Invoice #</span><input type="text" data-review-field="number" value="${escapeHtml(inv.number || '')}" /></label>
       <label><span class="lbl">Date</span><input type="date" data-review-field="date" value="${inv.date || ''}" /></label>
-      <label><span class="lbl">Subtotal</span><input type="number" step="0.01" data-review-field="subtotal" value="${inv.subtotal || 0}" /></label>
-      <label><span class="lbl">Tax</span><input type="number" step="0.01" data-review-field="tax" value="${inv.tax || 0}" /></label>
-      <label><span class="lbl">Total</span><input type="number" step="0.01" data-review-field="total" value="${inv.total || 0}" /></label>
+      <label><span class="lbl">Subtotal</span><input type="number" inputmode="decimal" step="0.01" data-review-field="subtotal" value="${inv.subtotal || 0}" /></label>
+      <label><span class="lbl">Tax</span><input type="number" inputmode="decimal" step="0.01" data-review-field="tax" value="${inv.tax || 0}" /></label>
+      <label><span class="lbl">Total</span><input type="number" inputmode="decimal" step="0.01" data-review-field="total" value="${inv.total || 0}" /></label>
     </div>
   `;
 
@@ -3758,6 +3832,21 @@ async function bootApp() {
   wireActivationEvents();
   renderAll();
 
+  // Tablet kitchen mode: if device is touch + roughly tablet-sized, default to
+  // Time Clock (skip if user already navigated via URL hash or ?view= param,
+  // and skip when role is owner/manager who explicitly want overview).
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const hasExplicitView = params.has('view') || (window.location.hash || '').length > 1;
+    const isTabletTouch = window.matchMedia('(max-width: 1024px) and (pointer: coarse)').matches;
+    const role = state.role || 'owner';
+    if (!hasExplicitView && (role === 'staff' || isTabletTouch)) {
+      const clockBtn = document.querySelector('.sidebar .nav-item[data-view="clock"]')
+        || document.querySelector('.nav-item[data-view="clock"]');
+      if (clockBtn) clockBtn.click();
+    }
+  } catch (_) { /* best-effort default-view; never block boot */ }
+
   // Activation panel + sample-data banner — fire and forget; both are async.
   // Each handles its own "empty/incomplete state" gracefully so a slow query
   // can't block first paint.
@@ -4473,14 +4562,14 @@ function renderVarianceTable() {
     const sev = r.severity || 'unknown';
     const badge = `<span class="sev-badge var-${sev}">${sev === 'unknown' ? 'POS data needed' : sev}</span>`;
     return `<tr data-var-row="${r.inventory_item_id}" style="cursor:pointer">
-      <td>${escapeHtml(r.item_name || '')}</td>
-      <td>${escapeHtml(r.unit || '')}</td>
-      <td style="text-align:right">${varianceFmtQty(r.theoretical_used_qty)}</td>
-      <td style="text-align:right">${varianceFmtQty(r.actual_used_qty)}</td>
-      <td style="text-align:right">${varianceFmtQty(r.variance_qty)}</td>
-      <td style="text-align:right">${r.variance_dollars == null ? '—' : varianceFmtUSD(r.variance_dollars)}</td>
-      <td style="text-align:right">${varianceFmtPct(r.variance_pct)}</td>
-      <td>${badge}</td>
+      <td data-label="Item">${escapeHtml(r.item_name || '')}</td>
+      <td data-label="Unit">${escapeHtml(r.unit || '')}</td>
+      <td data-label="Theoretical" style="text-align:right">${varianceFmtQty(r.theoretical_used_qty)}</td>
+      <td data-label="Actual" style="text-align:right">${varianceFmtQty(r.actual_used_qty)}</td>
+      <td data-label="Δ qty" style="text-align:right">${varianceFmtQty(r.variance_qty)}</td>
+      <td data-label="Δ $" style="text-align:right">${r.variance_dollars == null ? '—' : varianceFmtUSD(r.variance_dollars)}</td>
+      <td data-label="Δ %" style="text-align:right">${varianceFmtPct(r.variance_pct)}</td>
+      <td data-label="Severity">${badge}</td>
     </tr>`;
   }).join('');
 }
@@ -4627,7 +4716,7 @@ function renderCountModalLines() {
     return `<tr>
       <td>${escapeHtml(l.name)}</td>
       <td style="text-align:right">${varianceFmtQty(l.on_hand)}</td>
-      <td><input type="number" step="0.01" min="0" data-cnt-line-idx="${idx}" value="${l.counted_qty === '' ? '' : l.counted_qty}" style="width:100%" /></td>
+      <td><input type="number" inputmode="decimal" step="0.01" min="0" data-cnt-line-idx="${idx}" value="${l.counted_qty === '' ? '' : l.counted_qty}" style="width:100%" /></td>
       <td>${escapeHtml(l.unit || '')}</td>
       <td style="text-align:right">${counted === '' ? '—' : varianceFmtUSD(ext)}</td>
     </tr>`;
@@ -4896,15 +4985,15 @@ function renderBillsTable() {
     if (b.approval_status === 'pending') actions.push(`<button class="btn small" data-bill-approve="${b.id}">Approve</button>`);
     if (b.approval_status !== 'rejected' && stat !== 'paid' && stat !== 'void') actions.push(`<button class="btn small" data-bill-pay="${b.id}">Pay</button>`);
     return `<tr>
-      <td>${escapeHtml(vendor)}</td>
-      <td>${escapeHtml(b.bill_number || '—')}</td>
-      <td>${escapeHtml(b.bill_date || '')}</td>
-      <td>${escapeHtml(b.due_date || '')}</td>
-      <td style="text-align:right">${fmtUSD2(b.amount)}</td>
-      <td style="text-align:right">${fmtUSD2(balance)}</td>
-      <td>${statusPill}</td>
-      <td>${approvalPill}</td>
-      <td>${actions.join(' ')}</td>
+      <td data-label="Vendor">${escapeHtml(vendor)}</td>
+      <td data-label="Bill #">${escapeHtml(b.bill_number || '—')}</td>
+      <td data-label="Bill date">${escapeHtml(b.bill_date || '')}</td>
+      <td data-label="Due">${escapeHtml(b.due_date || '')}</td>
+      <td data-label="Amount" style="text-align:right">${fmtUSD2(b.amount)}</td>
+      <td data-label="Balance" style="text-align:right">${fmtUSD2(balance)}</td>
+      <td data-label="Status">${statusPill}</td>
+      <td data-label="Approval">${approvalPill}</td>
+      <td data-label="">${actions.join(' ')}</td>
     </tr>`;
   }).join('');
 
@@ -5033,13 +5122,13 @@ function renderPayrollPeriods() {
   tbody.innerHTML = state.payPeriods.map(p => {
     const cls = p.status === 'paid' ? 'ok' : p.status === 'locked' ? 'warn' : '';
     return `<tr>
-      <td>${escapeHtml(p.period_start)}</td>
-      <td>${escapeHtml(p.period_end)}</td>
-      <td>${escapeHtml(p.pay_date || '—')}</td>
-      <td><span class="pill ${cls}">${p.status}</span></td>
-      <td>${escapeHtml(p.provider || '—')}</td>
-      <td style="text-align:right">${fmtUSD(p.total_gross || 0)}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
+      <td data-label="Start">${escapeHtml(p.period_start)}</td>
+      <td data-label="End">${escapeHtml(p.period_end)}</td>
+      <td data-label="Pay date">${escapeHtml(p.pay_date || '—')}</td>
+      <td data-label="Status"><span class="pill ${cls}">${p.status}</span></td>
+      <td data-label="Provider">${escapeHtml(p.provider || '—')}</td>
+      <td data-label="Total gross" style="text-align:right">${fmtUSD(p.total_gross || 0)}</td>
+      <td data-label="" style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn small" data-pp-generate="${p.id}">Generate run</button>
         <button class="btn small ghost" data-pp-detail="${p.id}">View</button>
         ${p.status === 'locked' ? `<button class="btn small ghost" data-pp-unlock="${p.id}">Unlock</button>` : ''}
