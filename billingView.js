@@ -145,7 +145,10 @@ async function loadRecentEvents() {
 }
 
 function enforceAccessGate() {
-  const ok = _state.status?.access_ok ?? true;
+  // Fail closed: if no status row was returned, treat as read-only.
+  // The demo tenant short-circuits earlier in initBilling() and never
+  // calls this function, so it remains exempt.
+  const ok = _state.status?.access_ok === true;
   document.body.classList.toggle('app-readonly', !ok);
 }
 
@@ -188,7 +191,7 @@ function wireBillingHandlers() {
     } catch (e) {
       alert(`Could not start checkout: ${e.message}`);
       startBtn.disabled = false;
-      startBtn.textContent = 'Start 14-day free trial';
+      startBtn.textContent = 'Start 30-day free trial';
     }
   });
 

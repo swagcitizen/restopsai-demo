@@ -1789,9 +1789,18 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 }
 
 /* ==================== Read-only mode ==================== */
+/* Disable explicit write actions and any non-billing primary button. */
 body.app-readonly [data-write-action],
-body.app-readonly button.btn-primary:not(.billing-allowed):not([data-billing-checkout]):not([data-billing-portal]):not(#billing-start-btn) {
-  pointer-events: none; opacity: 0.45;
+body.app-readonly button[type="submit"]:not(.billing-allowed):not([data-billing-checkout]):not([data-billing-portal]):not(#billing-start-btn),
+body.app-readonly button.btn-primary:not(.billing-allowed):not([data-billing-checkout]):not([data-billing-portal]):not(#billing-start-btn),
+body.app-readonly form:not([data-billing-form]) input:not([readonly]),
+body.app-readonly form:not([data-billing-form]) textarea:not([readonly]),
+body.app-readonly form:not([data-billing-form]) select:not([disabled]) {
+  pointer-events: none; opacity: 0.55;
+}
+body.app-readonly form:not([data-billing-form]) input,
+body.app-readonly form:not([data-billing-form]) textarea {
+  background-color: rgba(0,0,0,0.02);
 }
 body.app-readonly .readonly-overlay-msg {
   display: block; padding: 8px 14px; background: #fbeaea;

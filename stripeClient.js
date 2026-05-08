@@ -23,7 +23,7 @@ export const BILLING_CONFIG = {
     full_label: '$852/yr',
     discount_pct: 20,
   },
-  trial_days: 14,
+  trial_days: 30,
   demo_tenant_id: 'a2e00ee7-1f30-4fbd-86b9-e560fc062f72',
 };
 
@@ -105,6 +105,13 @@ export async function updateLocationCount(tenantId, quantity) {
 
 export function statusBannerHTML(status) {
   if (!status) return '';
+  // Trial expired: read-only mode. Show prominent error banner.
+  if (status.banner === 'trial_expired') {
+    return `<div class="billing-banner billing-banner-error">
+      <strong>Trial ended.</strong> Your account is read-only. Add a payment method to keep using Stationly.
+      <button data-billing-checkout class="btn-link">Add billing</button>
+    </div>`;
+  }
   if (status.status === 'past_due') {
     const days = pastDueGraceDaysLeft(status);
     return `<div class="billing-banner billing-banner-warn">
@@ -114,8 +121,9 @@ export function statusBannerHTML(status) {
   }
   if (status.status === 'trialing') {
     const days = trialDaysLeft(status);
-    if (days != null && days <= 14) {
-      return `<div class="billing-banner billing-banner-info">
+    if (days != null && days <= 30) {
+      const tone = days <= 5 ? 'warn' : 'info';
+      return `<div class="billing-banner billing-banner-${tone}">
         <strong>Trial:</strong> ${days} day${days === 1 ? '' : 's'} left.
         <button data-billing-checkout class="btn-link">Add a card</button>
       </div>`;
