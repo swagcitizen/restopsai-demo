@@ -1,0 +1,12 @@
+{
+  "testEmail": "qa-billing-1778258333871@example.com",
+  "steps": {
+    "signup": {
+      "url": "https://stationly.ai/onboarding.html#step-1",
+      "status": "attempted"
+    }
+  },
+  "tenantId": null,
+  "finalBillingStatus": null,
+  "errors": []
+}

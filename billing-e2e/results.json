@@ -1,0 +1,44 @@
+{
+  "testEmail": "qa-billing-1778258703585@example.com",
+  "tenantId": "de892d6a-5354-42c3-82ba-9f5bbe76b2e7",
+  "steps": {
+    "stage1_signup": "PASS (incl. onboarding)",
+    "stage1_trialState": "status=trialing",
+    "stage2_billingNav": "PASS",
+    "stage2_checkoutRedirect": "PASS",
+    "stage3_checkoutComplete": "PASS",
+    "stage4_webhookDbUpdate": "PASS (status=trialing, customer=cus_UTpAhCLx...)",
+    "stage5_billingPortal": "SKIP - portal button hidden (subscription not yet confirmed in UI)"
+  },
+  "finalStatus": {
+    "tenant_id": "de892d6a-5354-42c3-82ba-9f5bbe76b2e7",
+    "status": "trialing",
+    "plan": "allin",
+    "billing_interval": "month",
+    "quantity": 1,
+    "current_period_end": "2026-05-22T16:45:18+00:00",
+    "cancel_at_period_end": false,
+    "trial_ends_at": "2026-05-22T16:45:18+00:00",
+    "past_due_since": null,
+    "current_price_id": "price_1TRmpUKEZmx2FnWMDc95wawZ",
+    "stripe_customer_id": "cus_UTpAhCLxOPWETx",
+    "access_ok": true,
+    "banner": "trial"
+  },
+  "errors": [],
+  "trialState": {
+    "tenant_id": "de892d6a-5354-42c3-82ba-9f5bbe76b2e7",
+    "status": "trialing",
+    "plan": "allin",
+    "billing_interval": "month",
+    "quantity": 1,
+    "current_period_end": null,
+    "cancel_at_period_end": false,
+    "trial_ends_at": "2026-05-22T16:45:05.791123+00:00",
+    "past_due_since": null,
+    "current_price_id": null,
+    "stripe_customer_id": null,
+    "access_ok": true,
+    "banner": "trial"
+  }
+}

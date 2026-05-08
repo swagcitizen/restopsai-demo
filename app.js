@@ -3841,12 +3841,38 @@ async function bootApp() {
   wireActivationEvents();
   renderAll();
 
+  // Honor explicit view from URL hash or ?view= param. Strip any query string
+  // that Stripe (or any other redirector) tacks onto the hash:
+  //   #billing?status=success&session_id=cs_...   ->  billing
+  //   #billing                                     ->  billing
+  //   ?view=billing                                ->  billing
+  // If the hash names a real nav-item, click it. This fixes the Stripe-return
+  // bug where the user landed on Overview instead of Billing.
+  function _viewFromUrl() {
+    try {
+      const search = new URLSearchParams(window.location.search);
+      const fromQuery = search.get('view');
+      if (fromQuery) return fromQuery.trim();
+      const hash = (window.location.hash || '').replace(/^#/, '');
+      if (!hash) return null;
+      // Strip any ?... or &... that follows the view name.
+      return hash.split(/[?&]/)[0].trim() || null;
+    } catch (_) { return null; }
+  }
+  const explicitView = _viewFromUrl();
+  if (explicitView) {
+    const explicitBtn = document.querySelector(`.sidebar .nav-item[data-view="${explicitView}"]`)
+      || document.querySelector(`.nav-item[data-view="${explicitView}"]`);
+    if (explicitBtn) {
+      try { explicitBtn.click(); } catch (_) {}
+    }
+  }
+
   // Tablet kitchen mode: if device is touch + roughly tablet-sized, default to
   // Time Clock (skip if user already navigated via URL hash or ?view= param,
   // and skip when role is owner/manager who explicitly want overview).
   try {
-    const params = new URLSearchParams(window.location.search);
-    const hasExplicitView = params.has('view') || (window.location.hash || '').length > 1;
+    const hasExplicitView = !!explicitView;
     const isTabletTouch = window.matchMedia('(max-width: 1024px) and (pointer: coarse)').matches;
     const role = state.role || 'owner';
     if (!hasExplicitView && (role === 'staff' || isTabletTouch)) {

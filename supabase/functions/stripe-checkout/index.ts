@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     subscription_data: {
       metadata: { tenant_id: tenantId },
       ...(withTrial ? {
-        trial_period_days: 14,
+        trial_period_days: 30,
         trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
       } : {}),
     },
