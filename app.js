@@ -511,10 +511,17 @@ const CHART_DEFAULTS = {
   borderColor: "#2c2820",
   font: { family: "Inter, sans-serif", size: 11 },
 };
-Chart.defaults.color = CHART_DEFAULTS.color;
-Chart.defaults.borderColor = CHART_DEFAULTS.borderColor;
-Chart.defaults.font.family = CHART_DEFAULTS.font.family;
-Chart.defaults.font.size = CHART_DEFAULTS.font.size;
+// Chart.js is loaded with `defer` for faster FCP, so it may not be ready at module-parse time.
+// Apply defaults lazily inside ensureChartDefaults(), called from renderCharts() before any new Chart().
+let __chartDefaultsApplied = false;
+function ensureChartDefaults() {
+  if (__chartDefaultsApplied || typeof Chart === "undefined") return;
+  Chart.defaults.color = CHART_DEFAULTS.color;
+  Chart.defaults.borderColor = CHART_DEFAULTS.borderColor;
+  Chart.defaults.font.family = CHART_DEFAULTS.font.family;
+  Chart.defaults.font.size = CHART_DEFAULTS.font.size;
+  __chartDefaultsApplied = true;
+}
 
 const CHART_COLORS = ["#E8A33D", "#C9302C", "#3B6E3B", "#D7B26A", "#8D6E4B", "#6B8EAE", "#A87CA0", "#C08D3F"];
 
@@ -522,6 +529,7 @@ const charts = {};
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
 function renderAll() {
+  ensureChartDefaults();
   renderKPIs();
   renderPL();
   renderBreakEven();
@@ -1567,6 +1575,7 @@ function renderScheduler() {
 function renderSchedChart(dailyCost) {
   const el = document.getElementById("chart-sched");
   if (!el) return;
+  ensureChartDefaults();
   destroyChart("sched");
   const forecastDaily = [0.09,0.10,0.11,0.12,0.14,0.22,0.22];
   const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
