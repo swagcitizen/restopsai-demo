@@ -164,13 +164,33 @@ window.addEventListener('hashchange', () => {
 // Initial render
 showStep(currentStep);
 
-// Step 6 personalization
-const userEmail = session?.user?.email || '';
-const friendly = userEmail.split('@')[0]?.split(/[._-]/)[0];
-if (friendly) {
-  const el = document.getElementById('onb-name');
-  if (el) el.textContent = friendly.charAt(0).toUpperCase() + friendly.slice(1);
+// Step 6 personalization — prefer the user's signed-up display name; fall back
+// to the first word of the restaurant name from form-1; finally to "friend".
+// Email local-part used to leak placeholders like "qa-test" — never use it.
+function resolveWelcomeName() {
+  const meta = session?.user?.user_metadata || {};
+  const fullName = (meta.full_name || meta.name || '').trim();
+  if (fullName) return fullName.split(/\s+/)[0];
+  // Restaurant name from the form (or, if already saved, from the tenants row).
+  const form1Name = document.querySelector('#form-1 [name="name"]')?.value?.trim() || '';
+  if (form1Name) return form1Name.split(/\s+/)[0];
+  // Anything previously saved on the row.
+  if (onboarding?.tenant_id) {
+    // We don't have the tenant.name client-side without an extra fetch — fall through.
+  }
+  return 'friend';
 }
+
+function applyWelcomeName() {
+  const el = document.getElementById('onb-name');
+  if (!el) return;
+  const name = resolveWelcomeName();
+  el.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+}
+applyWelcomeName();
+// Re-render the welcome name once the user types their restaurant name on step 1
+// so step 6 picks it up without a reload.
+document.querySelector('#form-1 [name="name"]')?.addEventListener('input', applyWelcomeName);
 
 // ----------------------------------------------------------------------------
 // Validation per step
@@ -219,15 +239,20 @@ async function saveStep(n) {
         const ms = await getMemberships();
         tenantId = ms[0]?.tenant_id;
       }
-      // Re-fetch the auto-created onboarding row so we know its current state.
-      if (tenantId) {
-        const { data: row } = await supabase
-          .from('tenant_onboarding')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
-        onboarding = row;
+      if (!tenantId) {
+        // Hard-fail loudly instead of letting the wizard limp along with no
+        // tenant. Without this, steps 2–6 silently no-op and the final
+        // "Go to dashboard" link bounces straight back here — the user has
+        // no idea why.
+        throw new Error("We couldn\u2019t finish setting up your restaurant. Please try again, or email hello@stationly.ai if it keeps happening.");
       }
+      // Re-fetch the auto-created onboarding row so we know its current state.
+      const { data: row } = await supabase
+        .from('tenant_onboarding')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      onboarding = row;
     } else {
       // Existing tenant — update name/type/state if changed
       await supabase.from('tenants').update({
@@ -372,6 +397,20 @@ btnSkip.addEventListener('click', async () => {
 
 btnNext.addEventListener('click', async () => {
   if (currentStep === TOTAL_STEPS) {
+    // Guard against a stale wizard state — if the tenant insert never
+    // completed (e.g. RLS hiccup on step 1), going to app.html would just
+    // bounce straight back to step 1 because tenantContext sees no
+    // membership. Verify before navigating.
+    if (!tenantId) {
+      try {
+        const ms = await getMemberships();
+        tenantId = ms[0]?.tenant_id || null;
+      } catch (_) { /* fall through */ }
+    }
+    if (!tenantId) {
+      fail('Your restaurant didn\u2019t finish setting up. Go back to step 1 and try again.');
+      return;
+    }
     window.location.href = './app.html';
     return;
   }

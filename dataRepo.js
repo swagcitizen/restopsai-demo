@@ -32,7 +32,7 @@ function tenantOrNull() { return window.__RESTOPS_CTX__?.tenantId || null; }
 export async function fetchStaff() {
   const { data, error } = await supabase
     .from('staff')
-    .select('id, name, role, hourly_rate, phone, email')
+    .select('id, name, role, hourly_rate, phone, email, is_sample')
     .eq('active', true)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -52,6 +52,7 @@ export async function fetchStaff() {
     exp: '2026-12-31',
     expSF: '2026-12-31',
     expCPR: '2026-06-30',
+    isSample: !!s.is_sample,
   }));
 }
 
@@ -311,7 +312,7 @@ export async function fetchInspectionHistory() {
 export async function fetchMenu() {
   const { data, error } = await supabase
     .from('menu_items')
-    .select('id, name, price, food_cost, category, active, sort_order')
+    .select('id, name, price, food_cost, category, active, sort_order, is_sample')
     .eq('active', true)
     .order('sort_order', { ascending: true });
   if (error) throw error;
@@ -323,6 +324,7 @@ export async function fetchMenu() {
     category: m.category || '',
     // Units are a UI-only best-guess until POS imports land:
     units: 0,
+    isSample: !!m.is_sample,
   }));
 }
 
@@ -392,7 +394,7 @@ export async function seedMenuFromSample(sampleMenu) {
 export async function fetchInventory({ locationId = null } = {}) {
   let q = supabase
     .from('inventory_items')
-    .select('id, name, unit, on_hand, par, unit_cost, supplier, location_id, category, bottle_size_ml, bottle_size_oz, unit_yield_oz, vendor_sku, upc, abv, bin_location')
+    .select('id, name, unit, on_hand, par, unit_cost, supplier, location_id, category, bottle_size_ml, bottle_size_oz, unit_yield_oz, vendor_sku, upc, abv, bin_location, is_sample')
     .order('name', { ascending: true });
   if (locationId) {
     // Show items at the selected location plus tenant-wide (NULL location_id) rows.
@@ -418,6 +420,7 @@ export async function fetchInventory({ locationId = null } = {}) {
     upc: i.upc || null,
     abv: i.abv != null ? Number(i.abv) : null,
     binLocation: i.bin_location || null,
+    isSample: !!i.is_sample,
   }));
 }
 
@@ -483,7 +486,7 @@ export async function seedInventoryFromSample(sampleInv) {
 export async function fetchRecipes() {
   const { data: recipes, error: err1 } = await supabase
     .from('recipes')
-    .select('id, name, yield, menu_price')
+    .select('id, name, yield, menu_price, is_sample')
     .order('name', { ascending: true });
   if (err1) throw err1;
   if (!recipes || recipes.length === 0) return [];
@@ -511,6 +514,7 @@ export async function fetchRecipes() {
     yield: r.yield || 1,
     menuPrice: Number(r.menu_price) || 0,
     ingredients: byRecipe.get(r.id) || [],
+    isSample: !!r.is_sample,
   }));
 }
 
@@ -797,6 +801,7 @@ function mapInvoiceRow(row, lines = [], priceMap = {}) {
     status: row.status || 'draft',
     uploadedAt: row.uploaded_at,
     notes: row.notes || '',
+    isSample: !!row.is_sample,
     lines: mappedLines,
   };
 }
@@ -804,7 +809,7 @@ function mapInvoiceRow(row, lines = [], priceMap = {}) {
 export async function fetchInvoices({ limit = 100 } = {}) {
   const { data: invs, error } = await supabase
     .from('invoices')
-    .select('id, vendor, invoice_number, invoice_date, subtotal, tax, total, status, uploaded_at, notes')
+    .select('id, vendor, invoice_number, invoice_date, subtotal, tax, total, status, uploaded_at, notes, is_sample')
     .order('invoice_date', { ascending: false, nullsFirst: false })
     .order('uploaded_at', { ascending: false })
     .limit(limit);

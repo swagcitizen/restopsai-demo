@@ -22,6 +22,7 @@ import * as tipPoolRepo from './tipPoolRepo.js';
 import * as vendorsRepo from './vendorsRepo.js';
 import * as billsRepo from './billsRepo.js';
 import * as barPoursRepo from './barPoursRepo.js';
+import * as activationRepo from './activationRepo.js';
 import { getCurrentLocationId, setCurrentLocationId } from './tenantContext.js';
 import { supabase } from './supabaseClient.js';
 
@@ -620,8 +621,9 @@ function renderMenu() {
     const rev = m.price * m.units;
     const cls = classifyItem(marginPct, m.units);
     const tr = document.createElement("tr");
+    const menuSample = m.isSample ? `<span class="sample-pill" title="Sample data">SAMPLE</span>` : '';
     tr.innerHTML = `
-      <td>${escapeHtml(m.name)}</td>
+      <td>${escapeHtml(m.name)}${menuSample}</td>
       <td><input type="number" step="0.01" value="${m.price}" data-menu="${idx}" data-field="price"/></td>
       <td><input type="number" step="0.01" value="${m.cost}" data-menu="${idx}" data-field="cost"/></td>
       <td>${fmtUSD2(margin)}</td>
@@ -654,8 +656,9 @@ function renderInventory() {
     // Use the index in state.inv (not the filtered list) so data-inv stays stable.
     const realIdx = state.inv.indexOf(i);
     const tr = document.createElement("tr");
+    const sampleTag = i.isSample ? `<span class="sample-pill" title="Sample data">SAMPLE</span>` : '';
     tr.innerHTML = `
-      <td>${escapeHtml(i.item)}</td>
+      <td>${escapeHtml(i.item)}${sampleTag}</td>
       <td>${catBadge}</td>
       <td>${escapeHtml(i.unit)}</td>
       <td><input type="number" step="0.1" value="${i.onHand}" data-inv="${realIdx}" data-field="onHand"/></td>
@@ -700,8 +703,9 @@ function renderStaff() {
     const days = daysBetween(todayISO(), s.exp);
     const certStatus = days < 0 ? `<span class="pill err">Expired</span>` : days < 30 ? `<span class="pill warn">${days}d</span>` : `<span class="pill ok">${days}d</span>`;
     const tr = document.createElement("tr");
+    const staffSample = s.isSample ? `<span class="sample-pill" title="Sample data">SAMPLE</span>` : '';
     tr.innerHTML = `
-      <td>${escapeHtml(s.name)}</td>
+      <td>${escapeHtml(s.name)}${staffSample}</td>
       <td>${escapeHtml(s.role)}</td>
       <td><input type="number" step="0.25" value="${s.hourly}" data-staff="${idx}" data-field="hourly"/></td>
       <td><input type="number" step="1" value="${s.hrs}" data-staff="${idx}" data-field="hrs"/></td>
@@ -1401,7 +1405,7 @@ function renderRecipes() {
     const tone = fp <= 30 ? "good" : fp <= 35 ? "mid" : "bad";
     return `<li class="${r.id === state.selectedRecipe ? 'selected' : ''}" data-recipe="${r.id}">
       <div>
-        <div class="r-name">${r.name}</div>
+        <div class="r-name">${r.name}${r.isSample ? ' <span class="sample-pill" title="Sample data">SAMPLE</span>' : ''}</div>
         <div class="r-margin ${tone}">${fp.toFixed(1)}% food cost</div>
       </div>
       <div class="r-cost">${fmtUSD2(recipeCost(r))}</div>
@@ -1698,6 +1702,157 @@ function renderMockInspection() {
       </div>
     </div>
   `;
+}
+
+// -----------------------------------------------------------------------------
+// ACTIVATION CHECKLIST + SAMPLE-DATA BANNER
+//
+// Both UI elements live in app.html above the topbar so they appear on every
+// tab (not just Overview). The activation panel reads from v_activation_status
+// and per-user dismissals; it auto-hides at 100% complete or when the user
+// clicks "Don't show again". The sample-data banner is shown whenever any
+// is_sample=true row exists for the tenant; clearing it calls the
+// clear_sample_data RPC.
+// -----------------------------------------------------------------------------
+const HIDE_FOR_NOW_KEY = 'stationly:activation:hideForNow';
+
+async function detectSampleData() {
+  const c = window.__RESTOPS_CTX__;
+  if (!c?.tenantId) return false;
+  // Three quick HEAD-style queries so we don't pull rows. Any one match wins.
+  const tables = ['inventory_items', 'menu_items', 'invoices'];
+  for (const t of tables) {
+    try {
+      const { count, error } = await supabase
+        .from(t)
+        .select('id', { count: 'exact', head: true })
+        .eq('is_sample', true)
+        .limit(1);
+      if (error) { console.warn('sample probe', t, error); continue; }
+      if ((count || 0) > 0) return true;
+    } catch (e) { console.warn('sample probe failed', t, e); }
+  }
+  return false;
+}
+
+async function refreshSampleBanner() {
+  const banner = document.getElementById('sample-data-banner');
+  if (!banner) return;
+  const has = await detectSampleData();
+  banner.hidden = !has;
+}
+
+async function clearSampleData() {
+  const c = window.__RESTOPS_CTX__;
+  if (!c?.tenantId) return;
+  const btn = document.getElementById('sample-banner-clear');
+  if (btn) { btn.disabled = true; btn.textContent = 'Clearing…'; }
+  try {
+    const { error } = await supabase.rpc('clear_sample_data', { p_tenant_id: c.tenantId });
+    if (error) throw error;
+    // Re-fetch the affected datasets so the UI drops the SAMPLE rows immediately.
+    const [staff, menu, inv, recipes, invoices, temps] = await Promise.all([
+      dataRepo.fetchStaff(),
+      dataRepo.fetchMenu(),
+      dataRepo.fetchInventory(),
+      dataRepo.fetchRecipes(),
+      dataRepo.fetchInvoices({ limit: 100 }),
+      dataRepo.fetchTempLogs(),
+    ]);
+    state.staff = staff; state.menu = menu; state.inv = inv; state.recipes = recipes;
+    state.invoices = invoices; state.temps = temps;
+    renderAll();
+    await refreshSampleBanner();
+    await renderActivationChecklist();
+  } catch (e) {
+    console.error('clear_sample_data failed:', e);
+    alert('Could not clear sample data: ' + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Clear and start fresh'; }
+  }
+}
+
+async function renderActivationChecklist() {
+  const panel = document.getElementById('activation-checklist');
+  if (!panel) return;
+  const c = window.__RESTOPS_CTX__;
+  if (!c?.tenantId) { panel.hidden = true; return; }
+
+  // "Hide for now" is a session/local preference — not a DB write.
+  let hideForNow = false;
+  try { hideForNow = sessionStorage.getItem(HIDE_FOR_NOW_KEY) === '1'; } catch (_) {}
+
+  let tasks = [];
+  try { tasks = await activationRepo.getStatus(); }
+  catch (e) { console.warn('activation getStatus failed', e); panel.hidden = true; return; }
+
+  const visible = tasks.filter(t => !t.dismissed);
+  const completed = visible.filter(t => t.complete).length;
+  const total = visible.length;
+
+  // Hide entirely when nothing left to show, when 100% complete, or for the session.
+  if (hideForNow || total === 0 || completed === total) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  document.getElementById('activation-progress-text').textContent =
+    `${completed} of ${total} complete · keep going to get full value out of Stationly`;
+  document.getElementById('activation-progress-fill').style.width =
+    `${Math.round((completed / total) * 100)}%`;
+
+  const list = document.getElementById('activation-list');
+  list.innerHTML = visible.map(t => `
+    <li class="activation-item ${t.complete ? 'is-complete' : ''}" data-task-key="${t.key}">
+      <span class="activation-item-icon" aria-hidden="true">${t.icon}</span>
+      <span class="activation-item-label">${escapeHtml(t.label)}</span>
+      ${t.complete
+        ? `<span class="activation-item-check" aria-label="Complete">✓</span>`
+        : `<button type="button" class="activation-item-action" data-task-open="${t.key}" data-task-view="${t.view}" data-task-modal="${t.modalId || ''}">Open</button>`}
+    </li>`).join('');
+}
+
+function wireActivationEvents() {
+  // "Open" buttons jump to the relevant tab and (when defined) open the add-modal.
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-task-open]');
+    if (btn) {
+      const view = btn.dataset.taskView;
+      const modal = btn.dataset.taskModal;
+      const navBtn = document.querySelector(`.nav-item[data-view="${view}"]`);
+      if (navBtn) navBtn.click();
+      if (modal) setTimeout(() => {
+        const el = document.getElementById(modal);
+        if (el) el.hidden = false;
+      }, 80);
+      return;
+    }
+  });
+
+  const toggle = document.getElementById('activation-toggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const panel = document.getElementById('activation-checklist');
+      if (!panel) return;
+      const collapsed = panel.classList.toggle('is-collapsed');
+      toggle.textContent = collapsed ? 'Show' : 'Hide';
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    });
+  }
+
+  const dismissBtn = document.getElementById('activation-dismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', async () => {
+      try { sessionStorage.setItem(HIDE_FOR_NOW_KEY, '1'); } catch (_) {}
+      try { await activationRepo.dismissAll(); } catch (e) { console.warn(e); }
+      const panel = document.getElementById('activation-checklist');
+      if (panel) panel.hidden = true;
+    });
+  }
+
+  const clearBtn = document.getElementById('sample-banner-clear');
+  if (clearBtn) clearBtn.addEventListener('click', clearSampleData);
 }
 
 // -----------------------------------------------------------------------------
@@ -2565,7 +2720,7 @@ function renderInvoices() {
           <div class="invoice-card" data-invoice-id="${inv.id}">
             <div class="invoice-card-head">
               <div>
-                <div class="invoice-vendor">${escapeHtml(inv.vendor || 'Unknown vendor')}</div>
+                <div class="invoice-vendor">${escapeHtml(inv.vendor || 'Unknown vendor')}${inv.isSample ? ' <span class="sample-pill" title="Sample data">SAMPLE</span>' : ''}</div>
                 <div class="invoice-meta muted">${escapeHtml(inv.number || 'no #')} · ${fmtInvDate(inv.date)}</div>
               </div>
               <div class="invoice-right">
@@ -3600,11 +3755,18 @@ async function bootApp() {
   bindCommissaryEvents();
   bindVarianceEvents();
   wireTripleReleaseEvents();
+  wireActivationEvents();
   renderAll();
+
+  // Activation panel + sample-data banner — fire and forget; both are async.
+  // Each handles its own "empty/incomplete state" gracefully so a slow query
+  // can't block first paint.
+  refreshSampleBanner().catch((e) => console.warn('sample banner check failed', e));
+  renderActivationChecklist().catch((e) => console.warn('activation render failed', e));
   window.__restopsBooted = true;
   // Dev-only debug hook so Playwright QA can inspect state.
   window.__restopsState = state;
-  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo, countsRepo, varianceRepo, payrollRepo, tipPoolRepo, vendorsRepo, billsRepo, barPoursRepo };
+  window.__restopsRepos = { dataRepo, tasksRepo, invitesRepo, locationsRepo, transfersRepo, countsRepo, varianceRepo, payrollRepo, tipPoolRepo, vendorsRepo, billsRepo, barPoursRepo, activationRepo };
   initLocationSwitcher();
   renderLocations();
   renderCommissaryNavVisibility();

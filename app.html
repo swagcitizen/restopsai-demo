@@ -100,6 +100,27 @@
         <span class="trial-banner-text" id="trial-banner-text"></span>
         <a href="mailto:hello@stationly.ai?subject=Add%20billing" class="trial-banner-link" id="trial-banner-cta">Add billing</a>
       </div>
+      <div id="sample-data-banner" class="sample-banner" hidden>
+        <span class="sample-banner-icon" aria-hidden="true">✨</span>
+        <span class="sample-banner-text">
+          <strong>Showing sample data</strong> so you can explore.
+        </span>
+        <button type="button" id="sample-banner-clear" class="sample-banner-link">Clear and start fresh</button>
+      </div>
+      <div id="activation-checklist" class="activation-panel" hidden>
+        <div class="activation-head">
+          <div class="activation-head-text">
+            <h3 class="activation-title">Set up your restaurant</h3>
+            <p class="activation-sub" id="activation-progress-text">Loading…</p>
+          </div>
+          <div class="activation-head-actions">
+            <button type="button" class="activation-toggle" id="activation-toggle" aria-expanded="true" aria-controls="activation-body">Hide</button>
+            <button type="button" class="activation-dismiss" id="activation-dismiss" title="Don't show again">Don't show again</button>
+          </div>
+        </div>
+        <div class="activation-progress-bar"><div class="activation-progress-fill" id="activation-progress-fill"></div></div>
+        <ul class="activation-list" id="activation-list" role="list"></ul>
+      </div>
       <header class="topbar">
         <div>
           <h1 id="view-title">Overview</h1>

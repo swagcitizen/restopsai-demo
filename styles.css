@@ -701,6 +701,158 @@ body.role-staff .task-filters .chip-row:nth-child(2) { display: none; }
 }
 .demo-banner-link:hover { background: rgba(232, 163, 61, 0.1); }
 
+/* Sample-data banner — shown to tenants whose db still has any is_sample=true rows.
+   Lets the owner clear the seed data with one click. */
+.sample-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: rgba(82, 153, 130, 0.10);
+  border: 1px solid rgba(82, 153, 130, 0.28);
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+.sample-banner[hidden] { display: none; }
+.sample-banner-icon { font-size: 16px; flex: none; }
+.sample-banner-text { flex: 1 1 auto; color: var(--text); opacity: 0.92; }
+.sample-banner-text strong { color: var(--text); font-weight: 600; }
+.sample-banner-link {
+  flex: none;
+  background: transparent;
+  color: #2f7c63;
+  border: 1px solid rgba(82, 153, 130, 0.45);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.sample-banner-link:hover { background: rgba(82, 153, 130, 0.12); }
+
+/* Inline SAMPLE pill — mirrors the CUSTOM badge in tasks list. */
+.sample-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(82, 153, 130, 0.18);
+  color: #2f7c63;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Activation checklist — pinned at the top of every view until 100% / dismissed. */
+.activation-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.activation-panel[hidden] { display: none; }
+.activation-panel.is-collapsed .activation-progress-bar,
+.activation-panel.is-collapsed .activation-list { display: none; }
+.activation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.activation-head-text { flex: 1 1 auto; min-width: 0; }
+.activation-title { font-size: 15px; font-weight: 600; color: var(--text); margin: 0 0 2px 0; }
+.activation-sub { font-size: 13px; color: var(--text-muted); margin: 0; }
+.activation-head-actions { display: flex; gap: 8px; flex: none; }
+.activation-toggle, .activation-dismiss {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+.activation-toggle:hover, .activation-dismiss:hover { background: var(--surface-hover, rgba(0,0,0,0.04)); }
+.activation-progress-bar {
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.activation-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #E8A33D 0%, #5a9b80 100%);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+.activation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+.activation-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft, #faf6ee);
+  transition: background 0.15s, border-color 0.15s;
+}
+.activation-item.is-complete {
+  background: rgba(82, 153, 130, 0.08);
+  border-color: rgba(82, 153, 130, 0.25);
+}
+.activation-item-icon {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: rgba(232, 163, 61, 0.18);
+  font-size: 14px;
+  flex: none;
+}
+.activation-item.is-complete .activation-item-icon {
+  background: rgba(82, 153, 130, 0.22);
+}
+.activation-item-label { flex: 1 1 auto; font-size: 13px; color: var(--text); }
+.activation-item.is-complete .activation-item-label { color: var(--text-muted); text-decoration: line-through; }
+.activation-item-action {
+  flex: none;
+  background: transparent;
+  color: var(--accent, #E8A33D);
+  border: 1px solid rgba(232, 163, 61, 0.4);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.activation-item-action:hover { background: rgba(232, 163, 61, 0.1); }
+.activation-item.is-complete .activation-item-action { display: none; }
+.activation-item-check {
+  flex: none;
+  font-size: 16px;
+  color: #2f7c63;
+  font-weight: 700;
+}
+
 /* ========================================
    Food Safety — Tabs
    ======================================== */
