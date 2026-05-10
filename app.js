@@ -3704,6 +3704,17 @@ async function bootApp() {
         .catch(e => console.warn('pos integrations init failed', e));
     }
 
+    // Prep Labels (Food Safety tab) — runs for all tenant members.
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      import('./prepLabelsView.js')
+        .then(mod => mod.initPrepLabels({
+          tenantId: ctx.tenant.id,
+          userId: ctx.user.id,
+          userEmail: ctx.user.email,
+        }))
+        .catch(e => console.warn('prep labels init failed', e));
+    }
+
     // Smart Scheduler — sales-by-hour forecast + coverage suggestion.
     if (ctx?.tenant?.id) {
       import('./smartScheduler.js')

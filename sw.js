@@ -8,7 +8,7 @@
 //
 // On every release, bump CACHE_VERSION below.
 
-const CACHE_VERSION = 'stationly-v12';
+const CACHE_VERSION = 'stationly-v13';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -43,6 +43,8 @@ const PRECACHE_URLS = [
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
   '/sentry-init.js',
+  '/prepLabelsRepo.js',
+  '/prepLabelsView.js',
 ];
 
 // ─── Install: precache the shell ────────────────────────────────────────────

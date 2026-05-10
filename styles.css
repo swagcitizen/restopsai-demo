@@ -2888,3 +2888,272 @@ tr.ot-row td {
   body.pwa-toast-visible { padding-bottom: 96px; }
   .pwa-toast-close { width: 44px !important; height: 44px !important; }
 }
+
+/* =============================================================
+   PREP LABELS — screen styles + DYMO LabelWriter print
+   ============================================================= */
+
+/* ── Two-column layout ── */
+.pl-columns {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .pl-columns { grid-template-columns: 1fr; }
+}
+
+/* ── Form card ── */
+.pl-form-card { position: sticky; top: 16px; }
+
+/* ── Field spacing ── */
+.pl-create-form .field,
+#pl-create-form .field {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 12px;
+}
+#pl-create-form .field label,
+#pl-create-form .field > label {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 600;
+}
+#pl-create-form input[type="text"],
+#pl-create-form input[type="number"],
+#pl-create-form input[type="search"],
+#pl-create-form select,
+#pl-create-form textarea {
+  background: var(--bg-2); border: 1px solid var(--line-2);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 8px 10px; font: 13px var(--font-body); width: 100%;
+}
+#pl-create-form input:focus,
+#pl-create-form select:focus,
+#pl-create-form textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(232,163,61,0.15);
+}
+
+/* ── Template hint ── */
+.pl-template-hint {
+  font-size: 11px; color: var(--accent); margin-top: 3px;
+  padding: 4px 8px; background: rgba(232,163,61,0.08);
+  border-radius: var(--radius-sm); border-left: 2px solid var(--accent);
+}
+
+/* ── Two-col row inside form ── */
+.pl-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── Storage radios ── */
+.pl-storage-radios { display: flex; flex-wrap: wrap; gap: 8px; }
+.pl-radio {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text-muted); cursor: pointer;
+}
+.pl-radio input[type="radio"] { accent-color: var(--accent); }
+
+/* ── Hours row ── */
+.pl-hours-row { display: flex; gap: 6px; align-items: center; }
+.pl-hours-row input[type="number"] { width: 80px; flex-shrink: 0; }
+.pl-quick-hours { display: flex; gap: 4px; flex-wrap: wrap; }
+.pl-quick { padding: 4px 8px !important; font-size: 11px !important; }
+
+/* ── Allergen chips ── */
+.pl-allergen-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pl-allergen-chip {
+  appearance: none; border: 1px solid var(--line-2);
+  background: var(--bg-2); color: var(--text-muted);
+  font: 11px var(--font-body); padding: 4px 10px;
+  border-radius: 999px; cursor: pointer; transition: all 0.12s;
+}
+.pl-allergen-chip.active {
+  background: rgba(232,163,61,0.18); color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Optional details ── */
+.pl-optional { margin-bottom: 12px; }
+.pl-optional-toggle {
+  font-size: 11px; color: var(--text-faint); cursor: pointer;
+  letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+  padding: 4px 0; list-style: none; user-select: none;
+}
+.pl-optional-toggle::-webkit-details-marker { display: none; }
+.pl-optional-toggle::before { content: '+ '; }
+details[open] .pl-optional-toggle::before { content: '− '; }
+.pl-optional-body { padding-top: 10px; }
+
+/* ── Form actions ── */
+.pl-form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 4px; }
+.pl-form-actions .btn { margin-bottom: 0; }
+
+/* ── Filter chips (active labels) ── */
+.pl-filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.pl-filter-chip {
+  appearance: none; border: 1px solid var(--line-2); background: var(--bg-2);
+  color: var(--text-muted); font: 11px var(--font-body); padding: 4px 12px;
+  border-radius: 999px; cursor: pointer; transition: all 0.12s;
+}
+.pl-filter-chip.active {
+  background: rgba(232,163,61,0.15); color: var(--accent); border-color: var(--accent);
+}
+
+/* ── Search ── */
+.pl-search-wrap { margin-bottom: 12px; }
+.pl-search-wrap input {
+  width: 100%; background: var(--bg-2); border: 1px solid var(--line-2);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 7px 10px; font: 13px var(--font-body);
+}
+.pl-search-wrap input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Label cards ── */
+.pl-label-list { display: flex; flex-direction: column; gap: 8px; }
+.pl-label-card {
+  display: flex; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--bg-2); overflow: hidden; cursor: pointer;
+  transition: border-color 0.12s;
+}
+.pl-label-card:hover { border-color: var(--line-2); }
+.pl-day-stripe { width: 5px; flex-shrink: 0; }
+.pl-card-body { padding: 10px 12px; flex: 1; min-width: 0; }
+.pl-card-name { font-weight: 600; font-size: 15px; color: var(--text); margin-bottom: 4px; }
+.pl-card-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+.pl-card-actions { display: flex; gap: 6px; margin-top: 8px; }
+.pl-card-actions .ghost-btn { padding: 4px 10px !important; font-size: 11px !important; }
+
+/* ── Allergen badges on card ── */
+.pl-card-allergens { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.pl-allergen-badge {
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+  color: #fff; background: var(--error); padding: 2px 6px; border-radius: 3px;
+}
+
+/* ── Status colors ── */
+.pl-status-fresh    { color: var(--success); }
+.pl-status-warning  { color: var(--warn); }
+.pl-status-expiring { color: var(--error); font-weight: 600; }
+.pl-status-expired  { color: var(--error); font-weight: 700; text-decoration: underline; }
+
+/* ── Empty state ── */
+.pl-empty { color: var(--text-faint); font-size: 13px; text-align: center; padding: 24px; }
+
+/* ── Detail modal ── */
+.pl-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.pl-modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+}
+.pl-modal-card {
+  position: relative; z-index: 1;
+  background: var(--surface); border: 1px solid var(--line-2);
+  border-radius: var(--radius); padding: 24px;
+  width: 440px; max-width: calc(100vw - 32px);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+}
+.pl-modal-head {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+}
+.pl-modal-title { font-weight: 600; font-size: 16px; color: var(--text); }
+.pl-modal-close {
+  appearance: none; border: 0; background: transparent;
+  color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px 8px;
+}
+.pl-modal-close:hover { color: var(--text); }
+.pl-modal-details { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.pl-modal-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; border-bottom: 1px solid var(--line); padding-bottom: 6px;
+}
+.pl-modal-row span:first-child { color: var(--text-muted); }
+.pl-modal-actions { display: flex; gap: 8px; }
+.pl-modal-actions .btn { margin-bottom: 0; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PREP LABEL PRINT TARGET — hidden on screen
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Hide on screen: position off-canvas */
+.prep-label-print {
+  position: fixed;
+  left: -9999px; top: -9999px;
+  width: 89mm; height: 28mm;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* =============================================================
+   @media print — DYMO LabelWriter 30252: 1-1/8" x 3-1/2"
+   (28mm × 89mm, landscape orientation)
+   ============================================================= */
+@media print {
+  /* Hide everything except the print target */
+  body > *:not(#pl-print-target) { display: none !important; }
+  #pl-print-target { display: block !important; }
+
+  @page {
+    size: 89mm 28mm;
+    margin: 0;
+  }
+
+  .prep-label-print {
+    position: fixed;
+    left: 0; top: 0;
+    width: 89mm; height: 28mm;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Inner layout */
+  .pl-print-inner {
+    display: flex;
+    width: 89mm; height: 28mm;
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+  }
+
+  /* Day-dot color stripe on left edge */
+  .pl-print-stripe {
+    width: 5mm; flex-shrink: 0; height: 100%;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Content area */
+  .pl-print-content {
+    flex: 1; padding: 2mm 2mm 2mm 2.5mm;
+    display: flex; flex-direction: column;
+    justify-content: space-between; overflow: hidden;
+  }
+
+  /* Item name — large bold */
+  .pl-print-name {
+    font-size: 10pt; font-weight: 900; line-height: 1.1;
+    color: #000; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Date rows */
+  .pl-print-row {
+    font-size: 6.5pt; color: #000; line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pl-print-small { font-size: 5.5pt; color: #333; }
+  .pl-print-lbl { font-weight: 700; }
+
+  /* Allergen badges */
+  .pl-print-allergens { display: flex; flex-wrap: wrap; gap: 1mm; margin-top: 1mm; }
+  .pl-print-allergen {
+    font-size: 5pt; font-weight: 900; letter-spacing: 0.05em;
+    background: #000 !important; color: #fff !important;
+    padding: 0.5mm 1.5mm; border-radius: 1mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
