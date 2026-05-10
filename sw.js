@@ -8,7 +8,7 @@
 //
 // On every release, bump CACHE_VERSION below.
 
-const CACHE_VERSION = 'stationly-v13';
+const CACHE_VERSION = 'stationly-v14';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -45,6 +45,8 @@ const PRECACHE_URLS = [
   '/sentry-init.js',
   '/prepLabelsRepo.js',
   '/prepLabelsView.js',
+  '/receiptsRepo.js',
+  '/receiptsView.js',
 ];
 
 // ─── Install: precache the shell ────────────────────────────────────────────

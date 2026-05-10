@@ -1967,6 +1967,7 @@ function bindEvents() {
         commissary: ["Commissary", "Move prepped batches and inventory between locations"],
         variance: ["Variance", "Theoretical-vs-actual usage from counts, recipes, and POS — drill into every item"],
         bills: ["Bill Pay", "Approve, schedule, and record vendor payments — workflow + audit trail"],
+        receipts: ["Receipts", "Upload, scan, and track vendor receipts — OCR-ready when Document AI is configured"],
         payroll: ["Payroll", "Pay periods, OT, and CSV export to Gusto / ADP / Paychex"],
       };
       const [t, s] = titles[view] || titles.overview;
@@ -1980,6 +1981,7 @@ function bindEvents() {
       if (view === 'clock') resetClockToPinPad();
       if (view === 'variance') renderVariance().catch(err => console.error('Variance load failed:', err));
       if (view === 'bills') renderBills().catch(err => console.error('Bills load failed:', err));
+      if (view === 'receipts' && window.__receiptsInited) window.__receiptsRefresh && window.__receiptsRefresh();
       if (view === 'payroll') renderPayroll().catch(err => console.error('Payroll load failed:', err));
       if (view === 'inventory') {
         const isBarPane = document.querySelector('.inv-pane[data-inv-pane="bar"]:not([hidden])');
@@ -3713,6 +3715,18 @@ async function bootApp() {
           userEmail: ctx.user.email,
         }))
         .catch(e => console.warn('prep labels init failed', e));
+    }
+
+    // Receipts — runs for all tenant members.
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      import('./receiptsView.js')
+        .then(mod => {
+          mod.initReceipts({ tenantId: ctx.tenant.id, userId: ctx.user.id });
+          window.__receiptsInited = true;
+          // Expose refresh for nav activation handler above
+          window.__receiptsRefresh = () => mod.initReceipts({ tenantId: ctx.tenant.id, userId: ctx.user.id });
+        })
+        .catch(e => console.warn('receipts init failed', e));
     }
 
     // Smart Scheduler — sales-by-hour forecast + coverage suggestion.
