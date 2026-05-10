@@ -3723,7 +3723,9 @@ async function bootApp() {
         .then(mod => {
           mod.initReceipts({ tenantId: ctx.tenant.id, userId: ctx.user.id });
           window.__receiptsInited = true;
-          // Expose refresh for nav activation handler above
+          // Nav handler calls this when the user clicks Receipts. Re-running initReceipts
+          // is a no-op for setup (the _initialized guard short-circuits) and just refreshes
+          // the list — the in-flight dedupe in loadReceipts() prevents double fetches.
           window.__receiptsRefresh = () => mod.initReceipts({ tenantId: ctx.tenant.id, userId: ctx.user.id });
         })
         .catch(e => console.warn('receipts init failed', e));

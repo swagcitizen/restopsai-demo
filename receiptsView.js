@@ -23,6 +23,8 @@ let _receipts  = [];
 let _filters   = { status: '', vendor: '', dateFrom: '', dateTo: '', category: '', search: '', range: '30' };
 let _detailId  = null;
 let _initialized = false;
+let _loadInflight = null;
+let _lastErrorAt = 0;
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
@@ -327,39 +329,58 @@ function applyDateRange() {
 // ─── Load & render grid ───────────────────────────────────────────────────────
 
 async function loadReceipts() {
-  if (_filters.range !== 'custom' && _filters.range !== '0') applyDateRange();
+  // Dedupe concurrent calls — return the in-flight promise so duplicate triggers
+  // (e.g. nav activation firing alongside initial init) don't double-render.
+  if (_loadInflight) return _loadInflight;
 
-  const grid = document.getElementById('rcpt-grid');
-  if (!grid) return;
+  _loadInflight = (async () => {
+    if (_filters.range !== 'custom' && _filters.range !== '0') applyDateRange();
 
-  // Remove existing real cards (keep optimistic ones)
-  grid.querySelectorAll('.rcpt-card:not(.rcpt-card--optimistic)').forEach(c => c.remove());
+    const grid = document.getElementById('rcpt-grid');
+    if (!grid) return;
+
+    // Remove existing real cards + any stale empty-state (keep optimistic uploads).
+    grid.querySelectorAll('.rcpt-card:not(.rcpt-card--optimistic), .rcpt-empty')
+      .forEach(n => n.remove());
+
+    try {
+      _receipts = await listReceipts(_tenantId, {
+        limit:    100,
+        status:   _filters.status   || undefined,
+        vendor:   _filters.vendor   || undefined,
+        dateFrom: _filters.dateFrom || undefined,
+        dateTo:   _filters.dateTo   || undefined,
+        search:   _filters.search   || undefined,
+        category: _filters.category || undefined,
+      });
+    } catch (err) {
+      console.error('Load receipts failed:', err);
+      // Throttle error toasts to one per 3s so a double-fire doesn't double-toast.
+      const now = Date.now();
+      if (now - _lastErrorAt > 3000) {
+        _lastErrorAt = now;
+        showToast('Could not load receipts — check your connection', 'error');
+      }
+      _receipts = [];
+    }
+
+    renderGrid();
+  })();
 
   try {
-    _receipts = await listReceipts(_tenantId, {
-      limit:    100,
-      status:   _filters.status   || undefined,
-      vendor:   _filters.vendor   || undefined,
-      dateFrom: _filters.dateFrom || undefined,
-      dateTo:   _filters.dateTo   || undefined,
-      search:   _filters.search   || undefined,
-      category: _filters.category || undefined,
-    });
-  } catch (err) {
-    console.error('Load receipts failed:', err);
-    showToast('Could not load receipts — check your connection', 'error');
-    _receipts = [];
+    await _loadInflight;
+  } finally {
+    _loadInflight = null;
   }
-
-  renderGrid();
 }
 
 function renderGrid() {
   const grid = document.getElementById('rcpt-grid');
   if (!grid) return;
 
-  // Remove existing real cards
-  grid.querySelectorAll('.rcpt-card:not(.rcpt-card--optimistic)').forEach(c => c.remove());
+  // Remove existing real cards + any stale empty-state (keep optimistic uploads).
+  grid.querySelectorAll('.rcpt-card:not(.rcpt-card--optimistic), .rcpt-empty')
+    .forEach(n => n.remove());
 
   if (!_receipts.length) {
     if (!grid.querySelector('.rcpt-card--optimistic')) {
