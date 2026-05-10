@@ -47,6 +47,29 @@
     }
     .magic-success strong { display:block; margin-bottom:6px; font-size:16px; color: #d4f0d8; }
     .field-hint.muted { opacity:.6 }
+
+    /* Google sign-in button */
+    .btn-google {
+      width: 100%; display:flex; align-items:center; justify-content:center; gap:10px;
+      padding: 12px 16px; border-radius:10px; cursor:pointer;
+      background: #ffffff; color: #1f1f1f;
+      border: 1px solid rgba(0,0,0,.1);
+      font: inherit; font-weight: 600; font-size: 15px;
+      transition: background .15s ease, transform .05s ease;
+      margin-bottom: 8px;
+    }
+    .btn-google:hover { background: #f6f6f6; }
+    .btn-google:active { transform: translateY(1px); }
+    .btn-google:disabled { opacity:.6; cursor:wait; }
+    .btn-google svg { flex:0 0 auto; }
+    .auth-divider {
+      display:flex; align-items:center; gap:12px;
+      margin: 16px 0 18px;
+      color: rgba(244,236,216,.45); font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content:''; flex:1; height:1px; background: rgba(255,255,255,.08);
+    }
   </style>
 </head>
 <body class="auth-body">
@@ -64,6 +87,18 @@
     <section class="auth-card">
       <h1>Start your 30-day trial</h1>
       <p class="auth-sub">No card required. Cancel anytime.</p>
+
+      <button type="button" id="google-btn" class="btn-google">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.331C2.438 15.983 5.482 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.962H.957C.347 6.173 0 7.547 0 9s.348 2.827.957 4.038l3.007-2.331z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.962L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+      <div id="google-error" class="auth-error" hidden></div>
+      <div class="auth-divider">or</div>
 
       <div class="auth-toggle" role="tablist" aria-label="Signup method">
         <button type="button" id="tab-magic" role="tab" aria-pressed="true" aria-controls="pane-magic">Email me a link</button>
@@ -140,6 +175,26 @@
 
   <script type="module">
     import { supabase, getSession } from './supabaseClient.js';
+
+    // ─── Google OAuth signup ───────────────────────────────────────────────
+    const googleBtn = document.getElementById('google-btn');
+    const googleErr = document.getElementById('google-error');
+    googleBtn.addEventListener('click', async () => {
+      googleErr.hidden = true; googleErr.textContent = '';
+      googleBtn.disabled = true;
+      try { localStorage.setItem('stationly_signup_pref', 'google'); } catch(_){}
+      const redirectTo = new URL('./verify.html', window.location.href).toString();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, queryParams: { access_type: 'offline', prompt: 'consent' } },
+      });
+      if (error) {
+        googleErr.textContent = error.message || 'Google sign-in failed. Try again.';
+        googleErr.hidden = false;
+        googleBtn.disabled = false;
+      }
+      // On success, browser redirects to Google — no further code runs.
+    });
 
     const tabMagic = document.getElementById('tab-magic');
     const tabPassword = document.getElementById('tab-password');
