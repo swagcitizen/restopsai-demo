@@ -1982,6 +1982,7 @@ function bindEvents() {
       if (view === 'variance') renderVariance().catch(err => console.error('Variance load failed:', err));
       if (view === 'bills') renderBills().catch(err => console.error('Bills load failed:', err));
       if (view === 'receipts' && window.__receiptsInited) window.__receiptsRefresh && window.__receiptsRefresh();
+      if (view === 'reports') window.__inspectionsInit && window.__inspectionsInit();
       if (view === 'payroll') renderPayroll().catch(err => console.error('Payroll load failed:', err));
       if (view === 'inventory') {
         const isBarPane = document.querySelector('.inv-pane[data-inv-pane="bar"]:not([hidden])');
@@ -3729,6 +3730,23 @@ async function bootApp() {
           window.__receiptsRefresh = () => mod.initReceipts({ tenantId: ctx.tenant.id, userId: ctx.user.id });
         })
         .catch(e => console.warn('receipts init failed', e));
+    }
+
+    // Inspection reports — health/safety report repository (loads lazily on first view).
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      window.__inspectionsInit = () => {
+        if (window.__inspectionsInited) {
+          window.__inspectionsRefresh && window.__inspectionsRefresh();
+          return;
+        }
+        import('./inspectionsView.js')
+          .then(mod => {
+            mod.initInspections({ tenantId: ctx.tenant.id, userId: ctx.user.id });
+            window.__inspectionsInited = true;
+            window.__inspectionsRefresh = () => mod.initInspections({ tenantId: ctx.tenant.id, userId: ctx.user.id });
+          })
+          .catch(e => console.warn('inspections init failed', e));
+      };
     }
 
     // Smart Scheduler — sales-by-hour forecast + coverage suggestion.
