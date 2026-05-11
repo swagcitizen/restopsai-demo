@@ -10,11 +10,34 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RESEND_KEY   = Deno.env.get("RESEND_API_KEY")!;
-const FROM_ADDR    = Deno.env.get("EMAIL_FROM") ?? "Stationly <hello@stationly.ai>";
-const APP_URL      = Deno.env.get("APP_URL")    ?? "https://stationly.ai";
+const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY     = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESEND_KEY      = Deno.env.get("RESEND_API_KEY")!;
+const FROM_ADDR       = Deno.env.get("EMAIL_FROM") ?? "Stationly <hello@stationly.ai>";
+const APP_URL         = Deno.env.get("APP_URL")    ?? "https://stationly.ai";
+// Shared secret used by the DB trigger fire_trial_welcome_email to authenticate
+// when it calls this function via net.http_post (we run with verify_jwt=false
+// so the trigger doesn't need a service-role JWT it can't access).
+// Read from env first; if absent, lazy-load from public.app_settings.trigger_secret
+// via the service role so the function works without an extra deploy step.
+let TRIGGER_SECRET: string = Deno.env.get("STATIONLY_TRIGGER_SECRET") ?? "";
+
+async function loadTriggerSecretFromDb(): Promise<string> {
+  if (TRIGGER_SECRET) return TRIGGER_SECRET;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?id=eq.1&select=trigger_secret`, {
+      headers: {
+        "apikey": SERVICE_KEY,
+        "Authorization": `Bearer ${SERVICE_KEY}`,
+      },
+    });
+    if (res.ok) {
+      const rows = await res.json() as { trigger_secret: string | null }[];
+      TRIGGER_SECRET = rows[0]?.trigger_secret ?? "";
+    }
+  } catch (_e) { /* ignore */ }
+  return TRIGGER_SECRET;
+}
 
 interface Target {
   tenant_id: string;
@@ -206,6 +229,22 @@ Deno.serve(async (req: Request) => {
   // Allow either POST (cron / manual) or GET (manual debug).
   if (req.method !== "POST" && req.method !== "GET") {
     return new Response("method not allowed", { status: 405 });
+  }
+
+  // Auth: accept either a valid service-role bearer (legacy / cron) OR our
+  // shared secret header (used by the welcome-email trigger from inside the DB).
+  const authHeader = req.headers.get("authorization") || "";
+  const triggerHdr = req.headers.get("x-stationly-trigger") || "";
+  const hasServiceAuth = authHeader === `Bearer ${SERVICE_KEY}`;
+  if (!hasServiceAuth && triggerHdr) {
+    await loadTriggerSecretFromDb();
+  }
+  const hasTriggerAuth = TRIGGER_SECRET !== "" && triggerHdr === TRIGGER_SECRET;
+  if (!hasServiceAuth && !hasTriggerAuth) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const url = new URL(req.url);
