@@ -2,8 +2,10 @@
 // Manages receipts + receipt_line_items tables.
 // RLS handles all tenant isolation — no manual auth.uid() checks needed.
 //
-// NOTE: OCR call is intentionally a stub. The edge function
-// process-receipt-ocr will be wired once Document AI credentials are provided.
+// OCR is handled by the `process-receipt-ocr` edge function, which calls
+// Google Document AI (Expense Parser). The function itself no-ops with
+// status='skipped' if DOCAI_SERVICE_ACCOUNT / DOCAI_PROCESSOR_ID secrets
+// are missing, so the UI gracefully degrades until those are configured.
 
 import { supabase } from './supabaseClient.js';
 
@@ -164,13 +166,13 @@ export async function uploadReceiptFile(tenantId, userId, file, source = 'upload
   return data;
 }
 
-// ─── Trigger OCR (stub) ───────────────────────────────────────────────────────
+// ─── Trigger OCR ────────────────────────────────────────────────────────────
 
 /**
- * Trigger OCR processing for a receipt.
- * STUB — currently marks the receipt as 'skipped' since Document AI is not yet configured.
- * The real edge function (process-receipt-ocr) is deployed as a stub and will be
- * replaced once the Document AI service account is provided.
+ * Trigger OCR processing for a receipt. Invokes the `process-receipt-ocr`
+ * edge function, which runs Document AI Expense Parser and writes parsed
+ * fields back to the receipt row. Returns immediately — the UI should
+ * poll/refresh the receipt to see updated ocr_status.
  * @param {string} receiptId
  * @returns {Promise<void>}
  */
@@ -181,12 +183,14 @@ export async function triggerOcr(receiptId) {
     });
     if (error) throw error;
   } catch (e) {
-    // Fall back to direct update if edge function invocation fails
+    // If the edge function itself fails to invoke (network, auth), mark the
+    // receipt as failed so the user sees it didn't process — don't silently
+    // pretend success.
     await supabase
       .from('receipts')
       .update({
-        ocr_status: 'skipped',
-        ocr_error:  'OCR not yet configured — pending Document AI setup',
+        ocr_status: 'failed',
+        ocr_error:  `OCR invocation failed: ${e?.message || e}`,
       })
       .eq('id', receiptId)
       .catch(() => null);
