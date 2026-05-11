@@ -135,7 +135,7 @@
         cursor: pointer;
         transition: transform 0.15s ease, background 0.15s ease;
       }
-      .btn:hover { background: #000; color: var(--bg); transform: translateY(-1px); }
+      .btn:hover { background: var(--ink-soft); color: var(--bg); transform: translateY(-1px); }
       .btn.amber { background: var(--amber); border-color: var(--amber); color: var(--ink); }
       .btn.amber:hover { background: var(--amber-dark); border-color: var(--amber-dark); color: var(--ink); }
       .btn.ghost { background: transparent; color: var(--ink); }
@@ -204,11 +204,12 @@
       }
       .mock-card {
         position: absolute;
-        background: var(--ink);
-        color: var(--bg);
+        background: var(--surface);
+        color: var(--ink);
+        border: 1px solid var(--line);
         border-radius: var(--radius-lg);
         padding: 24px;
-        box-shadow: 0 30px 60px -20px rgba(28, 26, 21, 0.28), 0 10px 30px -10px rgba(28, 26, 21, 0.18);
+        box-shadow: 0 30px 60px -20px rgba(28, 26, 21, 0.12), 0 10px 30px -10px rgba(28, 26, 21, 0.08);
       }
       .mock-main {
         top: 0;
@@ -219,7 +220,7 @@
       .mock-main .mc-title {
         font-family: 'Fraunces', Georgia, serif;
         font-size: 18px;
-        color: var(--bg);
+        color: var(--ink);
         margin-bottom: 18px;
       }
       .kpi-grid {
@@ -228,19 +229,19 @@
         gap: 10px;
       }
       .kpi {
-        background: rgba(250, 245, 234, 0.06);
-        border: 1px solid rgba(250, 245, 234, 0.1);
+        background: var(--bg-warm);
+        border: 1px solid var(--line);
         border-radius: 12px;
         padding: 14px;
       }
-      .kpi-label { font-size: 11px; color: rgba(250, 245, 234, 0.6); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
-      .kpi-value { font-family: 'Fraunces', Georgia, serif; font-size: 26px; margin-top: 6px; color: var(--amber); }
-      .kpi.good .kpi-value { color: var(--basil-light, #7bb878); }
-      .kpi-sub { font-size: 11px; color: rgba(250, 245, 234, 0.5); margin-top: 4px; }
+      .kpi-label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+      .kpi-value { font-family: 'Fraunces', Georgia, serif; font-size: 26px; margin-top: 6px; color: var(--amber-dark); }
+      .kpi.good .kpi-value { color: var(--basil); }
+      .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
       .mock-spark {
         margin-top: 18px;
         height: 56px;
-        background: rgba(250, 245, 234, 0.04);
+        background: var(--bg-warm);
         border-radius: 10px;
         position: relative;
         overflow: hidden;
@@ -271,7 +272,7 @@
       .shift:first-of-type { border-top: 0; }
       .shift-avatar {
         width: 28px; height: 28px; border-radius: 50%;
-        background: var(--ink); color: var(--amber);
+        background: var(--amber); color: var(--ink);
         font-weight: 600; font-size: 12px;
         display: inline-flex; align-items: center; justify-content: center;
       }
@@ -354,29 +355,32 @@
       .step h3 { font-size: 20px; margin-bottom: 8px; }
       .step p { color: var(--ink-soft); font-size: 15px; }
 
-      /* Why section (dark) */
+      /* Why section (warm cream) */
       .why {
-        background: var(--ink);
-        color: var(--bg);
+        background: var(--bg-warm);
+        color: var(--ink);
         padding: 96px 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
       }
-      .why h2 { color: var(--bg); }
-      .why .lede { color: rgba(250, 245, 234, 0.75); }
-      .why .section-head .eyebrow { color: var(--amber); }
+      .why h2 { color: var(--ink); }
+      .why .lede { color: var(--ink-soft); }
+      .why .section-head .eyebrow { color: var(--amber-dark); }
       .why-quote {
         max-width: 700px;
         margin: 48px auto 0;
         padding: 32px;
-        background: rgba(250, 245, 234, 0.04);
+        background: var(--surface);
         border-left: 3px solid var(--amber);
         border-radius: 8px;
+        box-shadow: 0 4px 16px -8px rgba(28, 26, 21, 0.08);
       }
       .why-quote p {
         font-family: 'Fraunces', Georgia, serif;
         font-size: 22px;
         line-height: 1.45;
         font-style: italic;
-        color: var(--bg);
+        color: var(--ink);
       }
       .why-quote cite {
         display: block;
@@ -557,12 +561,13 @@
 
       /* Footer */
       footer {
-        background: var(--ink);
-        color: rgba(250, 245, 234, 0.7);
+        background: var(--bg-warm);
+        color: var(--ink-soft);
         padding: 56px 0 40px;
+        border-top: 1px solid var(--line);
       }
-      footer a { color: rgba(250, 245, 234, 0.7); }
-      footer a:hover { color: var(--amber); }
+      footer a { color: var(--ink-soft); }
+      footer a:hover { color: var(--amber-dark); }
       .foot-grid {
         display: grid;
         grid-template-columns: 1.4fr 1fr 1fr;
@@ -607,6 +612,8 @@
         .foot-grid { grid-template-columns: 1fr; gap: 32px; }
         /* Hide text links on mobile, keep the CTAs */
         .nav-links > a:not(.btn) { display: none; }
+        .nav-links .btn.ghost { display: none; }
+        .nav-links .btn { padding: 9px 14px; font-size: 13px; }
         section { padding: 64px 0; }
       }
     </style>
@@ -623,7 +630,7 @@
           <span>Stationly</span>
         </a>
         <nav class="nav-links">
-          <a href="#features">Features</a>
+          <a href="./features.html">Features</a>
           <a href="#how">How it works</a>
           <a href="#pricing">Pricing</a>
           <a href="./about.html">About</a>
@@ -662,7 +669,7 @@
               </div>
               <div class="kpi">
                 <div class="kpi-label">Prime cost</div>
-                <div class="kpi-value" style="color: #a3d0a0;">53.8%</div>
+                <div class="kpi-value" style="color: var(--basil);">53.8%</div>
                 <div class="kpi-sub">Target ≤ 60%</div>
               </div>
               <div class="kpi">
@@ -907,7 +914,7 @@
       <div class="container">
         <div class="foot-grid">
           <div class="foot-about">
-            <a href="/" class="brand" style="color: var(--bg);">
+            <a href="/" class="brand" style="color: var(--ink);">
               <svg width="28" height="28" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
                 <rect width="64" height="64" rx="14" fill="#e8a33d"/>
                 <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
@@ -919,7 +926,7 @@
           <div class="foot-col">
             <h4>Product</h4>
             <ul>
-              <li><a href="#features">Features</a></li>
+              <li><a href="./features.html">Features</a></li>
               <li><a href="#how">How it works</a></li>
               <li><a href="#pricing">Pricing</a></li>
               <li><a href="./app.html">Live demo</a></li>

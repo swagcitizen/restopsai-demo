@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Features · Stationly</title>
+    <meta name="description" content="Everything Stationly ships: receipts, prep labels, inventory, scheduling, accounting exports, and more. Built for independent restaurants." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <meta property="og:title" content="Features · Stationly" />
+    <meta property="og:description" content="Every feature Stationly ships for independent restaurants — receipts, inventory, scheduling, costs, compliance, accounting exports." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#faf5ea" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <style>
+      :root {
+        --bg: #faf5ea;
+        --bg-warm: #f6efdf;
+        --bg-deep: #efe6cf;
+        --surface: #ffffff;
+        --ink: #1c1a15;
+        --ink-soft: #3d3830;
+        --muted: #7a715f;
+        --line: #eae0c8;
+        --line-strong: #d7c99f;
+        --amber: #e8a33d;
+        --amber-dark: #c9831b;
+        --amber-tint: #fbe9c4;
+        --tomato: #c9302c;
+        --basil: #3b6e3b;
+        --basil-tint: #d8e8d2;
+        --radius: 14px;
+        --radius-lg: 24px;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--ink); text-decoration: none; }
+      a:hover { color: var(--amber-dark); }
+      .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+      .container-narrow { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+      h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.02em; margin: 0; }
+      h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1.04; }
+      h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.12; }
+      h3 { font-size: 20px; line-height: 1.3; font-weight: 500; }
+      p { margin: 0; }
+      .lede { font-size: 19px; color: var(--ink-soft); line-height: 1.55; }
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 12px; letter-spacing: 0.12em;
+        text-transform: uppercase; font-weight: 600;
+        color: var(--amber-dark);
+      }
+      .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
+      /* Nav (matches index.html) */
+      .nav {
+        position: sticky; top: 0; z-index: 100;
+        background: rgba(250, 245, 234, 0.88);
+        backdrop-filter: saturate(180%) blur(16px);
+        border-bottom: 1px solid rgba(234, 224, 200, 0.6);
+      }
+      .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+      .brand {
+        display: inline-flex; align-items: center; gap: 10px;
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 22px; font-weight: 500; letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+      .nav-links { display: flex; align-items: center; gap: 28px; }
+      .nav-links a { font-size: 14px; color: var(--ink-soft); font-weight: 500; }
+      .nav-links a:hover { color: var(--ink); }
+      .nav-links a.active { color: var(--ink); }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 11px 20px; border-radius: 10px;
+        font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+        border: 1px solid var(--ink);
+        background: var(--ink); color: var(--bg);
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      .btn:hover { background: var(--ink-soft); transform: translateY(-1px); }
+      .btn.amber { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+      .btn.amber:hover { background: var(--amber-dark); border-color: var(--amber-dark); }
+      .btn.ghost { background: transparent; color: var(--ink); }
+      .btn.ghost:hover { background: rgba(28, 26, 21, 0.05); }
+      .btn-lg { padding: 15px 26px; font-size: 15px; }
+
+      /* Hero */
+      .hero { padding: 80px 0 64px; }
+      .hero h1 { margin-top: 18px; max-width: 880px; }
+      .hero h1 em { font-style: italic; color: var(--amber-dark); }
+      .hero .lede { margin-top: 22px; max-width: 640px; }
+      .hero-ctas { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+      .hero-note { margin-top: 18px; font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+      .hero-note::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--basil); }
+
+      /* Quick stats strip */
+      .stats {
+        background: var(--bg-warm);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        padding: 28px 0;
+      }
+      .stats-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+      }
+      .stat-num {
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 32px; font-weight: 500;
+        color: var(--ink); letter-spacing: -0.02em;
+      }
+      .stat-num em { color: var(--amber-dark); font-style: normal; }
+      .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+      /* TOC bar */
+      .toc { padding: 32px 0; border-bottom: 1px solid var(--line); }
+      .toc-inner {
+        display: flex; flex-wrap: wrap; gap: 8px;
+        justify-content: center;
+      }
+      .toc a {
+        padding: 8px 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        font-size: 13px;
+        color: var(--ink-soft);
+        font-weight: 500;
+        transition: all 0.15s ease;
+      }
+      .toc a:hover {
+        background: var(--bg-warm);
+        border-color: var(--line-strong);
+        color: var(--ink);
+      }
+
+      /* Module sections */
+      .module { padding: 88px 0; }
+      .module:nth-child(even) {
+        background: var(--bg-warm);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .module-head {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 56px;
+        margin-bottom: 56px;
+        align-items: end;
+      }
+      .module-head .lede { max-width: 480px; }
+      .module-no {
+        font-family: 'Fraunces', Georgia, serif;
+        font-style: italic;
+        color: var(--amber-dark);
+        font-size: 18px;
+        margin-bottom: 12px;
+      }
+      .module-head h2 { margin-top: 4px; max-width: 520px; }
+
+      /* Feature grid */
+      .feat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .feat-grid.two-col { grid-template-columns: repeat(2, 1fr); }
+      .feat {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 26px;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      }
+      .feat:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px -16px rgba(28, 26, 21, 0.18);
+        border-color: var(--line-strong);
+      }
+      .feat-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px;
+        border-radius: 10px;
+        background: var(--amber-tint);
+        color: var(--amber-dark);
+        margin-bottom: 16px;
+      }
+      .feat-icon.basil { background: var(--basil-tint); color: var(--basil); }
+      .feat-icon.tomato { background: #f5dcd9; color: var(--tomato); }
+      .feat h3 { margin-bottom: 8px; }
+      .feat p { font-size: 14px; color: var(--ink-soft); }
+      .feat .tag {
+        display: inline-block;
+        margin-top: 14px;
+        font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
+        color: var(--basil);
+      }
+      .feat .tag.new { color: var(--amber-dark); }
+      .feat .tag.beta { color: var(--tomato); }
+
+      /* Comparison strip */
+      .compare {
+        padding: 88px 0;
+        background: var(--bg-deep);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .compare-head { text-align: center; margin-bottom: 48px; }
+      .compare-head .lede { max-width: 620px; margin: 18px auto 0; }
+      .compare-table {
+        max-width: 920px; margin: 0 auto;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      .compare-row {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr 1fr;
+        align-items: center;
+        padding: 18px 28px;
+        border-bottom: 1px solid var(--line);
+        font-size: 15px;
+      }
+      .compare-row:last-child { border-bottom: 0; }
+      .compare-row.head {
+        background: var(--bg-warm);
+        font-family: 'Inter', sans-serif;
+        font-weight: 600; font-size: 13px;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        color: var(--muted);
+      }
+      .compare-row .col-label { color: var(--ink-soft); font-weight: 500; }
+      .compare-row .col-val { text-align: center; font-weight: 500; }
+      .check { color: var(--basil); font-weight: 700; }
+      .x { color: var(--muted); }
+      .partial { color: var(--amber-dark); font-weight: 600; }
+
+      /* CTA */
+      .cta {
+        padding: 96px 0;
+        text-align: center;
+      }
+      .cta h2 { max-width: 720px; margin: 0 auto; }
+      .cta .lede { max-width: 560px; margin: 22px auto 36px; }
+      .cta-buttons { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+      /* Footer (matches index.html) */
+      footer {
+        background: var(--bg-warm);
+        color: var(--ink-soft);
+        padding: 56px 0 40px;
+        border-top: 1px solid var(--line);
+      }
+      footer a { color: var(--ink-soft); }
+      footer a:hover { color: var(--amber-dark); }
+      .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+      .foot-about p { font-size: 14px; line-height: 1.6; margin-top: 12px; max-width: 320px; }
+      .foot-col h4 { font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin: 0 0 16px; }
+      .foot-col ul { list-style: none; padding: 0; margin: 0; }
+      .foot-col li { margin-bottom: 10px; font-size: 14px; }
+      .foot-meta { padding-top: 28px; border-top: 1px solid var(--line); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+      /* Responsive */
+      @media (max-width: 860px) {
+        .nav-links { gap: 10px; }
+        .nav-links a:not(.btn) { display: none; }
+        .nav-links .btn.ghost { display: none; }
+        .nav-links .btn { padding: 9px 14px; font-size: 13px; }
+        .brand { font-size: 19px; }
+        .brand svg { width: 28px; height: 28px; }
+        .nav-inner { height: 60px; }
+        .module-head { grid-template-columns: 1fr; gap: 18px; }
+        .feat-grid, .feat-grid.two-col { grid-template-columns: 1fr; }
+        .stats-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+        .compare-row { grid-template-columns: 1.4fr 1fr 1fr; padding: 14px 18px; font-size: 14px; }
+        .foot-grid { grid-template-columns: 1fr; gap: 28px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- NAV -->
+    <header class="nav">
+      <div class="container nav-inner">
+        <a href="/" class="brand">
+          <svg width="34" height="34" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
+            <rect width="64" height="64" rx="14" fill="#e8a33d"/>
+            <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
+          </svg>
+          <span>Stationly</span>
+        </a>
+        <nav class="nav-links">
+          <a href="./features.html" class="active">Features</a>
+          <a href="/#how">How it works</a>
+          <a href="/#pricing">Pricing</a>
+          <a href="./about.html">About</a>
+          <a href="./security.html">Security</a>
+          <a href="./login.html" class="btn ghost">Sign in</a>
+          <a href="./signup.html" class="btn amber">Start free trial</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container">
+        <span class="eyebrow"><span class="eyebrow-dot"></span>The full platform</span>
+        <h1>Everything you need to run the <em>back of house</em>, in one place.</h1>
+        <p class="lede">Stationly is the operations layer for independent restaurants. Receipts, inventory, scheduling, prep, costs, compliance, and accounting — without the enterprise contract.</p>
+        <div class="hero-ctas">
+          <a href="./signup.html" class="btn amber btn-lg">Start free 30‑day trial →</a>
+          <a href="./app.html" class="btn ghost btn-lg">See the live demo</a>
+        </div>
+        <p class="hero-note">No card required · $89/location/mo after trial · Cancel anytime</p>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats">
+      <div class="container">
+        <div class="stats-grid">
+          <div>
+            <div class="stat-num"><em>40+</em></div>
+            <div class="stat-label">Features shipping today</div>
+          </div>
+          <div>
+            <div class="stat-num"><em>5</em></div>
+            <div class="stat-label">Core modules</div>
+          </div>
+          <div>
+            <div class="stat-num"><em>$89</em></div>
+            <div class="stat-label">Per location, per month</div>
+          </div>
+          <div>
+            <div class="stat-num"><em>30</em></div>
+            <div class="stat-label">Day free trial</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLE OF CONTENTS -->
+    <section class="toc">
+      <div class="container">
+        <div class="toc-inner">
+          <a href="#receipts">AP &amp; Receipts</a>
+          <a href="#inventory">Inventory &amp; Recipes</a>
+          <a href="#prep">Kitchen &amp; Prep</a>
+          <a href="#workforce">Scheduling &amp; Time</a>
+          <a href="#costs">Costs &amp; Variance</a>
+          <a href="#accounting">Accounting Exports</a>
+          <a href="#mobile">Mobile &amp; PWA</a>
+          <a href="#compare">vs Restaurant365</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 1: AP & RECEIPTS -->
+    <section class="module" id="receipts">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">01 — Accounts Payable</div>
+            <h2>Snap a receipt. We do the typing.</h2>
+          </div>
+          <p class="lede">Capture every paper receipt, supplier invoice, and delivery slip from your phone. Document AI pulls out vendor, total, tax, tip, payment method, and every line item — automatically.</p>
+        </div>
+        <div class="feat-grid">
+          <div class="feat">
+            <div class="feat-icon">📷</div>
+            <h3>Mobile receipt capture</h3>
+            <p>Snap a receipt in the dining room. Photo flows straight into your AP queue with vendor and total parsed in seconds.</p>
+            <span class="tag new">New</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🤖</div>
+            <h3>Document AI OCR</h3>
+            <p>Google Document AI Expense Parser extracts vendor, total, tax, tip, date, payment type, and line items — no manual coding.</p>
+            <span class="tag new">New</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">📥</div>
+            <h3>AP bill queue</h3>
+            <p>Every receipt and supplier invoice in one approval queue with status, due date, and full digital audit trail.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🏷️</div>
+            <h3>Vendor pricing tracking</h3>
+            <p>Centralized vendor list with last-paid prices, terms, and contact details. Catch price creep before it hits margin.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔍</div>
+            <h3>Duplicate detection</h3>
+            <p>Server-side dedupe stops the same invoice from being paid twice. Empty-state and live-view bugs already squashed.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">💳</div>
+            <h3>Payment method &amp; last‑4</h3>
+            <p>OCR captures payment type (Visa, Amex, cash, check) and last four digits so reconciliation lines up with your statement.</p>
+            <span class="tag new">New</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 2: INVENTORY & RECIPES -->
+    <section class="module" id="inventory">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">02 — Inventory &amp; Recipes</div>
+            <h2>Know what you have, what it costs, and where it went.</h2>
+          </div>
+          <p class="lede">Real-time inventory tied to costed recipes and commissary production. Counts on a phone, variance in real time, transfers between locations without a spreadsheet.</p>
+        </div>
+        <div class="feat-grid">
+          <div class="feat">
+            <div class="feat-icon basil">📦</div>
+            <h3>Real-time inventory</h3>
+            <p>Track every ingredient with on-hand quantity, unit cost, and last-counted date. Synced across stations and locations.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">📱</div>
+            <h3>Mobile counts</h3>
+            <p>Walk the walk-in with your phone. Counts save instantly, work offline, and queue up if the wifi flakes.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">📖</div>
+            <h3>Costed recipes</h3>
+            <p>Build recipes once, see live food cost as ingredient prices change. Catch margin erosion before payroll runs.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">🏭</div>
+            <h3>Commissary &amp; production</h3>
+            <p>Run a central kitchen? Track production batches, push finished goods to locations, keep recipe quality consistent.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">🔁</div>
+            <h3>Inter-location transfers</h3>
+            <p>Move product between locations with a real audit trail. Cost-of-goods follows the inventory, not the spreadsheet.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">🍷</div>
+            <h3>Bar pour cost</h3>
+            <p>Track pour cost by liquor, by station, by shift. Catch over-pouring without yelling at anyone.</p>
+            <span class="tag">Live</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 3: KITCHEN & PREP -->
+    <section class="module" id="prep">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">03 — Kitchen &amp; Prep</div>
+            <h2>The kitchen runs on labels, lists, and checklists.</h2>
+          </div>
+          <p class="lede">Food prep labels that print to a DYMO straight from your phone. Task lists that follow shifts, not paper. Safety and inspection logs your health inspector will actually read.</p>
+        </div>
+        <div class="feat-grid">
+          <div class="feat">
+            <div class="feat-icon">🏷️</div>
+            <h3>Food prep labels (DYMO 30252)</h3>
+            <p>Print prep date, use-by date, item, and prepared-by directly from the app to a DYMO label printer. Health-code clean.</p>
+            <span class="tag new">New</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">✅</div>
+            <h3>Daily tasks</h3>
+            <p>Open, close, line check, deep clean — task lists tied to roles and shifts with completion timestamps.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon tomato">🚨</div>
+            <h3>Safety logs</h3>
+            <p>Temperature checks, allergen handling, sanitation rounds. Time-stamped, searchable, audit-ready.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon tomato">🔎</div>
+            <h3>Health inspection mode</h3>
+            <p>One-click view that pulls every food-safety log into an inspector-friendly report. No frantic printing.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">📋</div>
+            <h3>Compliance tracking</h3>
+            <p>Food handler cards, certifications, training expiry. Stationly tells you what's expired before the state does.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔔</div>
+            <h3>Smart alerts</h3>
+            <p>Custom thresholds for inventory, labor cost, or task completion. Notifications hit the right person at the right time.</p>
+            <span class="tag">Live</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 4: SCHEDULING & TIME -->
+    <section class="module" id="workforce">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">04 — Scheduling &amp; Time</div>
+            <h2>Build the schedule once. Let the rest run itself.</h2>
+          </div>
+          <p class="lede">AI-assisted schedule generation, mobile clock-in, automated tip pool calculation, and labor compliance baked in. Payroll-ready data exports when the period closes.</p>
+        </div>
+        <div class="feat-grid">
+          <div class="feat">
+            <div class="feat-icon">🤖</div>
+            <h3>Smart scheduler</h3>
+            <p>AI builds the first draft of the schedule from forecasted demand, role coverage, and historical labor patterns.</p>
+            <span class="tag new">New</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">⏱️</div>
+            <h3>Mobile time clock</h3>
+            <p>Clock in from a phone with geofencing. No more buddy punches, no more "I forgot to clock out" texts at midnight.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">💰</div>
+            <h3>Tip pool automation</h3>
+            <p>Configure your pool rules once — by role, hours, or sales. Stationly calculates payouts every shift, every time.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">👥</div>
+            <h3>Roles &amp; permissions</h3>
+            <p>Owner, manager, staff — granular control over who sees costs, who approves bills, who edits schedules.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">📊</div>
+            <h3>Payroll-ready labor data</h3>
+            <p>Pull a clean labor export at period close — hours, OT, tips, breaks — for Gusto, ADP, or your accountant.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">📝</div>
+            <h3>Employee invites</h3>
+            <p>Invite staff by email, magic link, or Google sign-in. No more spreadsheet of usernames and Post-It passwords.</p>
+            <span class="tag">Live</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 5: COSTS & VARIANCE -->
+    <section class="module" id="costs">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">05 — Costs &amp; Variance</div>
+            <h2>Prime cost in real time, not at month‑end.</h2>
+          </div>
+          <p class="lede">Sales, labor, and food cost meet in one daily briefing. Variance tracking catches theft, waste, and miscoding before they bleed your P&amp;L.</p>
+        </div>
+        <div class="feat-grid">
+          <div class="feat">
+            <div class="feat-icon basil">📈</div>
+            <h3>Daily briefing</h3>
+            <p>One-screen summary of yesterday: sales, labor %, food cost, prime cost, top alerts. Read it with your morning coffee.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">📉</div>
+            <h3>Variance tracking</h3>
+            <p>Theoretical vs actual food cost by item, by station, by day. Drill from a 2% miss to the exact SKU.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">💸</div>
+            <h3>Sales analytics</h3>
+            <p>Daily, weekly, and trailing-period sales with comp-period overlays. Catch trends, not just last night's number.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">👨‍🍳</div>
+            <h3>Labor cost analytics</h3>
+            <p>Labor % live throughout the day so managers can adjust before the shift ends, not at the weekly review.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">🏢</div>
+            <h3>Multi-location overview</h3>
+            <p>Owner of two or five locations? See them all on one screen, drill into any one in two clicks.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon basil">📦</div>
+            <h3>P&amp;L import</h3>
+            <p>Drop in your QuickBooks P&amp;L; Stationly maps it to operations metrics so finance and ops finally speak the same language.</p>
+            <span class="tag">Live</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 6: ACCOUNTING EXPORTS -->
+    <section class="module" id="accounting">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">06 — Accounting Exports</div>
+            <h2>Plays nice with the accountant you already have.</h2>
+          </div>
+          <p class="lede">Stationly isn't trying to replace QuickBooks. It's the operations layer that *feeds* it — clean exports, mapped accounts, and reconciliation-ready data.</p>
+        </div>
+        <div class="feat-grid two-col">
+          <div class="feat">
+            <div class="feat-icon">📤</div>
+            <h3>QuickBooks Online export</h3>
+            <p>One-click export of bills, sales, labor, and tip data into QBO with mapped accounts. Your bookkeeper will thank you.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔌</div>
+            <h3>POS integrations</h3>
+            <p>Stripe-native today; Toast, Square, and Clover integrations in the queue. POS data flows in, no double entry.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">💳</div>
+            <h3>Stripe billing</h3>
+            <p>Self-serve subscription, transparent flat pricing, no enterprise contract calls. Cancel from the dashboard.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">📁</div>
+            <h3>Receipt repository</h3>
+            <p>Every receipt and bill archived as a searchable image library. Audit-grade, retention rules built in.</p>
+            <span class="tag new">New</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 7: MOBILE & PWA -->
+    <section class="module" id="mobile">
+      <div class="container">
+        <div class="module-head">
+          <div>
+            <div class="module-no">07 — Mobile &amp; PWA</div>
+            <h2>The kitchen is loud. Wifi is spotty. We planned for that.</h2>
+          </div>
+          <p class="lede">Installable on iOS and Android as a progressive web app. Offline queue catches actions when wifi drops. Push notifications hit the right manager, not the whole team.</p>
+        </div>
+        <div class="feat-grid">
+          <div class="feat">
+            <div class="feat-icon">📲</div>
+            <h3>Installable PWA</h3>
+            <p>Add to home screen on iPhone or Android. Looks and feels native — no App Store gatekeeping.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔌</div>
+            <h3>Offline-first queue</h3>
+            <p>Counts, clock-ins, and receipt uploads queue on the device and sync the moment wifi returns.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔔</div>
+            <h3>Push notifications</h3>
+            <p>Alerts for overtime, late clock-ins, low inventory, or any custom threshold — sent to the right role only.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🔐</div>
+            <h3>Magic link &amp; Google sign-in</h3>
+            <p>Passwordless email link or one-tap Google sign-in. Plus password fallback for staff that prefer it.</p>
+            <span class="tag new">New</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🎯</div>
+            <h3>Sentry monitoring</h3>
+            <p>Real-time error tracking. If something breaks for you, we see it before you have to email us.</p>
+            <span class="tag">Live</span>
+          </div>
+          <div class="feat">
+            <div class="feat-icon">🌑</div>
+            <h3>Dark mode</h3>
+            <p>Warm-paper light theme by day, warm-ink dark theme by night. Easy on the eyes during a Sunday brunch close.</p>
+            <span class="tag">Live</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPARISON STRIP -->
+    <section class="compare" id="compare">
+      <div class="container">
+        <div class="compare-head">
+          <span class="eyebrow"><span class="eyebrow-dot"></span>How we stack up</span>
+          <h2 style="margin-top: 14px;">Built for the 95% of restaurants Restaurant365 doesn't bother quoting.</h2>
+          <p class="lede">R365 is excellent for franchise groups with a 6-month implementation budget. Stationly is for the rest of us — owner-operators, small chains, anyone who already uses QuickBooks and doesn't want to rip it out.</p>
+        </div>
+        <div class="compare-table">
+          <div class="compare-row head">
+            <div>Capability</div>
+            <div class="col-val">Stationly</div>
+            <div class="col-val">Restaurant365</div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Self-serve signup &amp; free trial</div>
+            <div class="col-val"><span class="check">✓</span></div>
+            <div class="col-val"><span class="x">Sales call</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Flat predictable pricing</div>
+            <div class="col-val"><span class="check">$89/loc/mo</span></div>
+            <div class="col-val"><span class="x">Custom quote</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Receipt OCR with line items</div>
+            <div class="col-val"><span class="check">✓</span></div>
+            <div class="col-val"><span class="check">✓</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Inventory, recipes, commissary</div>
+            <div class="col-val"><span class="check">✓</span></div>
+            <div class="col-val"><span class="check">✓</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Bar pour cost tracking</div>
+            <div class="col-val"><span class="check">✓ Native</span></div>
+            <div class="col-val"><span class="partial">Generic inventory</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Food prep labels (DYMO)</div>
+            <div class="col-val"><span class="check">✓</span></div>
+            <div class="col-val"><span class="x">—</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">QuickBooks Online sync</div>
+            <div class="col-val"><span class="check">✓</span></div>
+            <div class="col-val"><span class="x">Their own GL</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Mobile-first PWA + offline</div>
+            <div class="col-val"><span class="check">✓</span></div>
+            <div class="col-val"><span class="partial">Native, online</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Payroll processing</div>
+            <div class="col-val"><span class="partial">Export to Gusto/ADP</span></div>
+            <div class="col-val"><span class="check">Built-in</span></div>
+          </div>
+          <div class="compare-row">
+            <div class="col-label">Implementation time</div>
+            <div class="col-val"><span class="check">Same day</span></div>
+            <div class="col-val"><span class="x">Weeks – months</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+      <div class="container">
+        <span class="eyebrow"><span class="eyebrow-dot"></span>Ready when you are</span>
+        <h2 style="margin-top: 14px;">Run your back‑of‑house like the best operators do.</h2>
+        <p class="lede">30 days free. No card. No sales call. Cancel from your dashboard if it's not for you.</p>
+        <div class="cta-buttons">
+          <a href="./signup.html" class="btn amber btn-lg">Start free trial →</a>
+          <a href="./app.html" class="btn ghost btn-lg">See the live demo</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="container">
+        <div class="foot-grid">
+          <div class="foot-about">
+            <a href="/" class="brand" style="color: var(--ink);">
+              <svg width="28" height="28" viewBox="0 0 64 64" fill="none" aria-label="Stationly">
+                <rect width="64" height="64" rx="14" fill="#e8a33d"/>
+                <path d="M20 22 Q20 14 32 14 Q44 14 44 22 L44 24 Q44 28 36 28 L28 28 Q20 28 20 34 Q20 40 28 40 L36 40 Q44 40 44 44 L44 46 Q44 54 32 54 Q20 54 20 46" stroke="#1c1a15" stroke-width="5" stroke-linecap="round" fill="none"/>
+              </svg>
+              <span>Stationly</span>
+            </a>
+            <p>Back-office operations for independent restaurants. Receipts, schedules, inventory, costs, and compliance — in one place.</p>
+          </div>
+          <div class="foot-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="./features.html">Features</a></li>
+              <li><a href="/#how">How it works</a></li>
+              <li><a href="/#pricing">Pricing</a></li>
+              <li><a href="./app.html">Live demo</a></li>
+              <li><a href="./signup.html">Sign up</a></li>
+            </ul>
+          </div>
+          <div class="foot-col">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="./about.html">About</a></li>
+              <li><a href="./security.html">Security</a></li>
+              <li><a href="./legal/terms.html">Terms</a></li>
+              <li><a href="./legal/privacy.html">Privacy</a></li>
+              <li><a href="mailto:hello@stationly.ai">Contact</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="foot-meta">
+          <span>© 2026 Stationly · St. Cloud, MN</span>
+          <span>Built for the line cooks, by people who've worked one.</span>
+        </div>
+      </div>
+    </footer>
+
+  </body>
+</html>
