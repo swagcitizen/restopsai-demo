@@ -36,20 +36,33 @@ export async function loadTenantContext() {
   // staff are exempt (staff can't manage onboarding anyway, and the demo
   // tenant was backfilled as finished).
   if (m.role === 'owner' || m.role === 'manager') {
-    try {
-      const { data: onb } = await supabase
-        .from('tenant_onboarding')
-        .select('finished_at')
-        .eq('tenant_id', m.tenant_id)
-        .maybeSingle();
-      if (onb && !onb.finished_at && !window.location.pathname.match(/onboarding/)) {
-        window.location.href = './onboarding.html';
-        throw new Error('Onboarding incomplete');
+    // Local hint set by onboarding.js right before navigating to app.html.
+    // Short-circuits read-after-write replication lag, where finished_at
+    // appears null for a beat and bounces the user back to onboarding.
+    let locallyFinished = false;
+    try { locallyFinished = localStorage.getItem('stationly:onb-finished:' + m.tenant_id) === '1'; } catch (_) {}
+
+    if (!locallyFinished) {
+      try {
+        const { data: onb } = await supabase
+          .from('tenant_onboarding')
+          .select('finished_at')
+          .eq('tenant_id', m.tenant_id)
+          .maybeSingle();
+        if (onb && !onb.finished_at && !window.location.pathname.match(/onboarding/)) {
+          window.location.href = './onboarding.html';
+          throw new Error('Onboarding incomplete');
+        }
+        // Once we've confirmed finished_at server-side, cache it locally so
+        // subsequent loads can skip the round-trip entirely.
+        if (onb?.finished_at) {
+          try { localStorage.setItem('stationly:onb-finished:' + m.tenant_id, '1'); } catch (_) {}
+        }
+      } catch (e) {
+        if (e?.message === 'Onboarding incomplete') throw e;
+        // Soft-fail on any other error — don't block the app for a missing row.
+        console.warn('Onboarding check failed:', e);
       }
-    } catch (e) {
-      if (e?.message === 'Onboarding incomplete') throw e;
-      // Soft-fail on any other error — don't block the app for a missing row.
-      console.warn('Onboarding check failed:', e);
     }
   }
 

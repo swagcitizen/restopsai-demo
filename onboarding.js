@@ -411,6 +411,23 @@ btnNext.addEventListener('click', async () => {
       fail('Your restaurant didn\u2019t finish setting up. Go back to step 1 and try again.');
       return;
     }
+    // Belt + suspenders: make absolutely sure finished_at is set before
+    // navigating. If the user reached this screen via Skip on step 5 (older
+    // builds) or any other path that didn't finalize, this closes the loop
+    // that bounced them back to /onboarding.html.
+    if (!onboarding?.finished_at) {
+      try {
+        await upsertOnboarding({
+          step_completed: TOTAL_STEPS,
+          finished_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn('Could not finalize onboarding before navigating; proceeding anyway.', e);
+      }
+    }
+    // Local hint so tenantContext can short-circuit any post-write read race
+    // (where finished_at briefly appears null after the upsert).
+    try { localStorage.setItem('stationly:onb-finished:' + tenantId, '1'); } catch (_) {}
     window.location.href = './app.html';
     return;
   }
