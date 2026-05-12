@@ -1,4 +1,4 @@
-// pnlImport.js — P&L document upload + AI-assisted mapping.
+// pnlImport.js — P&L document upload + auto-mapping.
 // Exposes mountPnlImport(tenantId, onConfirmed) which wires up the "Import P&L" button
 // and its modal. On confirmed import it calls onConfirmed(totals, period) so the
 // calling view can populate its inputs.
@@ -89,8 +89,8 @@ function openModal(tenantId, onConfirmed) {
       #pnl-modal .period-row{display:flex;gap:14px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
       #pnl-modal .period-row label{font-size:12px;color:#6b6459;display:flex;flex-direction:column;gap:4px}
       #pnl-modal .period-row input{padding:7px 10px;border:1px solid #d9ccaf;border-radius:8px;background:#fff;font-size:13px;color:#1c1a15}
-      #pnl-modal .totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px;padding:14px;background:#1c1a15;border-radius:12px}
-      #pnl-modal .totals .tile{color:#faf5ea}
+      #pnl-modal .totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px;padding:14px;background:#f6efdf;border:1px solid #eae0c8;border-radius:12px}
+      #pnl-modal .totals .tile{color:#1c1a15}
       #pnl-modal .totals .lbl{font-size:11px;color:#8a8275;text-transform:uppercase;letter-spacing:.04em}
       #pnl-modal .totals .val{font-family:Fraunces,Georgia,serif;font-size:18px;font-weight:500;margin-top:2px}
       #pnl-modal .totals .val.rev{color:#e8a33d}
@@ -252,7 +252,7 @@ function renderReview(importId, parsed, lines, tenantId, onConfirmed) {
             <th>Line item</th>
             <th style="text-align:right">Amount</th>
             <th style="width:200px">Category</th>
-            <th style="width:90px">AI</th>
+            <th style="width:90px">Auto</th>
           </tr>
         </thead>
         <tbody id="pnl-rows"></tbody>

@@ -171,7 +171,7 @@ async function renderAlerts(tenantId, filter) {
 
   if (!data || data.length === 0) {
     list.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">✨</div>
+      <div class="empty-icon">✓</div>
       <h3>${filter === 'unread' ? "You're all caught up" : 'No alerts yet'}</h3>
       <p class="muted">${filter === 'unread' ? 'New alerts will appear here as they fire.' : "We haven't sent any alerts for this location yet."}</p>
     </div>`;

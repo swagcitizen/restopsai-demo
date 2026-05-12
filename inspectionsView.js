@@ -36,7 +36,7 @@ function fmtScore(s) {
 }
 
 function scoreColor(s) {
-  if (s == null) return 'var(--muted, #7a715f)';
+  if (s == null) return 'var(--text-muted, #5e574a)';
   if (s >= 90) return '#3b6e3b';   // basil
   if (s >= 75) return '#c98b1b';   // amber-dark
   return '#c9302c';                 // tomato
@@ -168,48 +168,48 @@ function renderShell() {
       .ir-shell { display: flex; flex-direction: column; gap: 16px; }
       .ir-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
       @media (max-width: 760px) { .ir-kpis { grid-template-columns: repeat(2, 1fr); } }
-      .ir-kpi { background: var(--bg-1, #1c1a15); border: 1px solid var(--line, #2c2820); border-radius: 12px; padding: 14px; }
-      .ir-kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted, #948c7a); }
+      .ir-kpi { background: var(--surface, #ffffff); border: 1px solid var(--line, #eae0c8); border-radius: 12px; padding: 14px; }
+      .ir-kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted, #5e574a); }
       .ir-kpi-value { font-size: 26px; font-weight: 700; margin-top: 6px; }
-      .ir-kpi-sub { font-size: 12px; color: var(--muted, #948c7a); margin-top: 2px; }
-      .ir-trend-card { background: var(--bg-1, #1c1a15); border: 1px solid var(--line, #2c2820); border-radius: 14px; padding: 16px; }
+      .ir-kpi-sub { font-size: 12px; color: var(--text-muted, #5e574a); margin-top: 2px; }
+      .ir-trend-card { background: var(--surface, #ffffff); border: 1px solid var(--line, #eae0c8); border-radius: 14px; padding: 16px; }
       .ir-trend-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
       .ir-trend-head h3 { margin: 0; font-size: 16px; }
       .ir-trend-svg { width: 100%; height: 180px; display: block; }
       .ir-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-      .ir-toolbar select, .ir-toolbar input { background: var(--bg-1, #1c1a15); border: 1px solid var(--line, #2c2820); color: inherit; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+      .ir-toolbar select, .ir-toolbar input { background: var(--surface, #ffffff); border: 1px solid var(--line, #eae0c8); color: inherit; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
       .ir-toolbar input[type=search] { flex: 1; min-width: 180px; }
       .ir-toolbar .btn-primary { margin-left: auto; }
       .ir-list { display: flex; flex-direction: column; gap: 10px; }
-      .ir-row { background: var(--bg-1, #1c1a15); border: 1px solid var(--line, #2c2820); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: 64px 1fr auto auto; gap: 14px; align-items: center; cursor: pointer; transition: border-color .15s; }
+      .ir-row { background: var(--surface, #ffffff); border: 1px solid var(--line, #eae0c8); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: 64px 1fr auto auto; gap: 14px; align-items: center; cursor: pointer; transition: border-color .15s; }
       .ir-row:hover { border-color: #e8a33d; }
       @media (max-width: 700px) { .ir-row { grid-template-columns: 56px 1fr auto; } .ir-row .ir-row-meta { display: none; } }
       .ir-score-bubble { width: 56px; height: 56px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; color: #fff; }
       .ir-score-bubble small { font-size: 9px; opacity: .8; font-weight: 500; }
       .ir-row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
       .ir-row-title { font-weight: 600; font-size: 15px; }
-      .ir-row-sub { color: var(--muted, #948c7a); font-size: 13px; display: flex; gap: 10px; flex-wrap: wrap; }
-      .ir-row-meta { text-align: right; font-size: 13px; color: var(--muted, #948c7a); }
+      .ir-row-sub { color: var(--text-muted, #5e574a); font-size: 13px; display: flex; gap: 10px; flex-wrap: wrap; }
+      .ir-row-meta { text-align: right; font-size: 13px; color: var(--text-muted, #5e574a); }
       .ir-delta { font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
       .ir-delta.up { background: rgba(59,110,59,.15); color: #6fbf73; }
       .ir-delta.down { background: rgba(201,48,44,.15); color: #f08077; }
-      .ir-delta.flat { background: rgba(122,113,95,.18); color: var(--muted,#948c7a); }
+      .ir-delta.flat { background: rgba(122,113,95,.18); color: var(--text-muted, #5e574a); }
       .ir-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(232,163,61,.15); color: #e8a33d; text-transform: uppercase; letter-spacing: .04em; }
       .ir-pill.warn { background: rgba(201,48,44,.18); color: #f08077; }
       .ir-pill.ok { background: rgba(59,110,59,.15); color: #6fbf73; }
-      .ir-empty { text-align: center; padding: 60px 20px; color: var(--muted,#948c7a); }
+      .ir-empty { text-align: center; padding: 60px 20px; color: var(--text-muted, #5e574a); }
       .ir-empty .ir-empty-emoji { font-size: 40px; margin-bottom: 10px; }
 
       /* Modal */
       .ir-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 16px; }
-      .ir-modal { background: var(--bg, #14110c); border: 1px solid var(--line,#2c2820); border-radius: 16px; width: 100%; max-width: 720px; max-height: 90vh; overflow: auto; padding: 22px; }
+      .ir-modal { background: var(--surface, #ffffff); border: 1px solid var(--line, #eae0c8); border-radius: 16px; width: 100%; max-width: 720px; max-height: 90vh; overflow: auto; padding: 22px; }
       .ir-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
       .ir-modal-head h3 { margin: 0; font-size: 18px; }
-      .ir-close { background: none; border: none; color: var(--muted,#948c7a); font-size: 22px; cursor: pointer; padding: 4px 8px; }
+      .ir-close { background: none; border: none; color: var(--text-muted, #5e574a); font-size: 22px; cursor: pointer; padding: 4px 8px; }
       .ir-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .ir-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted,#948c7a); }
+      .ir-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted, #5e574a); }
       .ir-form label span { letter-spacing: .03em; text-transform: uppercase; }
-      .ir-form input, .ir-form select, .ir-form textarea { background: var(--bg-1,#1c1a15); border: 1px solid var(--line,#2c2820); color: inherit; border-radius: 8px; padding: 9px 10px; font-size: 14px; font-family: inherit; }
+      .ir-form input, .ir-form select, .ir-form textarea { background: var(--surface, #ffffff); border: 1px solid var(--line, #eae0c8); color: inherit; border-radius: 8px; padding: 9px 10px; font-size: 14px; font-family: inherit; }
       .ir-form textarea { resize: vertical; min-height: 70px; }
       .ir-form .full { grid-column: 1 / -1; }
       .ir-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
@@ -217,12 +217,12 @@ function renderShell() {
       .ir-msg.err { background: rgba(201,48,44,.15); color: #f08077; }
       .ir-msg.ok { background: rgba(59,110,59,.15); color: #6fbf73; }
       .ir-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
-      .ir-detail-cell .lbl { font-size: 11px; color: var(--muted,#948c7a); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+      .ir-detail-cell .lbl { font-size: 11px; color: var(--text-muted, #5e574a); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
       .ir-detail-cell .val { font-size: 15px; font-weight: 500; }
       .ir-detail-viol { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; background: rgba(0,0,0,.15); padding: 10px; border-radius: 10px; margin-bottom: 14px; }
       .ir-detail-viol .v-cell { text-align: center; }
       .ir-detail-viol .v-cell .v-num { font-size: 22px; font-weight: 700; }
-      .ir-detail-viol .v-cell .v-lbl { font-size: 11px; color: var(--muted,#948c7a); text-transform: uppercase; }
+      .ir-detail-viol .v-cell .v-lbl { font-size: 11px; color: var(--text-muted, #5e574a); text-transform: uppercase; }
       .ir-attachment { display: flex; gap: 12px; align-items: center; padding: 12px; background: rgba(232,163,61,.08); border: 1px solid rgba(232,163,61,.3); border-radius: 10px; }
       .ir-attachment .ico { font-size: 28px; }
       .ir-attachment a { color: #e8a33d; text-decoration: none; font-weight: 600; }
@@ -234,7 +234,7 @@ function renderShell() {
       <div class="ir-trend-card">
         <div class="ir-trend-head">
           <h3>Score trend</h3>
-          <span class="muted" style="color:var(--muted,#948c7a); font-size:12px">Last 12 reports</span>
+          <span class="muted" style="color:var(--text-muted, #5e574a); font-size:12px">Last 12 reports</span>
         </div>
         <svg class="ir-trend-svg" id="ir-trend-svg" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
       </div>
@@ -315,7 +315,7 @@ function renderTrend() {
     .slice(-12);
 
   if (series.length < 1) {
-    svg.innerHTML = `<text x="300" y="90" text-anchor="middle" fill="#7a715f" font-size="13" font-family="Inter, sans-serif">Add your first inspection report to see the trend.</text>`;
+    svg.innerHTML = `<text x="300" y="90" text-anchor="middle" fill="#5e574a" font-size="13" font-family="Inter, sans-serif">Add your first inspection report to see the trend.</text>`;
     return;
   }
 
@@ -337,8 +337,8 @@ function renderTrend() {
   const gridScores = [70, 80, 90, 100].filter(g => g >= minS && g <= maxS);
   const gridLines = gridScores.map(s => {
     const y = padY + (1 - (s - minS) / (maxS - minS || 1)) * innerH;
-    return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${(W-padX).toFixed(1)}" y2="${y.toFixed(1)}" stroke="#2c2820" stroke-dasharray="2,4" />
-            <text x="${padX-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#7a715f" font-size="10" font-family="Inter, sans-serif">${s}</text>`;
+    return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${(W-padX).toFixed(1)}" y2="${y.toFixed(1)}" stroke="#d7c99f" stroke-dasharray="2,4" />
+            <text x="${padX-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#5e574a" font-size="10" font-family="Inter, sans-serif">${s}</text>`;
   }).join('');
 
   // Points
@@ -346,7 +346,7 @@ function renderTrend() {
     const r = series[i];
     const color = scoreColor(r.score);
     return `<g>
-      <circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="4.5" fill="${color}" stroke="#1c1a15" stroke-width="2">
+      <circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="4.5" fill="${color}" stroke="#ffffff" stroke-width="2">
         <title>${fmtDate(r.inspection_date)} — ${fmtScore(r.score)}${r.score_grade ? ' (' + r.score_grade + ')' : ''}</title>
       </circle>
     </g>`;
@@ -358,7 +358,7 @@ function renderTrend() {
   if (series.length >= 3) xLabels.push({ x: xs[Math.floor(series.length/2)], r: series[Math.floor(series.length/2)] });
   if (series.length >= 2) xLabels.push({ x: xs[xs.length-1], r: series[series.length-1] });
   const xLabelSvg = xLabels.map(({x, r}) =>
-    `<text x="${x.toFixed(1)}" y="${(H-4).toFixed(1)}" text-anchor="middle" fill="#7a715f" font-size="10" font-family="Inter, sans-serif">${fmtDate(r.inspection_date)}</text>`
+    `<text x="${x.toFixed(1)}" y="${(H-4).toFixed(1)}" text-anchor="middle" fill="#5e574a" font-size="10" font-family="Inter, sans-serif">${fmtDate(r.inspection_date)}</text>`
   ).join('');
 
   svg.innerHTML = `
@@ -587,7 +587,7 @@ async function openDetail(id) {
           ${r.score_grade ? `<small>GRADE ${escapeHtml(r.score_grade)}</small>` : (r.score != null ? `<small>SCORE</small>` : '')}
         </div>
         <div>
-          <div style="font-size:13px; color: var(--muted,#948c7a); text-transform:uppercase; letter-spacing:.06em;">Result</div>
+          <div style="font-size:13px; color: var(--text-muted, #5e574a); text-transform:uppercase; letter-spacing:.06em;">Result</div>
           <div style="font-size:18px; font-weight:600;">${escapeHtml(r.result || '—')}</div>
           ${r.score_delta != null ? `<div style="font-size:13px; margin-top:4px;">vs previous: ${
             r.score_delta > 0 ? `<span style="color:#6fbf73">▲ +${Number(r.score_delta).toFixed(1)}</span>` :
@@ -613,7 +613,7 @@ async function openDetail(id) {
       </div>
 
       ${r.notes ? `<div style="margin-bottom:14px;">
-        <div class="lbl" style="font-size:11px; color:var(--muted,#948c7a); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px;">Notes</div>
+        <div class="lbl" style="font-size:11px; color:var(--text-muted, #5e574a); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px;">Notes</div>
         <div style="font-size:14px; line-height:1.55; white-space:pre-wrap;">${escapeHtml(r.notes)}</div>
       </div>` : ''}
 
@@ -633,11 +633,11 @@ async function openDetail(id) {
   // Attachment
   const attachEl = backdrop.querySelector('#ir-detail-attach');
   if (r.storage_path) {
-    attachEl.innerHTML = `<div class="ir-attachment"><div class="ico">📎</div><div style="flex:1"><div style="font-weight:600">${escapeHtml(r.file_name || 'Report file')}</div><div style="font-size:12px; color:var(--muted,#948c7a)">${fmtBytes(r.file_size_bytes)} · ${escapeHtml(r.mime_type || '')}</div></div><a id="ir-attach-link" target="_blank" rel="noopener">Loading…</a></div>`;
+    attachEl.innerHTML = `<div class="ir-attachment"><div class="ico">📎</div><div style="flex:1"><div style="font-weight:600">${escapeHtml(r.file_name || 'Report file')}</div><div style="font-size:12px; color:var(--text-muted, #5e574a)">${fmtBytes(r.file_size_bytes)} · ${escapeHtml(r.mime_type || '')}</div></div><a id="ir-attach-link" target="_blank" rel="noopener">Loading…</a></div>`;
     getSignedUrl(r.storage_path).then(url => {
       const a = backdrop.querySelector('#ir-attach-link');
       if (a && url) { a.href = url; a.textContent = 'View / Download →'; }
-      else if (a)   { a.textContent = 'Unavailable'; a.style.color = 'var(--muted,#948c7a)'; }
+      else if (a)   { a.textContent = 'Unavailable'; a.style.color = 'var(--text-muted, #5e574a)'; }
     });
   }
 

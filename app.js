@@ -507,8 +507,8 @@ function buildAlerts() {
 // RENDER
 // -----------------------------------------------------------------------------
 const CHART_DEFAULTS = {
-  color: "#b5a992",
-  borderColor: "#2c2820",
+  color: "#5e574a",
+  borderColor: "#eae0c8",
   font: { family: "Inter, sans-serif", size: 11 },
 };
 // Chart.js is loaded with `defer` for faster FCP, so it may not be ready at module-parse time.
@@ -1139,7 +1139,7 @@ function renderDailyChart() {
       { label: "Delivery", data: data.map(d => d.delivery), backgroundColor: "#3B6E3B", stack: "s" },
       { label: "Catering", data: data.map(d => d.catering), backgroundColor: "#D7B26A", stack: "s" },
     ]},
-    options: { ...chartOpts({ legend: true, currency: true }), scales: { ...chartOpts({}).scales, x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: "#2c2820" } } } }
+    options: { ...chartOpts({ legend: true, currency: true }), scales: { ...chartOpts({}).scales, x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: "#eae0c8" } } } }
   });
 }
 
@@ -1181,11 +1181,11 @@ function horizBarOpts() {
     responsive: true, maintainAspectRatio: false, indexAxis: "y",
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: "#1c1a15", titleColor: "#f3ece0", bodyColor: "#b5a992", borderColor: "#3a3528", borderWidth: 1, padding: 10,
+      tooltip: { backgroundColor: "#1c1a15", titleColor: "#faf5ea", bodyColor: "#d6cdb8", borderColor: "#3a3528", borderWidth: 1, padding: 10,
         callbacks: { label: (c) => `${fmtUSD(c.raw)}` } }
     },
     scales: {
-      x: { grid: { color: "#2c2820" }, ticks: { callback: v => "$"+(v>=1000 ? (v/1000).toFixed(1)+"k" : v) } },
+      x: { grid: { color: "#eae0c8" }, ticks: { callback: v => "$"+(v>=1000 ? (v/1000).toFixed(1)+"k" : v) } },
       y: { grid: { display: false }, ticks: { font: { size: 11 } } }
     }
   };
@@ -1207,7 +1207,7 @@ function renderLaborChart() {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: "top" } },
       scales: {
-        y: { position: "left", grid: { color: "#2c2820" }, ticks: { callback: v => "$"+v } },
+        y: { position: "left", grid: { color: "#eae0c8" }, ticks: { callback: v => "$"+v } },
         y1: { position: "right", grid: { display: false }, ticks: { callback: v => "$"+v } },
         x: { grid: { display: false } }
       }
@@ -1238,12 +1238,12 @@ function chartOpts({ legend = false, currency = false } = {}) {
   return {
     responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
     plugins: { legend: { display: legend, position: "top", labels: { usePointStyle: true, padding: 12 } },
-      tooltip: { backgroundColor: "#1c1a15", titleColor: "#f3ece0", bodyColor: "#b5a992", borderColor: "#3a3528", borderWidth: 1, padding: 10,
+      tooltip: { backgroundColor: "#1c1a15", titleColor: "#faf5ea", bodyColor: "#d6cdb8", borderColor: "#3a3528", borderWidth: 1, padding: 10,
         callbacks: currency ? { label: (c) => `${c.dataset.label}: ${fmtUSD(c.raw)}` } : undefined
       } },
     scales: {
       x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 16 } },
-      y: { grid: { color: "#2c2820" }, ticks: currency ? { callback: v => "$"+(v>=1000 ? (v/1000).toFixed(1)+"k" : v) } : {} }
+      y: { grid: { color: "#eae0c8" }, ticks: currency ? { callback: v => "$"+(v>=1000 ? (v/1000).toFixed(1)+"k" : v) } : {} }
     }
   };
 }
@@ -1333,7 +1333,7 @@ function renderBriefing() {
   const anomEl = document.getElementById("anomalies-list");
   const anomCount = document.getElementById("anomaly-count");
   if (anomEl) {
-    if (anomalies.length === 0) anomEl.innerHTML = `<li><span class="ins-icon">✨</span><span>No anomalies detected this week.</span></li>`;
+    if (anomalies.length === 0) anomEl.innerHTML = `<li><span class="ins-icon">✓</span><span>No anomalies detected this week.</span></li>`;
     else anomEl.innerHTML = anomalies.slice(0, 6).map(a => `<li><span class="ins-icon ${a.level}">${a.level === "err" ? "‼️" : "⚠️"}</span><span><strong>${a.title}</strong><br><span class="muted">${a.sub}</span></span></li>`).join("");
   }
   if (anomCount) anomCount.textContent = anomalies.length;
@@ -1967,7 +1967,7 @@ function bindEvents() {
         commissary: ["Commissary", "Move prepped batches and inventory between locations"],
         variance: ["Variance", "Theoretical-vs-actual usage from counts, recipes, and POS — drill into every item"],
         bills: ["Bill Pay", "Approve, schedule, and record vendor payments — workflow + audit trail"],
-        receipts: ["Receipts", "Upload, scan, and track vendor receipts — OCR-ready when Document AI is configured"],
+        receipts: ["Receipts", "Upload, scan, and track vendor receipts — automatic parsing when the receipt parser is configured"],
         payroll: ["Payroll", "Pay periods, OT, and CSV export to Gusto / ADP / Paychex"],
       };
       const [t, s] = titles[view] || titles.overview;
@@ -2562,7 +2562,7 @@ function bindEvents() {
   // Refresh briefing
   const rb = document.getElementById("refresh-brief");
   if (rb) rb.addEventListener("click", () => {
-    rb.textContent = "✨ Refreshing…";
+    rb.textContent = "Refreshing…";
     setTimeout(() => { renderBriefing(); rb.textContent = "Refresh briefing"; }, 400);
   });
 

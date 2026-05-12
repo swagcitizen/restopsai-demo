@@ -16,7 +16,7 @@ import { supabase } from './supabaseClient.js';
 export const VIEW_CATALOG = [
   { group: 'Operations', items: [
     { key: 'overview',   label: 'Overview' },
-    { key: 'briefing',   label: 'Weekly Briefing (AI)' },
+    { key: 'briefing',   label: 'Weekly Briefing' },
     { key: 'costs',      label: 'Costs & P&L' },
     { key: 'recipes',    label: 'Recipe Costing' },
     { key: 'sales',      label: 'Sales & Menu' },
