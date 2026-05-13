@@ -1969,6 +1969,7 @@ function bindEvents() {
         bills: ["Bill Pay", "Approve, schedule, and record vendor payments — workflow + audit trail"],
         receipts: ["Receipts", "Upload, scan, and track vendor receipts — automatic parsing when the receipt parser is configured"],
         payroll: ["Payroll", "Pay periods, OT, and CSV export to Gusto / ADP / Paychex"],
+        'printer-setup': ["Printer & Tablet", "Label printer, paper size, and kitchen tablet kiosk settings"],
       };
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
@@ -1983,6 +1984,7 @@ function bindEvents() {
       if (view === 'bills') renderBills().catch(err => console.error('Bills load failed:', err));
       if (view === 'receipts' && window.__receiptsInited) window.__receiptsRefresh && window.__receiptsRefresh();
       if (view === 'reports') window.__inspectionsInit && window.__inspectionsInit();
+      if (view === 'printer-setup') window.__printerSetupInit && window.__printerSetupInit();
       if (view === 'payroll') renderPayroll().catch(err => console.error('Payroll load failed:', err));
       if (view === 'inventory') {
         const isBarPane = document.querySelector('.inv-pane[data-inv-pane="bar"]:not([hidden])');
@@ -3756,6 +3758,15 @@ async function bootApp() {
         .catch(e => console.warn('smart scheduler init failed', e));
     }
 
+    // Printer & Tablet setup — lazy-loaded on first view of the page.
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      window.__printerSetupInit = () => {
+        import('./printerSetupView.js')
+          .then(mod => mod.initPrinterSetup({ tenantId: ctx.tenant.id, userId: ctx.user.id }))
+          .catch(e => console.warn('printer setup init failed', e));
+      };
+    }
+
     // Granular role permissions — apply hidden views for non-owners,
     // and render the settings UI inside Team view for owners.
     if (ctx?.tenant?.id) {
@@ -3954,6 +3965,89 @@ async function bootApp() {
   import('./connectionStatus.js')
     .then(m => m.initConnectionStatus && m.initConnectionStatus())
     .catch(e => console.warn('connection status init failed', e));
+
+  // Kiosk mode: when ?kiosk=1 is on the URL (or kiosk_enabled flag is on for this
+  // tenant on a tablet sessionStorage), lock the UI to the time clock view.
+  initKioskMode().catch(e => console.warn('kiosk init failed', e));
+}
+
+// -----------------------------------------------------------------------------
+// KIOSK MODE — lock tablet to the time clock, manager PIN to exit.
+// -----------------------------------------------------------------------------
+async function initKioskMode() {
+  const qs = new URLSearchParams(window.location.search);
+  let kioskRequested = qs.get('kiosk') === '1' || sessionStorage.getItem('stationly:kiosk') === '1';
+
+  // Always respect URL flag. Also auto-enter when the tenant has enabled kiosk + this tab opened the clock.
+  if (!kioskRequested) return;
+
+  // Pre-load kiosk settings (best effort; if they fail we still lock down).
+  try {
+    const repo = await getKioskRepo();
+    clockState.kioskSettings = await repo.getKioskSettings();
+  } catch (err) {
+    console.warn('Could not load kiosk settings:', err);
+  }
+
+  // Persist for this session so internal navigations don't drop kiosk mode.
+  sessionStorage.setItem('stationly:kiosk', '1');
+
+  document.body.classList.add('kiosk-mode');
+
+  // Force-route to the clock view
+  const clockBtn = document.querySelector('.nav-item[data-view="clock"]');
+  if (clockBtn) clockBtn.click();
+  else {
+    // Manual fallback when nav not yet wired
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const cv = document.querySelector('.view[data-view="clock"]');
+    if (cv) cv.classList.add('active');
+    resetClockToPinPad();
+  }
+
+  // Block back/forward away from clock view
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('kiosk-mode')) return;
+    const navItem = e.target.closest('.nav-item');
+    if (navItem && navItem.dataset.view !== 'clock') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  // Add the "Exit kiosk" pill
+  let pill = document.getElementById('kiosk-exit-pill');
+  if (!pill) {
+    pill = document.createElement('button');
+    pill.id = 'kiosk-exit-pill';
+    pill.className = 'kiosk-exit-pill';
+    pill.textContent = 'Exit kiosk';
+    pill.addEventListener('click', async () => {
+      const ok = await promptManagerPin();
+      if (ok) exitKioskMode();
+    });
+    document.body.appendChild(pill);
+  }
+
+  // Try fullscreen on first user interaction (browsers require gesture)
+  const requestFs = () => {
+    if (document.fullscreenElement) return;
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    document.removeEventListener('click', requestFs);
+  };
+  document.addEventListener('click', requestFs, { once: true });
+}
+
+function exitKioskMode() {
+  sessionStorage.removeItem('stationly:kiosk');
+  document.body.classList.remove('kiosk-mode');
+  const pill = document.getElementById('kiosk-exit-pill');
+  if (pill) pill.remove();
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  // Strip ?kiosk=1 from URL so a refresh doesn't re-enter kiosk mode
+  const url = new URL(window.location.href);
+  url.searchParams.delete('kiosk');
+  window.history.replaceState({}, '', url.toString());
 }
 
 // -----------------------------------------------------------------------------
@@ -4173,12 +4267,117 @@ const clockState = {
   timerId: null,
   wallClockId: null,
   autoResetId: null,
+  reminderTimerId: null,
+  kioskSettings: null,
+  todaysShifts: [],
+  openShifts: [],
+  managerOverride: false,    // sticky for the current employee card session
 };
+
+// Lazy-loaded printer/kiosk repo. Cached on first call.
+let _kioskRepo = null;
+async function getKioskRepo() {
+  if (_kioskRepo) return _kioskRepo;
+  _kioskRepo = await import('./printerSettingsRepo.js');
+  return _kioskRepo;
+}
+
+async function refreshClockReminders() {
+  const strip = document.getElementById('clock-reminder-strip');
+  if (!strip) return;
+  try {
+    const repo = await getKioskRepo();
+    if (!clockState.kioskSettings) clockState.kioskSettings = await repo.getKioskSettings();
+    const [shifts, opens] = await Promise.all([repo.fetchTodaysSchedule(), repo.fetchOpenShifts()]);
+    clockState.todaysShifts = shifts;
+    clockState.openShifts = opens;
+  } catch (err) {
+    console.warn('clock reminders refresh failed:', err);
+  }
+  renderClockReminders();
+}
+
+function renderClockReminders() {
+  const strip = document.getElementById('clock-reminder-strip');
+  if (!strip) return;
+  const k = clockState.kioskSettings;
+  const showIn = !k || k.show_clockin_reminder !== false;
+  const showOut = !k || k.show_clockout_reminder !== false;
+  const grace = (k?.clock_in_grace_minutes ?? 15);
+  const nudgeAfter = (k?.clock_out_nudge_minutes ?? 15);
+  const now = new Date();
+  const items = [];
+
+  // Upcoming clock-ins: today's scheduled staff who don't have an open shift yet,
+  // within `grace` minutes of their start.
+  if (showIn) {
+    const openStaffIds = new Set((clockState.openShifts || []).map((s) => s.staff_id));
+    for (const s of clockState.todaysShifts || []) {
+      if (!s.start_time || !s.staff) continue;
+      if (openStaffIds.has(s.staff_id)) continue; // already clocked in
+      const start = combineDateTime(s.shift_date, s.start_time);
+      if (!start) continue;
+      const minsUntil = Math.round((start - now) / 60000);
+      // Show reminder window: from -grace to +grace minutes around start
+      if (minsUntil >= -grace && minsUntil <= grace) {
+        const when = start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const phrase = minsUntil > 0
+          ? `in ${minsUntil} min`
+          : minsUntil === 0 ? 'now' : `${Math.abs(minsUntil)} min late`;
+        items.push(`
+          <div class="clock-reminder clock-reminder--in">
+            <span class="clock-reminder-icon">⏰</span>
+            <div class="clock-reminder-body">
+              <strong>${escapeHtml(s.staff.name || 'Staff')}</strong> — clock in ${phrase}
+              <div class="small">Scheduled ${when}${s.end_time ? ` – ${combineDateTime(s.shift_date, s.end_time)?.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) || ''}` : ''}</div>
+            </div>
+          </div>
+        `);
+      }
+    }
+  }
+
+  // Clock-out nudges: anyone currently open whose scheduled end has passed.
+  if (showOut) {
+    const shiftByStaff = new Map();
+    for (const s of clockState.todaysShifts || []) shiftByStaff.set(s.staff_id, s);
+    for (const open of clockState.openShifts || []) {
+      const sch = shiftByStaff.get(open.staff_id);
+      if (!sch || !sch.end_time) continue;
+      const endAt = combineDateTime(sch.shift_date, sch.end_time);
+      if (!endAt) continue;
+      const minsPast = Math.round((now - endAt) / 60000);
+      if (minsPast >= nudgeAfter) {
+        items.push(`
+          <div class="clock-reminder clock-reminder--out">
+            <span class="clock-reminder-icon">⌛</span>
+            <div class="clock-reminder-body">
+              <strong>${escapeHtml(open.staff?.name || 'Staff')}</strong> — time to clock out
+              <div class="small">Scheduled end was ${endAt.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })} (${minsPast} min ago)</div>
+            </div>
+          </div>
+        `);
+      }
+    }
+  }
+
+  strip.innerHTML = items.join('');
+}
+
+// Combine ISO date 'YYYY-MM-DD' + time 'HH:MM:SS' into a local Date.
+function combineDateTime(dateISO, timeStr) {
+  if (!dateISO || !timeStr) return null;
+  const [y, m, d] = String(dateISO).split('-').map(Number);
+  const [hh, mm] = String(timeStr).split(':').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, hh || 0, mm || 0);
+}
 
 function resetClockToPinPad() {
   clockState.entry = '';
   clockState.employee = null;
   clockState.activeShift = null;
+  clockState.managerOverride = false;
   if (clockState.timerId) { clearInterval(clockState.timerId); clockState.timerId = null; }
   if (clockState.autoResetId) { clearTimeout(clockState.autoResetId); clockState.autoResetId = null; }
   const pinWrap = document.getElementById('clock-pin-wrap');
@@ -4193,6 +4392,15 @@ function resetClockToPinPad() {
   const bn = document.getElementById('clock-brand-name');
   if (bn && brandName) bn.textContent = brandName;
   startWallClock();
+  // Refresh schedule reminders + auto-tick every 60s while on the clock view
+  refreshClockReminders();
+  if (!clockState.reminderTimerId) {
+    clockState.reminderTimerId = setInterval(() => {
+      // Only refresh when clock view is active to save bandwidth
+      const viewActive = document.querySelector('.view[data-view="clock"].active');
+      if (viewActive) refreshClockReminders();
+    }, 60000);
+  }
 }
 
 function startWallClock() {
@@ -4270,22 +4478,115 @@ function renderClockCardState() {
   const status = document.getElementById('emp-status');
   const timerEl = document.getElementById('emp-timer');
   const btn = document.getElementById('clock-action-btn');
+  const graceBlock = document.getElementById('clock-grace-block');
   if (!btn || !status || !timerEl) return;
+
   if (clockState.activeShift) {
     status.textContent = `On the clock since ${new Date(clockState.activeShift.clock_in_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     timerEl.hidden = false;
     btn.textContent = 'Clock Out';
+    btn.disabled = false;
     btn.classList.remove('clock-in');
     btn.classList.add('clock-out');
+    if (graceBlock) graceBlock.hidden = true;
     startShiftTimer();
-  } else {
-    status.textContent = 'Ready to clock in';
-    timerEl.hidden = true;
-    btn.textContent = 'Clock In';
-    btn.classList.remove('clock-out');
-    btn.classList.add('clock-in');
-    if (clockState.timerId) { clearInterval(clockState.timerId); clockState.timerId = null; }
+    return;
   }
+
+  // Not yet clocked in — check grace window
+  status.textContent = 'Ready to clock in';
+  timerEl.hidden = true;
+  btn.textContent = 'Clock In';
+  btn.classList.remove('clock-out');
+  btn.classList.add('clock-in');
+  if (clockState.timerId) { clearInterval(clockState.timerId); clockState.timerId = null; }
+
+  const block = computeGraceBlock();
+  if (block && !clockState.managerOverride) {
+    btn.disabled = true;
+    if (graceBlock) {
+      graceBlock.hidden = false;
+      graceBlock.innerHTML = `
+        <strong>Too early to clock in</strong>
+        ${escapeHtml(clockState.employee?.name || 'You')} is scheduled at <strong>${block.startStr}</strong> — that's ${block.minsUntil} minutes from now.
+        <div class="clock-grace-actions">
+          <button class="btn" id="clock-mgr-override">Manager override</button>
+        </div>`;
+      const ov = document.getElementById('clock-mgr-override');
+      if (ov) ov.addEventListener('click', () => promptManagerPin().then(ok => {
+        if (ok) { clockState.managerOverride = true; renderClockCardState(); }
+      }));
+    }
+  } else {
+    btn.disabled = false;
+    if (graceBlock) graceBlock.hidden = true;
+  }
+}
+
+// Compute whether the current employee is more than `clock_in_grace_minutes`
+// before their scheduled start. Returns { minsUntil, startStr } or null.
+function computeGraceBlock() {
+  const emp = clockState.employee;
+  const k = clockState.kioskSettings;
+  if (!emp || !k) return null;
+  const grace = k.clock_in_grace_minutes ?? 15;
+  const todays = (clockState.todaysShifts || []).filter((s) => s.staff_id === emp.id && s.start_time);
+  if (!todays.length) return null; // No scheduled shift today → allow free clock-in
+  const now = new Date();
+  // Pick the *next* shift that hasn't started yet (or the earliest if all in past)
+  let next = null;
+  for (const s of todays) {
+    const start = combineDateTime(s.shift_date, s.start_time);
+    if (!start) continue;
+    if (start > now && (!next || start < combineDateTime(next.shift_date, next.start_time))) next = s;
+  }
+  if (!next) return null; // No future shift today → they may be coming in late
+  const startAt = combineDateTime(next.shift_date, next.start_time);
+  const minsUntil = Math.round((startAt - now) / 60000);
+  if (minsUntil <= grace) return null; // within grace window → allow
+  return {
+    minsUntil,
+    startStr: startAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+  };
+}
+
+// Show a modal asking for the manager 4-digit PIN. Resolves true/false.
+async function promptManagerPin() {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('div');
+    dlg.className = 'mgr-pin-backdrop';
+    dlg.innerHTML = `
+      <div class="mgr-pin-dialog">
+        <h3>Manager PIN</h3>
+        <p class="mgr-pin-sub">Enter the 4-digit manager PIN to override.</p>
+        <input type="password" inputmode="numeric" pattern="\\d{4}" maxlength="4"
+               class="mgr-pin-entry" id="mgr-pin-entry" autocomplete="off" autofocus />
+        <div class="mgr-pin-error" id="mgr-pin-error"></div>
+        <div class="mgr-pin-actions">
+          <button class="btn" id="mgr-pin-cancel">Cancel</button>
+          <button class="btn btn-primary" id="mgr-pin-ok">Unlock</button>
+        </div>
+      </div>`;
+    document.body.appendChild(dlg);
+    const input = dlg.querySelector('#mgr-pin-entry');
+    const errEl = dlg.querySelector('#mgr-pin-error');
+    const close = (val) => { dlg.remove(); resolve(val); };
+    const submit = async () => {
+      const pin = (input.value || '').replace(/\D/g, '');
+      if (pin.length !== 4) { errEl.textContent = 'Enter 4 digits'; return; }
+      try {
+        const repo = await getKioskRepo();
+        const ok = await repo.verifyManagerPin(pin);
+        if (ok) close(true);
+        else { errEl.textContent = 'Incorrect PIN'; input.value = ''; input.focus(); }
+      } catch (err) {
+        errEl.textContent = 'Could not verify — try again';
+      }
+    };
+    dlg.querySelector('#mgr-pin-ok').addEventListener('click', submit);
+    dlg.querySelector('#mgr-pin-cancel').addEventListener('click', () => close(false));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(false); });
+  });
 }
 
 function startShiftTimer() {

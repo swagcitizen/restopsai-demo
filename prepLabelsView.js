@@ -11,6 +11,16 @@ import {
   voidLabel,
   seedCommonTemplates,
 } from './prepLabelsRepo.js';
+import { getPrinterSettings } from './printerSettingsRepo.js';
+import { printLabel as nativePrint, applyPrintCSS } from './printerDriver.js';
+
+let _printerSettings = null;
+async function ensurePrinterSettings() {
+  if (_printerSettings) return _printerSettings;
+  try { _printerSettings = await getPrinterSettings(); }
+  catch (err) { console.warn('Could not load printer settings, using defaults:', err); _printerSettings = null; }
+  return _printerSettings;
+}
 
 // ─── Day-dot colors (NCCO/Saffron industry standard) ─────────────────────────
 const DAY_DOT = {
@@ -432,28 +442,42 @@ function buildPrintHTML(label) {
   const dot = DAY_DOT[dow];
 
   const allergenStr = (label.allergens || []).join(', ');
+  const showDot = !_printerSettings || _printerSettings.print_day_dot !== false;
+  const showAllergens = !_printerSettings || _printerSettings.print_allergens !== false;
 
   return `
-    <div class="pl-print-inner">
-      <div class="pl-print-stripe" style="background:${dot.color}"></div>
-      <div class="pl-print-content">
-        <div class="pl-print-name">${esc(label.item_name)}</div>
-        <div class="pl-print-row"><span class="pl-print-lbl">Prepped:</span> ${fmtDt(prepped)} by ${esc(label.prepped_by_initials)}</div>
-        <div class="pl-print-row"><span class="pl-print-lbl">Use by:</span> ${fmtDt(useBy)}</div>
-        ${label.storage && label.storage !== 'refrigerated' ? `<div class="pl-print-row"><span class="pl-print-lbl">Storage:</span> ${label.storage.replace('_', ' ')}</div>` : ''}
-        ${allergenStr ? `<div class="pl-print-allergens">${(label.allergens).map(a => `<span class="pl-print-allergen">${a.toUpperCase()}</span>`).join('')}</div>` : ''}
-        ${label.lot_number ? `<div class="pl-print-row pl-print-small"><span class="pl-print-lbl">Lot:</span> ${esc(label.lot_number)}</div>` : ''}
-        ${label.station ? `<div class="pl-print-row pl-print-small"><span class="pl-print-lbl">Station:</span> ${esc(label.station)}</div>` : ''}
+    <div class="prep-label-print">
+      <div class="pl-print-inner">
+        ${showDot ? `<div class="pl-print-stripe" style="background:${dot.color}"></div>` : ''}
+        <div class="pl-print-content">
+          <div class="pl-print-name">${esc(label.item_name)}</div>
+          <div class="pl-print-row"><span class="pl-print-lbl">Prepped:</span> ${fmtDt(prepped)} by ${esc(label.prepped_by_initials)}</div>
+          <div class="pl-print-row"><span class="pl-print-lbl">Use by:</span> ${fmtDt(useBy)}</div>
+          ${label.storage && label.storage !== 'refrigerated' ? `<div class="pl-print-row"><span class="pl-print-lbl">Storage:</span> ${label.storage.replace('_', ' ')}</div>` : ''}
+          ${showAllergens && allergenStr ? `<div class="pl-print-allergens">${(label.allergens).map(a => `<span class="pl-print-allergen">${a.toUpperCase()}</span>`).join('')}</div>` : ''}
+          ${label.lot_number ? `<div class="pl-print-row pl-print-small"><span class="pl-print-lbl">Lot:</span> ${esc(label.lot_number)}</div>` : ''}
+          ${label.station ? `<div class="pl-print-row pl-print-small"><span class="pl-print-lbl">Station:</span> ${esc(label.station)}</div>` : ''}
+        </div>
       </div>
     </div>
   `;
 }
 
-function doPrint(label) {
+async function doPrint(label) {
   const target = document.getElementById('pl-print-target');
   if (!target) return;
   target.innerHTML = buildPrintHTML(label);
-  // Small delay so the DOM paints before print dialog opens
+  const settings = await ensurePrinterSettings();
+  // Honor 'auto_open_dialog' — if user disabled it (rare), skip the dialog.
+  if (settings && settings.auto_open_dialog === false) return;
+  if (settings) {
+    // Native driver path (Brother USB / Star BT) or browser fallback w/ correct @page
+    const node = target.querySelector('.prep-label-print') || target;
+    await nativePrint(node, settings);
+    return;
+  }
+  // No settings yet — inject default CSS and open the print dialog.
+  applyPrintCSS({ label_preset: 'dymo_30252', orientation: 'landscape', margin_mm: 0 });
   setTimeout(() => window.print(), 50);
 }
 

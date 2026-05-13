@@ -36,6 +36,7 @@ export const VIEW_CATALOG = [
     { key: 'team',       label: 'Team & Invites' },
     { key: 'alerts',     label: 'Alerts' },
     { key: 'billing',    label: 'Billing' },
+    { key: 'printer-setup', label: 'Printer & Tablet' },
   ]},
 ];
 

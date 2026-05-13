@@ -8,7 +8,7 @@
 //
 // On every release, bump CACHE_VERSION below.
 
-const CACHE_VERSION = 'stationly-v18';
+const CACHE_VERSION = 'stationly-v19';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -48,6 +48,9 @@ const PRECACHE_URLS = [
   '/receiptsRepo.js',
   '/receiptsView.js',
   '/inspectionsView.js',
+  '/printerSettingsRepo.js',
+  '/printerDriver.js',
+  '/printerSetupView.js',
 ];
 
 // ─── Install: precache the shell ────────────────────────────────────────────

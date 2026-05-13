@@ -102,6 +102,7 @@
         <button class="nav-item" data-view="variance"><span class="dot"></span>Variance <span class="nav-badge">TvA</span></button>
         <button class="nav-item" data-view="alerts"><span class="dot"></span>Alerts</button>
         <button class="nav-item" data-view="billing"><span class="dot"></span>Billing</button>
+        <button class="nav-item" data-view="printer-setup"><span class="dot"></span>Printer &amp; Tablet</button>
       </nav>
 
       <div class="side-footer">
@@ -758,6 +759,7 @@
               <div class="clock-brand-sub">Employee Time Clock</div>
             </div>
             <div class="clock-clock" id="clock-clock">--:--</div>
+            <div class="clock-reminder-strip" id="clock-reminder-strip" aria-live="polite"></div>
             <div class="pin-label" id="pin-label">Enter your 4-digit PIN</div>
             <div class="pin-dots" id="pin-dots">
               <span class="pin-dot"></span>
@@ -791,6 +793,7 @@
               <div class="emp-status" id="emp-status">Ready to clock in</div>
               <div class="emp-timer" id="emp-timer" hidden>00:00:00</div>
               <div class="emp-hours-today" id="emp-hours-today"></div>
+              <div class="clock-grace-block" id="clock-grace-block" hidden></div>
               <button class="clock-action-btn clock-in" id="clock-action-btn">Clock In</button>
               <button class="btn-link" id="clock-back-btn">Not you? Go back</button>
             </div>
@@ -1092,6 +1095,15 @@
             <tbody id="locations-body"></tbody>
           </table>
         </div>
+      </section>
+
+      <!-- PRINTER &amp; TABLET (kitchen kiosk + label printer settings) -->
+      <section class="view" data-view="printer-setup">
+        <div class="view-header" style="margin-bottom:14px">
+          <h2 style="margin:0">Printer &amp; tablet setup</h2>
+          <p class="sub" style="margin:6px 0 0">Configure your label printer, pick a paper size, lock the kitchen tablet to the time clock, and tune clock-in reminders.</p>
+        </div>
+        <div id="printer-setup-root"></div>
       </section>
 
       <!-- COMMISSARY -->
