@@ -1970,6 +1970,8 @@ function bindEvents() {
         receipts: ["Receipts", "Upload, scan, and track vendor receipts — automatic parsing when the receipt parser is configured"],
         payroll: ["Payroll", "Pay periods, OT, and CSV export to Gusto / ADP / Paychex"],
         'printer-setup': ["Printer & Tablet", "Label printer, paper size, and kitchen tablet kiosk settings"],
+        'recipe-book': ["Recipe Book", "Recipes with photo steps, pizza build-cards, allergen tags, and cost rollups"],
+        training: ["Training", "Walk staff through recipes, run a short quiz, and track certifications"],
       };
       const [t, s] = titles[view] || titles.overview;
       document.getElementById("view-title").textContent = t;
@@ -1985,6 +1987,8 @@ function bindEvents() {
       if (view === 'receipts' && window.__receiptsInited) window.__receiptsRefresh && window.__receiptsRefresh();
       if (view === 'reports') window.__inspectionsInit && window.__inspectionsInit();
       if (view === 'printer-setup') window.__printerSetupInit && window.__printerSetupInit();
+      if (view === 'recipe-book') window.__recipeBookInit && window.__recipeBookInit();
+      if (view === 'training') window.__trainingInit && window.__trainingInit();
       if (view === 'payroll') renderPayroll().catch(err => console.error('Payroll load failed:', err));
       if (view === 'inventory') {
         const isBarPane = document.querySelector('.inv-pane[data-inv-pane="bar"]:not([hidden])');
@@ -3764,6 +3768,46 @@ async function bootApp() {
         import('./printerSetupView.js')
           .then(mod => mod.initPrinterSetup({ tenantId: ctx.tenant.id, userId: ctx.user.id }))
           .catch(e => console.warn('printer setup init failed', e));
+      };
+    }
+
+    // Recipe Book — lazy-loaded on first view (with re-render on revisit).
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      window.__recipeBookInit = () => {
+        if (window.__recipeBookInited && window.__recipeBookRender) {
+          window.__recipeBookRender();
+          return;
+        }
+        import('./recipesView.js')
+          .then(mod => {
+            mod.initRecipeBook({ tenantId: ctx.tenant.id, userId: ctx.user.id, role: ctx.role });
+            window.__recipeBookInited = true;
+            window.__recipeBookRender = mod.renderRecipeBook;
+            window.__cookModeOpen = mod.openRecipeInCookMode;
+          })
+          .catch(e => console.warn('recipe book init failed', e));
+      };
+    }
+
+    // Training — lazy-loaded on first view.
+    if (ctx?.tenant?.id && ctx?.user?.id) {
+      window.__trainingInit = () => {
+        if (window.__trainingInited && window.__trainingRender) {
+          window.__trainingRender();
+          return;
+        }
+        import('./trainingView.js')
+          .then(mod => {
+            mod.initTraining({
+              tenantId: ctx.tenant.id,
+              userId: ctx.user.id,
+              role: ctx.role,
+              staffId: ctx.staff?.id || ctx.user.id,
+            });
+            window.__trainingInited = true;
+            window.__trainingRender = mod.renderTraining;
+          })
+          .catch(e => console.warn('training init failed', e));
       };
     }
 

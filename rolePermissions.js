@@ -19,6 +19,7 @@ export const VIEW_CATALOG = [
     { key: 'briefing',   label: 'Weekly Briefing' },
     { key: 'costs',      label: 'Costs & P&L' },
     { key: 'recipes',    label: 'Recipe Costing' },
+    { key: 'recipe-book',label: 'Recipe Book' },
     { key: 'sales',      label: 'Sales & Menu' },
     { key: 'inventory',  label: 'Inventory' },
     { key: 'invoices',   label: 'Invoices & AP' },
@@ -27,6 +28,7 @@ export const VIEW_CATALOG = [
     { key: 'labor',      label: 'Labor' },
     { key: 'scheduler',  label: 'Shift Scheduler' },
     { key: 'clock',      label: 'Time Clock' },
+    { key: 'training',   label: 'Training' },
     { key: 'tasks',      label: 'Task Assignments' },
   ]},
   { group: 'Compliance & Admin', items: [

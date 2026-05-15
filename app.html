@@ -76,6 +76,7 @@
         <button class="nav-item" data-view="briefing"><span class="dot"></span>Weekly Briefing</button>
         <button class="nav-item" data-view="costs"><span class="dot"></span>Costs &amp; P&amp;L</button>
         <button class="nav-item" data-view="recipes"><span class="dot"></span>Recipe Costing</button>
+        <button class="nav-item" data-view="recipe-book"><span class="dot"></span>Recipe Book <span class="nav-badge">New</span></button>
         <button class="nav-item" data-view="sales"><span class="dot"></span>Sales &amp; Menu</button>
         <button class="nav-item" data-view="inventory"><span class="dot"></span>Inventory</button>
         <button class="nav-item" data-view="invoices"><span class="dot"></span>Invoices &amp; AP <span class="nav-badge" id="invoices-badge"></span></button>
@@ -86,6 +87,7 @@
         <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
         <button class="nav-item" data-view="scheduler"><span class="dot"></span>Shift Scheduler</button>
         <button class="nav-item" data-view="clock"><span class="dot"></span>Time Clock <span class="nav-badge">Tablet</span></button>
+        <button class="nav-item" data-view="training"><span class="dot"></span>Training <span class="nav-badge">New</span></button>
         <button class="nav-item" data-view="payroll"><span class="dot"></span>Payroll <span class="nav-badge">CSV</span></button>
 
         <div class="nav-section">Compliance</div>
@@ -1104,6 +1106,24 @@
           <p class="sub" style="margin:6px 0 0">Configure your label printer, pick a paper size, lock the kitchen tablet to the time clock, and tune clock-in reminders.</p>
         </div>
         <div id="printer-setup-root"></div>
+      </section>
+
+      <!-- RECIPE BOOK (full food-prep + pizza build-cards) -->
+      <section class="view" data-view="recipe-book">
+        <div class="view-header" style="margin-bottom:14px">
+          <h2 style="margin:0">Recipe Book</h2>
+          <p class="sub" style="margin:6px 0 0">Every dish, every step, every time. Ingredients link to inventory, photos guide the line, and pizzas get a build-card for every size.</p>
+        </div>
+        <div id="recipe-book-root"></div>
+      </section>
+
+      <!-- TRAINING (recipe walkthrough + certification dashboard) -->
+      <section class="view" data-view="training">
+        <div class="view-header" style="margin-bottom:14px">
+          <h2 style="margin:0">Training</h2>
+          <p class="sub" style="margin:6px 0 0">Walk staff through recipes, give a quick quiz, and see at a glance who's certified on which dish.</p>
+        </div>
+        <div id="training-root"></div>
       </section>
 
       <!-- COMMISSARY -->
