@@ -11,7 +11,10 @@ const SUPABASE_URL = 'https://vmnhizmibdtlizigbzks.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_fBz-1MwcGCbytU_k4dXHQg_s1_2cIUd';
 
 export function render(host, ctx) {
-  const lastEmail = svc.getLastEmail();
+  // Prefill priority: shared-grid handoff > last email used on this device.
+  const prefill = sessionStorage.getItem('stationly_login_prefill_email') || '';
+  if (prefill) sessionStorage.removeItem('stationly_login_prefill_email');
+  const lastEmail = prefill || svc.getLastEmail();
   // If we land here via /#forgot (from the reset.html fallback), open the
   // forgot panel by default.
   const openForgot = (window.location.hash || '').toLowerCase() === '#forgot';
@@ -75,6 +78,15 @@ export function render(host, ctx) {
     btn.disabled = true;
     try {
       await svc.loginWithPassword(email, pw);
+      // Refresh cached device_mode for this tenant.
+      svc.fetchDeviceMode(email).catch(() => {});
+      // Force PIN setup on first password login. After this, the staff
+      // will land on the PIN screen by default and never see the password
+      // form unless they tap "Use password instead".
+      const hasPin = await svc.meHasPin().catch(() => false);
+      if (!hasPin) {
+        sessionStorage.setItem('stationly_force_pin_setup', '1');
+      }
       ctx.onAuth?.();
     } catch (err) {
       errBox.textContent = err?.message || 'Sign-in failed';

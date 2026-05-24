@@ -911,6 +911,36 @@
             </div>
           </div>
 
+          <div class="card" id="device-mode-card">
+            <div class="card-head">
+              <h3>Staff app device mode</h3>
+              <span class="muted">Applies to the Stationly Staff PWA</span>
+            </div>
+            <div class="team-body">
+              <p class="muted" style="margin: 0 0 12px; font-size: 13px;">Pick how staff sign in to clock in.</p>
+              <div style="display:flex; flex-direction:column; gap:10px; max-width:560px;">
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                  <input type="radio" name="device-mode" value="personal" id="device-mode-personal" style="margin-top:3px;" />
+                  <span>
+                    <strong>Personal device</strong>
+                    <div class="muted small" style="margin-top:2px;">Each employee installs the app on their own phone. The PIN screen remembers the last user.</div>
+                  </span>
+                </label>
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                  <input type="radio" name="device-mode" value="shared" id="device-mode-shared" style="margin-top:3px;" />
+                  <span>
+                    <strong>Shared device</strong>
+                    <div class="muted small" style="margin-top:2px;">A tablet at the counter shows every active staff name. Tap your name, enter your PIN.</div>
+                  </span>
+                </label>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap;">
+                <button type="button" class="btn" id="device-mode-save">Save device mode</button>
+                <span class="muted small" id="device-mode-status"></span>
+              </div>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-head">
               <h3>Current team</h3>

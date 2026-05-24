@@ -4,8 +4,10 @@
 import { supabase, SUPABASE_URL } from './supabaseClient.js';
 import { getDeviceId, isOnline } from './nativeBridge.js';
 
-const CLOCK_QUEUE_KEY = 'stationly_clock_queue';
-const LAST_EMAIL_KEY  = 'stationly_last_email';
+const CLOCK_QUEUE_KEY  = 'stationly_clock_queue';
+const LAST_EMAIL_KEY   = 'stationly_last_email';
+const LAST_STAFF_KEY   = 'stationly_last_staff'; // { staff_id, name } for shared device
+const DEVICE_MODE_KEY  = 'stationly_device_mode'; // cached tenant device_mode
 
 // ----------------------------------------------------------------------------
 // AUTH
@@ -22,6 +24,58 @@ export async function loginWithPassword(email, password) {
 
 export function getLastEmail() {
   return localStorage.getItem(LAST_EMAIL_KEY) || '';
+}
+
+export function setLastEmail(email) {
+  if (email) localStorage.setItem(LAST_EMAIL_KEY, email.trim().toLowerCase());
+}
+
+export function clearLastEmail() {
+  localStorage.removeItem(LAST_EMAIL_KEY);
+  localStorage.removeItem(LAST_STAFF_KEY);
+  localStorage.removeItem(DEVICE_MODE_KEY);
+}
+
+export function getLastStaff() {
+  try { return JSON.parse(localStorage.getItem(LAST_STAFF_KEY) || 'null'); } catch { return null; }
+}
+
+export function setLastStaff(staff /* { staff_id, name, email } */) {
+  if (staff && staff.staff_id) localStorage.setItem(LAST_STAFF_KEY, JSON.stringify(staff));
+}
+
+export function getCachedDeviceMode() {
+  return localStorage.getItem(DEVICE_MODE_KEY) || '';
+}
+
+export async function fetchDeviceMode(email) {
+  const e = (email || '').trim().toLowerCase();
+  if (!e) return 'personal';
+  const { data, error } = await supabase.rpc('get_tenant_device_mode_by_email', { _email: e });
+  if (error) return localStorage.getItem(DEVICE_MODE_KEY) || 'personal';
+  const mode = (data === 'shared') ? 'shared' : 'personal';
+  localStorage.setItem(DEVICE_MODE_KEY, mode);
+  return mode;
+}
+
+export async function listStaffForGrid(email) {
+  const e = (email || '').trim().toLowerCase();
+  if (!e) return [];
+  const { data, error } = await supabase.rpc('list_active_staff_for_grid_by_email', { _email: e });
+  if (error) return [];
+  return data || [];
+}
+
+export async function meHasPin() {
+  const { data, error } = await supabase.rpc('me_has_pin');
+  if (error) return false;
+  return data === true;
+}
+
+export async function setTenantDeviceMode(tenantId, mode) {
+  const { data, error } = await supabase.rpc('set_tenant_device_mode', { _tenant_id: tenantId, _mode: mode });
+  if (error) throw error;
+  return data;
 }
 
 export async function loginWithPin(email, pin) {
