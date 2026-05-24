@@ -68,26 +68,20 @@ export async function getMyStaffRow() {
 }
 
 export async function setMyPin(pin) {
-  // Hash client-side using bcryptjs via esm.sh — see PIN setup screen
-  // We import lazily so the main bundle stays small
-  const bcrypt = await import('https://esm.sh/bcryptjs@2.4.3');
-  const hash = await bcrypt.hash(pin, 8);
-  const staff = await getMyStaffRow();
-  if (!staff) throw new Error('Not enrolled as staff');
-
-  const { error } = await supabase
-    .from('employee_pins')
-    .upsert({
-      tenant_id: staff.tenant_id,
-      staff_id: staff.id,
-      pin_hash: hash,
-      failed_attempts: 0,
-      locked_until: null,
-      set_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'staff_id' });
-  if (error) throw error;
-  return true;
+  // Server-side bcrypt via pgcrypto. The plaintext PIN is sent over TLS to
+  // the set_my_pin RPC which hashes with crypt(pin, gen_salt('bf', 10)) and
+  // upserts into employee_pins. No client-side crypto, no bcryptjs.
+  if (!/^[0-9]{4,8}$/.test(String(pin || ''))) {
+    throw new Error('PIN must be 4-8 digits');
+  }
+  const { data, error } = await supabase.rpc('set_my_pin', { _pin: String(pin) });
+  if (error) {
+    const msg = (error.message || '').toLowerCase();
+    if (msg.includes('not_enrolled_as_staff')) throw new Error('Not enrolled as staff');
+    if (msg.includes('invalid_pin_format')) throw new Error('PIN must be 4-8 digits');
+    throw error;
+  }
+  return data === true;
 }
 
 // ----------------------------------------------------------------------------
