@@ -23,7 +23,7 @@ export async function listInvites({ includeAccepted = false } = {}) {
   return (data || []).map(r => ({
     ...r,
     expired: new Date(r.expires_at) < new Date(),
-    link: buildInviteLink(r.token),
+    link: buildInviteLink(r.token, r.role),
   }));
 }
 
@@ -50,7 +50,7 @@ export async function createInvite({ email, role = 'staff' }) {
     .single();
 
   if (error) throw error;
-  return { ...data, link: buildInviteLink(data.token) };
+  return { ...data, link: buildInviteLink(data.token, data.role) };
 }
 
 // Revoke (delete) a pending invite.
@@ -81,8 +81,13 @@ export async function acceptInvite(token) {
   return data;
 }
 
-export function buildInviteLink(token) {
+export function buildInviteLink(token, role = 'staff') {
+  // Staff invites go to the Staff PWA accept page (no password ever — redeems
+  // via the redeem-staff-invite edge function and forces PIN setup).
+  // Manager / owner invites still go to the manager-app invite.html (which
+  // expects an authenticated Supabase user to call accept_invite).
   // Resolve relative to the current page so the link works both at dev root
   // and under a deployment sub-path (e.g. /sites/proxy/.../restopsai-app/).
-  return new URL('./invite.html?token=' + encodeURIComponent(token), window.location.href).toString();
+  const path = role === 'staff' ? './staff/accept.html' : './invite.html';
+  return new URL(path + '?token=' + encodeURIComponent(token), window.location.href).toString();
 }
