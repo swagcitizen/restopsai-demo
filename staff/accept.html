@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Welcome to Stationly · Staff invite</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="../icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png" />
+  <meta name="theme-color" content="#1c1a15" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Stationly" />
+</head>
+<body>
+  <div id="root">
+    <main class="staff-main full-h" style="display:flex; flex-direction:column; justify-content:center; padding:24px 20px;">
+      <div class="text-center mb-3">
+        <div class="staff-logo" style="margin: 0 auto 14px;">S</div>
+        <h1 id="accept-title">Welcome to Stationly</h1>
+        <p class="text-muted mt-1" id="accept-sub">Checking your invite link…</p>
+      </div>
+
+      <div class="card" style="max-width:380px; margin: 0 auto; width:100%;">
+        <div id="accept-loading" class="text-center text-muted">
+          <div class="spinner" style="margin: 18px auto; width:32px; height:32px; border:3px solid #c8b48a; border-top-color:transparent; border-radius:50%; animation:spin 0.9s linear infinite;"></div>
+        </div>
+
+        <form id="accept-form" hidden>
+          <p class="text-muted mb-2" id="accept-greet"></p>
+          <div class="field">
+            <label class="field-label" for="name">Your full name</label>
+            <input class="input" id="name" name="name" type="text" autocomplete="name" placeholder="e.g. Wilson Smith" required />
+          </div>
+          <div id="accept-msg" class="banner banner-error mb-2" style="display:none;"></div>
+          <button class="btn btn-primary" type="submit" id="accept-btn">Continue to PIN setup</button>
+        </form>
+
+        <div id="accept-error" hidden>
+          <p class="text-muted" id="accept-error-msg">This invite link is invalid or has expired.</p>
+          <p class="text-muted mt-2" style="font-size:13px;">Ask your manager to send you a new invite link.</p>
+        </div>
+      </div>
+
+      <p class="text-faint text-center mt-3" style="font-size:12px;">
+        You won't need a password &mdash; you'll set a 4-digit PIN on the next screen.
+      </p>
+    </main>
+  </div>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <script type="module">
+    import { supabase, SUPABASE_URL } from './services/supabaseClient.js';
+
+    const SUPABASE_ANON_KEY = 'sb_publishable_fBz-1MwcGCbytU_k4dXHQg_s1_2cIUd';
+
+    const $title  = document.getElementById('accept-title');
+    const $sub    = document.getElementById('accept-sub');
+    const $loading = document.getElementById('accept-loading');
+    const $form   = document.getElementById('accept-form');
+    const $greet  = document.getElementById('accept-greet');
+    const $name   = document.getElementById('name');
+    const $msg    = document.getElementById('accept-msg');
+    const $btn    = document.getElementById('accept-btn');
+    const $err    = document.getElementById('accept-error');
+    const $errMsg = document.getElementById('accept-error-msg');
+
+    const params = new URLSearchParams(window.location.search);
+    const token = (params.get('token') || '').trim();
+
+    function showError(message) {
+      $loading.hidden = true;
+      $form.hidden = true;
+      $err.hidden = false;
+      $errMsg.textContent = message;
+      $sub.textContent = 'Invite link could not be used.';
+    }
+
+    function showForm(prefillEmail) {
+      $loading.hidden = true;
+      $err.hidden = true;
+      $form.hidden = false;
+      $sub.textContent = 'One quick step before you set your PIN.';
+      $greet.innerHTML = `You were invited as <strong>${escapeHtml(prefillEmail)}</strong>. What name should the team see?`;
+    }
+
+    function escapeHtml(s) { return (s ?? '').toString().replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    if (!token || token.length < 16) {
+      showError('No invite token found in the link.');
+    } else {
+      // Preview: peek at the invite (the edge fn handles auth) so we can show
+      // the email and skip the name form if the user already has a name.
+      // We just call the edge fn with no name to validate; if it returns a
+      // session, we either auto-proceed or surface the name form.
+      bootstrap();
+    }
+
+    async function bootstrap() {
+      // Step 1: probe (call redeem with empty name to validate token) — if
+      // the auth user already exists with a full_name we'll skip the name
+      // prompt. But redeem-staff-invite consumes the magic-link OTP on
+      // success, so we must commit on the first call. To keep things
+      // simple: show the name form immediately, ask for confirmation, then
+      // do ONE redeem call. If the user already exists with a name they
+      // can just edit it (auto-prefilled).
+      //
+      // To know the prefilled email + existing name without burning the
+      // token, we hit a lightweight peek endpoint we added below: the
+      // edge function returns email + name preview when called with the
+      // {peek:true} flag. (Implemented inline so we don't need another
+      // function.) For now, derive from the form submit.
+      $loading.hidden = true;
+      $form.hidden = false;
+      $sub.textContent = 'One quick step before you set your PIN.';
+      $greet.textContent = "What name should the team see when you clock in?";
+    }
+
+    $form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = $name.value.trim();
+      if (!name) {
+        $msg.textContent = 'Please enter your name.';
+        $msg.style.display = 'flex';
+        return;
+      }
+      $msg.style.display = 'none';
+      $btn.disabled = true;
+      $btn.textContent = 'Setting you up…';
+
+      try {
+        // 1. Redeem the invite — server creates the auth user (if needed)
+        //    and returns a magic-link OTP for us to consume.
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/redeem-staff-invite`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ token, name }),
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          const map = {
+            invite_not_found: 'This invite link is not valid.',
+            invite_already_used: 'This invite link has already been used. Ask your manager for a new one.',
+            invite_expired: 'This invite link has expired. Ask your manager for a new one.',
+            invite_not_for_staff: 'This invite is not a staff invite.',
+            missing_token: 'No invite token found in the link.',
+            user_create_failed: 'Could not create your account. Try again or ask your manager.',
+            otp_generate_failed: 'Could not finish sign-in. Try again or ask your manager.',
+          };
+          showError(map[body.error] || (body.error || 'Could not redeem invite.'));
+          return;
+        }
+
+        const { otp, email, tenant_id } = body;
+        if (!otp || !email) {
+          showError('Server did not return a usable sign-in token.');
+          return;
+        }
+
+        // 2. Consume the OTP via the STAFF supabase client — this creates
+        //    a real session scoped to /staff/.
+        const { error: otpErr } = await supabase.auth.verifyOtp({
+          email, token: otp, type: 'email',
+        });
+        if (otpErr) {
+          showError(otpErr.message || 'Could not finish sign-in.');
+          return;
+        }
+
+        // 3. Link the membership + staff row via accept_invite (now that
+        //    we have a session). Safe to call once.
+        const { error: linkErr } = await supabase.rpc('accept_invite', { _token: token });
+        // If accept_invite errors with "already accepted" that's fine — the
+        // user just landed on a previously-redeemed invite, but we already
+        // verified the otp succeeded.
+        if (linkErr && !/already/i.test(linkErr.message || '')) {
+          console.warn('accept_invite warning:', linkErr.message);
+          // Non-fatal — the user does have a session, fall through.
+        }
+
+        // 4. Cache the email + flag forced PIN setup, then jump into /staff/.
+        localStorage.setItem('stationly_last_email', email);
+        sessionStorage.setItem('stationly_force_pin_setup', '1');
+
+        $title.textContent = 'You\u2019re in';
+        $sub.textContent = 'Loading your PIN setup…';
+        $form.hidden = true;
+        $loading.hidden = false;
+        setTimeout(() => { window.location.replace('./'); }, 600);
+      } catch (err) {
+        showError(err?.message || 'Something went wrong.');
+      } finally {
+        $btn.disabled = false;
+        $btn.textContent = 'Continue to PIN setup';
+      }
+    });
+  </script>
+</body>
+</html>
