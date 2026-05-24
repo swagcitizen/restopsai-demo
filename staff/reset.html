@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Choose a new password · Stationly Staff</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="../icons/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png" />
+  <meta name="theme-color" content="#1c1a15" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Stationly" />
+</head>
+<body>
+  <div id="root">
+    <main class="staff-main full-h" style="display:flex; flex-direction:column; justify-content:center; padding:24px 20px;">
+      <div class="text-center mb-3">
+        <div class="staff-logo" style="margin: 0 auto 14px;">S</div>
+        <h1>Choose a new password</h1>
+        <p class="text-muted mt-1" id="reset-sub">Verifying your reset link…</p>
+      </div>
+
+      <div class="card">
+        <form id="reset-form" hidden>
+          <div class="field">
+            <label class="field-label" for="password">New password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="at least 8 characters" required />
+          </div>
+          <div class="field">
+            <label class="field-label" for="confirm">Confirm password</label>
+            <input class="input" id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <div id="reset-msg" class="banner banner-error mb-2" style="display:none;"></div>
+          <button class="btn btn-primary" type="submit" id="reset-btn">Update password</button>
+        </form>
+
+        <div id="reset-fallback" hidden>
+          <p class="text-muted">This reset link is invalid or has expired.</p>
+          <button class="btn btn-ghost mt-2" id="request-new">Request a new reset link</button>
+        </div>
+      </div>
+
+      <p class="text-faint text-center mt-3" style="font-size:12px;">
+        After updating, you'll be returned to sign in.
+      </p>
+    </main>
+  </div>
+
+  <script type="module">
+    // IMPORTANT: use the STAFF supabase client (storageKey: stationly-staff-auth).
+    // Recovery tokens arrive in the URL hash and the staff client picks them
+    // up via detectSessionInUrl, scoping the session to the staff PWA only.
+    import { supabase } from './services/supabaseClient.js';
+
+    const sub = document.getElementById('reset-sub');
+    const form = document.getElementById('reset-form');
+    const msgBox = document.getElementById('reset-msg');
+    const btn = document.getElementById('reset-btn');
+    const fallback = document.getElementById('reset-fallback');
+
+    let recoveryReady = false;
+
+    function showForm() {
+      recoveryReady = true;
+      sub.textContent = 'Pick a new password to finish.';
+      form.hidden = false;
+      fallback.hidden = true;
+    }
+
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        showForm();
+      }
+    });
+
+    // Fallback: if no recovery event after 2.5s, check getSession then give up.
+    setTimeout(async () => {
+      if (recoveryReady) return;
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        showForm();
+      } else {
+        sub.textContent = 'This reset link is invalid or has expired.';
+        fallback.hidden = false;
+      }
+    }, 2500);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msgBox.style.display = 'none';
+      msgBox.classList.remove('banner-success');
+      msgBox.classList.add('banner-error');
+
+      const pw = document.getElementById('password').value;
+      const confirm = document.getElementById('confirm').value;
+      if (pw !== confirm) {
+        msgBox.textContent = 'Passwords do not match.';
+        msgBox.style.display = 'flex';
+        return;
+      }
+      if (pw.length < 8) {
+        msgBox.textContent = 'Password must be at least 8 characters.';
+        msgBox.style.display = 'flex';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Updating…';
+      const { error } = await supabase.auth.updateUser({ password: pw });
+
+      if (error) {
+        msgBox.textContent = error.message;
+        msgBox.style.display = 'flex';
+        btn.disabled = false;
+        btn.textContent = 'Update password';
+        return;
+      }
+
+      msgBox.classList.remove('banner-error');
+      msgBox.classList.add('banner-success');
+      msgBox.textContent = 'Password updated. Returning to the app…';
+      msgBox.style.display = 'flex';
+      // Recovery session is sufficient to enter the app — go directly to staff home.
+      setTimeout(() => { window.location.href = './'; }, 1200);
+    });
+
+    document.getElementById('request-new').addEventListener('click', () => {
+      window.location.href = './#forgot';
+    });
+  </script>
+</body>
+</html>
