@@ -3679,8 +3679,32 @@ async function bootApp() {
       if (banner) banner.hidden = false;
     }
     if (ctx?.profile?.is_platform_owner) {
-      const plink = document.getElementById('platform-link');
-      if (plink) plink.hidden = false;
+      // Platform owners in a tenant view are ALWAYS impersonating (hard separation).
+      // Show an explicit exit button instead of the passive Platform link so they
+      // can cleanly tear down the impersonation membership.
+      const exitBtn = document.getElementById('exit-impersonation-btn');
+      if (exitBtn) {
+        exitBtn.hidden = false;
+        exitBtn.addEventListener('click', async () => {
+          if (!confirm('Exit impersonation? You will be returned to the platform admin and your access to this tenant will be removed.')) return;
+          exitBtn.disabled = true;
+          exitBtn.textContent = 'Exiting…';
+          try {
+            const { error } = await supabase.rpc('platform_exit_impersonation', { _tenant_id: ctx?.tenant?.id || null });
+            if (error) throw error;
+            window.location.href = './platform.html';
+          } catch (err) {
+            console.error('exit_impersonation failed', err);
+            alert('Failed to exit impersonation: ' + (err?.message || err));
+            exitBtn.disabled = false;
+            exitBtn.textContent = 'Exit impersonation';
+          }
+        });
+      } else {
+        // Fallback: surface the passive platform link if exit button is missing.
+        const plink = document.getElementById('platform-link');
+        if (plink) plink.hidden = false;
+      }
     }
 
     // Hide the "Reset sample data" footer button for any non-demo tenant
