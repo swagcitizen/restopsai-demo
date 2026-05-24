@@ -4210,6 +4210,9 @@ function bindTeamView() {
     });
   }
 
+  // ----- Device mode (Staff PWA: shared vs personal) -----
+  bindDeviceModeCard();
+
   // Delegated click handlers for invite rows (revoke / copy).
   document.getElementById('team-invites-table')?.addEventListener('click', async (e) => {
     const t = e.target;
@@ -4245,8 +4248,76 @@ function bindTeamView() {
   });
 }
 
+function bindDeviceModeCard() {
+  const role = window.__RESTOPS_CTX__?.role;
+  const card = document.getElementById('device-mode-card');
+  if (!card) return;
+  // Only owners/managers can change device mode.
+  const canEdit = role === 'owner' || role === 'manager';
+  const saveBtn = document.getElementById('device-mode-save');
+  const status = document.getElementById('device-mode-status');
+  const radios = card.querySelectorAll('input[name="device-mode"]');
+
+  if (!canEdit) {
+    radios.forEach(r => { r.disabled = true; });
+    if (saveBtn) saveBtn.disabled = true;
+    if (status) status.textContent = 'View only (owners and managers can change this).';
+  }
+
+  if (saveBtn && !saveBtn.dataset.bound) {
+    saveBtn.dataset.bound = '1';
+    saveBtn.addEventListener('click', async () => {
+      const ctx = window.__RESTOPS_CTX__;
+      if (!ctx?.tenantId) return;
+      const picked = card.querySelector('input[name="device-mode"]:checked')?.value;
+      if (!picked) {
+        status.textContent = 'Pick a mode first.';
+        status.style.color = 'var(--danger, #c9302c)';
+        return;
+      }
+      saveBtn.disabled = true;
+      const orig = saveBtn.textContent;
+      saveBtn.textContent = 'Saving…';
+      status.textContent = '';
+      try {
+        const { data, error } = await supabase.rpc('set_tenant_device_mode', {
+          _tenant_id: ctx.tenantId,
+          _mode: picked,
+        });
+        if (error) throw error;
+        status.textContent = `Saved (${data}).`;
+        status.style.color = 'var(--ok, #2e7d32)';
+      } catch (err) {
+        status.textContent = err?.message || 'Could not save.';
+        status.style.color = 'var(--danger, #c9302c)';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = orig;
+      }
+    });
+  }
+}
+
+async function refreshDeviceModeCard() {
+  const ctx = window.__RESTOPS_CTX__;
+  if (!ctx?.tenantId) return;
+  try {
+    const { data: t } = await supabase
+      .from('tenants')
+      .select('settings')
+      .eq('id', ctx.tenantId)
+      .maybeSingle();
+    const mode = (t?.settings?.device_mode === 'shared') ? 'shared' : 'personal';
+    const el = document.getElementById('device-mode-' + mode);
+    if (el) el.checked = true;
+  } catch {}
+}
+
 async function refreshTeamView() {
   const ctx = window.__RESTOPS_CTX__;
+  // Device mode current selection
+  refreshDeviceModeCard().catch(() => {});
+
   // Members
   const { data: members, error: memErr } = await (await import('./supabaseClient.js')).supabase
     .from('memberships')

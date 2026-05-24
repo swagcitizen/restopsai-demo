@@ -4,7 +4,7 @@
 //   - Supabase API (POST/PATCH/etc): network-only with Background Sync queue for clock events
 //   - Static assets (icons): cache-first
 
-const CACHE = 'stationly-staff-v2';
+const CACHE = 'stationly-staff-v3';
 const SHELL = [
   './',
   './index.html',
@@ -16,6 +16,8 @@ const SHELL = [
   './services/supabaseClient.js',
   './screens/login.js',
   './screens/pin.js',
+  './screens/pinSetup.js',
+  './screens/staffGrid.js',
   './screens/today.js',
   './screens/clock.js',
   './screens/tasks.js',
