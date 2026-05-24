@@ -163,6 +163,8 @@
     const show = (el) => el.classList.remove('hide');
     const hide = (el) => el.classList.add('hide');
 
+    let invitePreview = null;
+
     if (!token) {
       hide($('invite-loading'));
       show($('invite-invalid'));
@@ -178,6 +180,7 @@
       } catch (err) {
         return showInvalid(err.message || 'Could not look up invite.');
       }
+      invitePreview = preview;
       if (!preview) return showInvalid('We couldn\u2019t find that invite.');
       if (preview.accepted) return showInvalid('This invite has already been accepted.');
       if (preview.expired) return showInvalid('This invite has expired. Ask your manager to send a new one.');
@@ -303,7 +306,32 @@
       }
       try {
         await acceptInvite(token);
-        window.location.href = './app.html';
+        // Route staff to the employee PWA; managers/owners to the manager app.
+        const role = (invitePreview && invitePreview.role) || 'staff';
+        if (role === 'staff') {
+          // Hint the staff app to show "Use PIN" on subsequent logins.
+          try { localStorage.setItem('stationly_last_email', invitePreview.email || ''); } catch {}
+          // The staff PWA uses a separate Supabase storageKey so the manager
+          // session won't transfer automatically. Pass the access + refresh
+          // tokens via URL fragment so the staff client's detectSessionInUrl
+          // picks them up on first load.
+          const { data: sessData } = await supabase.auth.getSession();
+          const sess = sessData?.session;
+          if (sess?.access_token && sess?.refresh_token) {
+            const params = new URLSearchParams({
+              access_token: sess.access_token,
+              refresh_token: sess.refresh_token,
+              token_type: sess.token_type || 'bearer',
+              type: 'invite',
+              expires_in: String(sess.expires_in || 3600),
+            });
+            window.location.href = './staff/#' + params.toString();
+          } else {
+            window.location.href = './staff/';
+          }
+        } else {
+          window.location.href = './app.html';
+        }
       } catch (err) {
         const msg = err.message || 'Could not accept invite.';
         // Show wherever is visible

@@ -4292,6 +4292,119 @@ async function refreshTeamView() {
       <td><button class="chip invite-revoke" data-id="${inv.id}">Revoke</button></td>`;
     ib.appendChild(tr);
   }
+
+  // Unlinked staff: rows in public.staff that have no user_id yet. Manager/owner only.
+  // Hidden gracefully if the staff.user_id column doesn't exist yet (pre-Phase-4 DB).
+  await refreshUnlinkedStaff(ctx);
+}
+
+async function refreshUnlinkedStaff(ctx) {
+  const card = document.getElementById('unlinked-staff-card');
+  if (!card) return;
+  const role = ctx?.role;
+  if (role !== 'owner' && role !== 'manager') {
+    card.hidden = true;
+    return;
+  }
+
+  const { supabase } = await import('./supabaseClient.js');
+  let rows = [];
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id, name, email, role, active, user_id')
+      .eq('tenant_id', ctx.tenantId)
+      .eq('active', true)
+      .is('user_id', null)
+      .order('name', { ascending: true });
+    if (error) {
+      // If column doesn't exist (pre-Phase-4 DB), Postgres returns code 42703.
+      // Hide the card silently rather than blowing up.
+      const isMissingCol = String(error.code || '').toString() === '42703' ||
+        /column .*user_id.* does not exist/i.test(error.message || '');
+      if (isMissingCol) { card.hidden = true; return; }
+      console.warn('unlinked staff fetch failed:', error);
+      card.hidden = true;
+      return;
+    }
+    rows = data || [];
+  } catch (err) {
+    console.warn('unlinked staff fetch threw:', err);
+    card.hidden = true;
+    return;
+  }
+
+  card.hidden = false;
+  const tbody = document.querySelector('#unlinked-staff-table tbody');
+  const empty = document.getElementById('unlinked-staff-empty');
+  const countEl = document.getElementById('unlinked-staff-count');
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    empty.hidden = false;
+    countEl.textContent = '0';
+    return;
+  }
+  empty.hidden = true;
+  countEl.textContent = `${rows.length} unlinked`;
+
+  for (const s of rows) {
+    const tr = document.createElement('tr');
+    const emailDisplay = s.email ? escapeHtml(s.email) : '<span class="muted">no email</span>';
+    const canLink = !!s.email;
+    const actionBtn = canLink
+      ? `<button class="chip staff-link-btn" data-staff-id="${s.id}" data-email="${escapeHtml(s.email)}">Link to user</button>`
+      : `<button class="chip" disabled title="Add an email first">Add email</button>`;
+    tr.innerHTML = `
+      <td>${escapeHtml(s.name)}</td>
+      <td>${emailDisplay}</td>
+      <td><span class="invite-chip-inline">${escapeHtml(s.role || 'staff')}</span></td>
+      <td>${actionBtn}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  // Wire up the link buttons (idempotent: tbody.innerHTML reset above clears prior handlers).
+  tbody.onclick = async (e) => {
+    const btn = e.target.closest('.staff-link-btn');
+    if (!btn) return;
+    const staffId = btn.dataset.staffId;
+    const email = btn.dataset.email;
+    if (!staffId) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Linking…';
+    try {
+      const { data, error } = await supabase.rpc('link_staff_to_user', { _staff_id: staffId });
+      if (error) {
+        // Most common path: no auth user exists yet — prompt to send an invite.
+        const needsInvite = /No user account found|not a member/i.test(error.message || '');
+        if (needsInvite) {
+          const ok = confirm(`${error.message}\n\nSend a staff invite to ${email} now?`);
+          if (ok) {
+            try {
+              const inv = await invitesRepo.createInvite({ email, role: 'staff' });
+              alert(`Invite created. Share this link with ${email}:\n\n${inv.link}`);
+              await refreshTeamView();
+              return;
+            } catch (inviteErr) {
+              alert('Could not create invite: ' + (inviteErr.message || inviteErr));
+            }
+          }
+        } else {
+          alert('Could not link: ' + (error.message || error));
+        }
+        btn.disabled = false;
+        btn.textContent = original;
+        return;
+      }
+      // Linked — just refresh the view.
+      await refreshTeamView();
+    } catch (err) {
+      alert('Could not link: ' + (err.message || err));
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  };
 }
 
 function escapeHtml(s) {

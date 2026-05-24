@@ -59,8 +59,13 @@ function navigate(route) {
 async function bootAfterAuth() {
   state.staff = await svc.getMyStaffRow();
   if (!state.staff) {
-    // Signed in via auth but not enrolled as staff (e.g. manager account)
-    alert("You're signed in, but you're not enrolled as staff. Ask your manager to add you.");
+    // Signed in via auth but not enrolled as staff. Most common cause: they
+    // never accepted a staff invite, so accept_invite never linked them.
+    alert(
+      "You're signed in, but no staff record is linked to your account.\n\n" +
+      "If you got an invite email or link from your manager, open it now " +
+      "to finish setup. If not, ask your manager to send you a staff invite."
+    );
     await svc.signOut();
     navigate('login');
     return;

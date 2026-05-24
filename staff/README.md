@@ -94,10 +94,26 @@ Default geofence is **300 meters**. Outside → `flagged_buddy_punch = true` (ma
 
 ## Enrollment flow (manager-side, one-time per employee)
 
-1. Manager creates a staff row with the employee's email.
-2. Manager invites the employee through the existing invites flow → employee accepts → an `auth.users` row is created.
-3. Manager (or a trigger) sets `staff.user_id = auth.users.id` so the staff PWA can authenticate.
-4. Employee opens `stationly.ai/staff/`, signs in with email/password, optionally sets up a 4-digit PIN under Profile.
+**Happy path (recommended):**
+
+1. Manager goes to **Team** → enters the employee's email → role: Staff → "Send invite".
+2. Manager shares the invite link with the employee (link is also emailed via Resend if notifications are on).
+3. Employee opens the link, creates a password, and clicks **Join team**.
+4. The `accept_invite` RPC (migration `20260524050000`) does three things atomically:
+   - Inserts a `memberships` row (`role = staff`).
+   - Finds an existing unlinked `staff` row with matching email and sets `staff.user_id = auth.users.id`. If none exists, it auto-creates one named after the email local-part.
+   - Marks the invite accepted.
+5. The accept page detects `role = staff` and redirects to `./staff/#access_token=...` so the staff PWA inherits the session.
+6. Employee lands on the Today screen. They can set up a 4-digit PIN under Profile for faster subsequent sign-ins.
+
+**Retroactive linking** (staff was created before being invited, or invite was sent to a different email): from the Team view, the **Unlinked staff** card lists every active staff row with no `user_id`. Click "Link to user" — it calls `link_staff_to_user(staff_id)`, which:
+
+- Verifies the caller is owner/manager in the same tenant.
+- Finds an `auth.users` row whose email matches `staff.email`.
+- Confirms a membership exists for that user.
+- Sets `staff.user_id`.
+
+If no `auth.users` row exists for that email, the UI offers to send a staff invite — the row will link automatically when accepted.
 
 > **Note on the existing `staff.pin` column:** the legacy 4-digit-PIN-on-tablet flow (`clockRepo.js`) still works untouched. The new PWA uses `employee_pins` (bcrypt) and an edge function, which is a stronger separate system. Both can coexist while you migrate locations off the tablet.
 
