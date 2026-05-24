@@ -210,18 +210,18 @@ async function submitNewTenant() {
   });
 
   if (error) {
-    btn.disabled = false; btn.textContent = 'Create & impersonate';
+    btn.disabled = false; btn.textContent = 'Create tenant';
     err.textContent = error.message;
     err.hidden = false;
     return;
   }
 
-  // The RPC auto-adds the platform owner as an owner-member, so we can land directly in app.
-  // Set default_tenant_id so next session opens here too.
-  // Set default_tenant_id via impersonate RPC (membership already added by create RPC)
-  const { error: _impErr } = await supabase.rpc('platform_impersonate_tenant', { _tenant_id: data });
-  if (_impErr) console.warn('impersonate-after-create failed (non-fatal):', _impErr);
-  window.location.href = './app.html';
+  // Hard separation: platform_create_tenant no longer auto-adds the platform
+  // owner as a member. The platform owner must explicitly impersonate to
+  // configure the new tenant, or invite a real owner from the tenants list.
+  btn.disabled = false; btn.textContent = 'Create tenant';
+  closeNewModal();
+  await refresh();
 }
 
 bootstrap().catch(e => {
