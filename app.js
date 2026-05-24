@@ -1257,17 +1257,34 @@ function applyRole() {
   const sel = document.getElementById("role-select");
   if (sel && sel.value !== state.role) sel.value = state.role;
 
-  // Staff are locked to the Time Clock view. If the current view is anything
-  // else (e.g. they bookmarked a deeper page or the persisted state had them
-  // on overview), force-switch them.
+  // Staff belong in the Staff PWA (/staff/), not the manager dashboard.
+  // The manager dashboard's tables are write-gated by RLS to managers and
+  // owners, so a staff member here gets confusing 'row level security'
+  // errors when they tap write buttons. Hard-redirect them home.
   if (state.role === 'staff') {
-    const visibleClock = document.querySelector('.nav-item[data-view="clock"]');
-    if (visibleClock && !visibleClock.classList.contains('active')) {
-      // Defer to next tick so DOM is ready when called early in boot.
-      setTimeout(() => {
-        try { showView('clock'); } catch (_) {}
-      }, 0);
+    // Avoid redirect loops: only fire if we're actually under the manager
+    // app root (not already inside /staff/).
+    const path = (window.location.pathname || '/').toLowerCase();
+    if (!path.startsWith('/staff/')) {
+      // Use a one-time guard so a slow ctx reload during nav doesn't bounce.
+      if (!sessionStorage.getItem('stationly_staff_redirect_done')) {
+        sessionStorage.setItem('stationly_staff_redirect_done', '1');
+        window.location.replace('/staff/');
+        return;
+      }
     }
+    // Belt and suspenders: if for some reason we couldn't redirect, lock the
+    // nav to Time Clock by clicking it (so the existing nav handler runs and
+    // syncs both desktop sidebar and mobile drawer copies).
+    const clockBtn = document.querySelector('.sidebar .nav-item[data-view="clock"]')
+      || document.querySelector('.nav-item[data-view="clock"]');
+    if (clockBtn && !clockBtn.classList.contains('active')) {
+      setTimeout(() => { try { clockBtn.click(); } catch (_) {} }, 0);
+    }
+  } else {
+    // Manager / owner came in: clear any prior staff redirect guard so a
+    // later role downgrade in the same browser still redirects properly.
+    try { sessionStorage.removeItem('stationly_staff_redirect_done'); } catch (_) {}
   }
 }
 

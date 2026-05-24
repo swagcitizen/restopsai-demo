@@ -396,6 +396,14 @@ body.role-staff [data-role="manager-up"] { display: none; }
 
 /* Staff: hide every nav item EXCEPT time clock. */
 body.role-staff .nav-item:not([data-view="clock"]) { display: none; }
+/* Staff: hide every write-action button. RLS will reject these inserts/
+   updates anyway, so this prevents confusing "row level security" errors
+   if the redirect-to-/staff/ flow in applyRole somehow doesn't fire (e.g.
+   on a stale cached page before the redirect resolves). */
+body.role-staff [data-write-action] { display: none !important; }
+/* Staff: also hide every section that isn't the Time Clock, in case the
+   redirect is delayed and the staff is looking at the inventory page. */
+body.role-staff .view:not([data-view="clock"]) { display: none !important; }
 /* Staff: hide the entire "View as" / reset-data footer (owner-only tooling). */
 body.role-staff .role-switch,
 body.role-staff #reset-data { display: none; }
