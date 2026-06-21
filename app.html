@@ -82,6 +82,7 @@
         <button class="nav-item" data-view="invoices"><span class="dot"></span>Invoices &amp; AP <span class="nav-badge" id="invoices-badge"></span></button>
         <button class="nav-item" data-view="bills"><span class="dot"></span>Bill Pay <span class="nav-badge">AP</span></button>
         <button class="nav-item" data-view="receipts"><span class="dot"></span>Receipts</button>
+        <button class="nav-item" data-view="expenses"><span class="dot"></span>Expenses <span class="nav-badge">All</span></button>
 
         <div class="nav-section">People</div>
         <button class="nav-item" data-view="labor"><span class="dot"></span>Labor</button>
@@ -199,7 +200,19 @@
           <div class="kpi"><div class="kpi-label">Food Cost %</div><div class="kpi-value" id="kpi-food">0%</div><div class="kpi-foot">Target 28–32%</div></div>
           <div class="kpi"><div class="kpi-label">Labor Cost %</div><div class="kpi-value" id="kpi-labor">0%</div><div class="kpi-foot">Target ≤ 28%</div></div>
           <div class="kpi"><div class="kpi-label">Net Margin</div><div class="kpi-value" id="kpi-margin">0%</div><div class="kpi-foot">Industry avg 7–10%</div></div>
+          <div class="kpi"><div class="kpi-label">Expenses (30D)</div><div class="kpi-value" id="kpi-expenses">$0</div><div class="kpi-foot" id="kpi-expenses-foot">All bills, invoices &amp; payroll</div></div>
           <div class="kpi"><div class="kpi-label">Compliance Score</div><div class="kpi-value" id="kpi-comp">0%</div><div class="kpi-foot" id="kpi-comp-foot">—</div></div>
+        </div>
+
+        <div class="card" id="overview-largest-cats-card" style="margin-top:14px;padding:0" hidden>
+          <div class="card-head" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+            <div>
+              <h3 style="margin:0">Largest expense categories</h3>
+              <p class="sub" style="margin:4px 0 0">Where your money is going in the last 30 days</p>
+            </div>
+            <button class="btn ghost" data-view="expenses">Open expenses</button>
+          </div>
+          <ul class="alerts" id="overview-largest-cats-list" style="margin:0"></ul>
         </div>
 
         <div class="row-2">
@@ -1332,6 +1345,11 @@
       <!-- RECEIPTS -->
       <section class="view" data-view="receipts">
         <div id="receipts-root"></div>
+      </section>
+
+      <!-- EXPENSES HUB -->
+      <section class="view" data-view="expenses">
+        <div id="expenses-root"></div>
       </section>
 
       <!-- INSPECTION REPORTS -->

@@ -573,8 +573,93 @@ function renderKPIs() {
 }
 function setKpi(id, value, healthy) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.textContent = value;
   el.style.color = healthy ? "" : "var(--warn)";
+}
+
+// ─── Live Overview overlay ──────────────────────────────────────────────────
+// Pulls dashboard_kpis / dashboard_breakdown / dashboard_top_items from the
+// live tenant database and overlays them on top of the editable P&L numbers
+// in the Overview view. If any value comes back > 0 we trust the live data
+// and replace the corresponding KPI; otherwise the user-edited P&L wins.
+async function refreshLiveOverview(ctx) {
+  if (!ctx?.tenant?.id) return;
+  if (ctx.role !== 'owner' && ctx.role !== 'manager') return; // RPCs gate anyway
+  try {
+    const mod = await import('./expensesRepo.js');
+    const [kpis, breakdown, topItems] = await Promise.all([
+      mod.dashboardKpis(ctx.tenant.id, 30).catch(() => null),
+      mod.dashboardBreakdown(ctx.tenant.id, 30).catch(() => []),
+      mod.dashboardTopItems(ctx.tenant.id, 30, 8).catch(() => []),
+    ]);
+    if (kpis) applyLiveKpis(kpis, mod);
+    applyLargestCategoriesCard(breakdown, mod);
+    applyTopItemsChart(topItems);
+  } catch (e) {
+    console.warn('live overview refresh failed', e);
+  }
+}
+
+function applyLiveKpis(kpis, mod) {
+  const rev = Number(kpis.revenue || 0);
+  const expenses = Number(kpis.expenses_total || 0);
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+
+  // Only overlay live values when we actually have signal.
+  if (rev > 0) {
+    setText('kpi-rev', mod.fmtCurrency(rev));
+    const d = kpis.revenue_delta_pct;
+    if (d != null) setText('kpi-rev-d', `${d > 0 ? '+' : ''}${d}% vs prior 30D`);
+    else setText('kpi-rev-d', 'No prior period');
+    setKpi('kpi-prime', `${kpis.prime_pct}%`, Number(kpis.prime_pct) <= 60);
+    setKpi('kpi-food',  `${kpis.food_pct}%`,  Number(kpis.food_pct) >= 28 && Number(kpis.food_pct) <= 32);
+    setKpi('kpi-labor', `${kpis.labor_pct}%`, Number(kpis.labor_pct) <= 28);
+    setKpi('kpi-margin', `${kpis.net_pct}%`,  Number(kpis.net_pct)  >= 7);
+  }
+  setText('kpi-expenses', mod.fmtCurrency(expenses));
+  const foot = document.getElementById('kpi-expenses-foot');
+  if (foot && expenses > 0) {
+    foot.textContent = `${Math.round((Number(kpis.food_cost||0) + Number(kpis.labor_cost||0)) / Math.max(expenses,1) * 100)}% on prime (food + labor)`;
+  }
+}
+
+function applyLargestCategoriesCard(breakdown, mod) {
+  const card = document.getElementById('overview-largest-cats-card');
+  const list = document.getElementById('overview-largest-cats-list');
+  if (!card || !list) return;
+  const rows = (breakdown || []).filter(r => Number(r.amount) > 0).slice(0, 5);
+  if (rows.length === 0) { card.hidden = true; return; }
+  card.hidden = false;
+  list.innerHTML = rows.map(r => `
+    <li style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--border,#2a2a2a)">
+      <span><span class="badge" style="margin-right:8px">${escapeHtmlSafe(mod.categoryLabel(r.category))}</span></span>
+      <span style="font-variant-numeric:tabular-nums">${mod.fmtCurrency(r.amount)}</span>
+    </li>
+  `).join('');
+  // Wire the new button so clicking it opens the Expenses view.
+  card.querySelectorAll('button[data-view="expenses"]').forEach(btn => {
+    if (btn.__wired) return;
+    btn.__wired = true;
+    btn.addEventListener('click', () => {
+      const navBtn = document.querySelector('.nav-item[data-view="expenses"]');
+      if (navBtn) navBtn.click();
+    });
+  });
+}
+
+function applyTopItemsChart(rows) {
+  if (!rows || rows.length === 0) return;
+  // Replace the Top Selling Items chart's data using Chart.js if it exists.
+  if (!window.Chart || !charts['chart-top']) return;
+  const labels = rows.map(r => r.item_name || 'Item');
+  const data   = rows.map(r => Number(r.revenue || 0));
+  const ds = charts['chart-top'].data.datasets[0];
+  if (ds) { ds.data = data; charts['chart-top'].data.labels = labels; charts['chart-top'].update(); }
+}
+
+function escapeHtmlSafe(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function renderPL() {
@@ -1985,6 +2070,7 @@ function bindEvents() {
         variance: ["Variance", "Theoretical-vs-actual usage from counts, recipes, and POS — drill into every item"],
         bills: ["Bill Pay", "Approve, schedule, and record vendor payments — workflow + audit trail"],
         receipts: ["Receipts", "Upload, scan, and track vendor receipts — automatic parsing when the receipt parser is configured"],
+        expenses: ["Expenses", "Every bill, invoice, receipt, pay run, waste, and one-off expense — in one ledger"],
         payroll: ["Payroll", "Pay periods, OT, and CSV export to Gusto / ADP / Paychex"],
         'printer-setup': ["Printer & Tablet", "Label printer, paper size, and kitchen tablet kiosk settings"],
         'recipe-book': ["Recipe Book", "Recipes with photo steps, pizza build-cards, allergen tags, and cost rollups"],
@@ -2002,6 +2088,8 @@ function bindEvents() {
       if (view === 'variance') renderVariance().catch(err => console.error('Variance load failed:', err));
       if (view === 'bills') renderBills().catch(err => console.error('Bills load failed:', err));
       if (view === 'receipts' && window.__receiptsInited) window.__receiptsRefresh && window.__receiptsRefresh();
+      if (view === 'expenses') window.__expensesInit && window.__expensesInit();
+      if (view === 'overview') window.__overviewLiveRefresh && window.__overviewLiveRefresh();
       if (view === 'reports') window.__inspectionsInit && window.__inspectionsInit();
       if (view === 'printer-setup') window.__printerSetupInit && window.__printerSetupInit();
       if (view === 'recipe-book') window.__recipeBookInit && window.__recipeBookInit();
@@ -3777,6 +3865,29 @@ async function bootApp() {
           window.__receiptsRefresh = () => mod.initReceipts({ tenantId: ctx.tenant.id, userId: ctx.user.id });
         })
         .catch(e => console.warn('receipts init failed', e));
+    }
+
+    // Expenses Hub — owner-facing unified ledger. Lazy-load on first view.
+    if (ctx?.tenant?.id && (ctx?.role === 'owner' || ctx?.role === 'manager')) {
+      window.__expensesInit = () => {
+        if (window.__expensesInited && window.__expensesRefresh) {
+          window.__expensesRefresh();
+          return;
+        }
+        import('./expensesView.js')
+          .then(mod => {
+            mod.initExpenses({ tenantId: ctx.tenant.id, role: ctx.role });
+            window.__expensesInited = true;
+            window.__expensesRefresh = () => mod.refreshExpenses();
+          })
+          .catch(e => console.warn('expenses init failed', e));
+      };
+
+      // Overlay live KPIs onto the Overview from the dashboard_kpis RPCs.
+      // Run once at boot; re-run when the user revisits Overview after adding
+      // an expense so they immediately see the new totals.
+      refreshLiveOverview(ctx);
+      window.__overviewLiveRefresh = () => refreshLiveOverview(ctx);
     }
 
     // Inspection reports — health/safety report repository (loads lazily on first view).
