@@ -8,7 +8,7 @@
 //
 // On every release, bump CACHE_VERSION below.
 
-const CACHE_VERSION = 'stationly-v20';
+const CACHE_VERSION = 'stationly-v21';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -55,6 +55,8 @@ const PRECACHE_URLS = [
   '/recipesView.js',
   '/cookModeView.js',
   '/trainingView.js',
+  '/expensesRepo.js',
+  '/expensesView.js',
 ];
 
 // ─── Install: precache the shell ────────────────────────────────────────────
