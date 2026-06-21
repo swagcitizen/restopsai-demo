@@ -129,9 +129,8 @@ function template() {
       </div>
 
       <!-- Add expense modal -->
-      <div class="modal" id="exp-add-modal" hidden role="dialog" aria-modal="true" aria-labelledby="exp-add-title">
-        <div class="modal-backdrop" data-close-modal></div>
-        <div class="modal-body" style="max-width:480px">
+      <div class="modal" id="exp-add-modal" hidden role="dialog" aria-modal="true" aria-labelledby="exp-add-title" data-close-modal>
+        <div class="modal-card" style="max-width:480px" onclick="event.stopPropagation()">
           <h3 id="exp-add-title" style="margin-top:0">Add one-off expense</h3>
           <p class="sub" style="margin-top:0">Use this for true one-offs like rent, license fees, or a cash purchase that doesn't fit an invoice or receipt.</p>
           <form id="exp-add-form" class="form-grid" style="display:grid;gap:10px">
@@ -153,9 +152,8 @@ function template() {
       </div>
 
       <!-- Import modal -->
-      <div class="modal" id="exp-import-modal" hidden role="dialog" aria-modal="true" aria-labelledby="exp-import-title">
-        <div class="modal-backdrop" data-close-modal></div>
-        <div class="modal-body" style="max-width:520px">
+      <div class="modal" id="exp-import-modal" hidden role="dialog" aria-modal="true" aria-labelledby="exp-import-title" data-close-modal>
+        <div class="modal-card" style="max-width:520px" onclick="event.stopPropagation()">
           <h3 id="exp-import-title" style="margin-top:0">Import a vendor PDF or CSV</h3>
           <p class="sub" style="margin-top:0">Drop in an invoice PDF (Sysco, Publix, Restaurant Depot, utility bill, etc.) or a CSV exported from your bank or vendor portal. We'll parse it and let you review every row before it hits your books.</p>
           <input type="file" id="exp-import-file" accept=".pdf,.csv,application/pdf,text/csv" />
